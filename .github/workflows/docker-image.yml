@@ -1,0 +1,38 @@
+name: Docker Image CI/CD
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Stop and Remove Existing Container (if exists)
+        run: |
+          whoami
+          sudo docker ps -a -q -f name=my_container | grep -q . && sudo docker rm -f my_container
+
+      - name: Remove Old Docker Image (if exists)
+        run: |
+          if sudo docker images -q my_image:latest; then
+          echo "Image exists, removing..."
+          sudo docker rmi my_image:latest
+          else
+          echo "Image does not exist."
+          fi
+
+      - name: Build Docker Image
+        run: sudo docker build -t my_image:latest .
+
+      - name: Run Docker Container
+        run: |
+          
+          sudo docker run -d --name my_container -p 80:80 my_image:latest
