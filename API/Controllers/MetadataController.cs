@@ -32,7 +32,7 @@ namespace API.Controllers
          var displayAttr = prop.GetCustomAttribute<DisplayAttribute>(); 
         var metadata = new
         {
-            Name = prop.Name,
+            name = ToCamelCase(prop.Name),
             DisplayName = displayAttr?.Name ?? prop.Name, 
             Type = prop.PropertyType.Name,
             Required = prop.GetCustomAttribute<RequiredAttribute>() != null,
@@ -47,5 +47,13 @@ namespace API.Controllers
 }
 
        
+
+        private static string ToCamelCase(string input)
+        {
+            if (string.IsNullOrEmpty(input) || char.IsLower(input[0]))
+                return input;
+
+            return char.ToLower(input[0]) + input.Substring(1);
+        }
     }
 }

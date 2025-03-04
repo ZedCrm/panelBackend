@@ -16,7 +16,7 @@ namespace API.Controllers.Shop
 
 
         [HttpPost]
-        [Route("/GetAll")]
+        [Route("/api/GetAll")]
         public async Task<ActionResult<OPTResult<ProductView>>> Index([FromBody] Pagination pagination)
         {
              return await productApp.GetAll(pagination);
@@ -27,7 +27,7 @@ namespace API.Controllers.Shop
         }
 
         [HttpPost]
-        [Route("/search")]
+        [Route("/api/search")]
         public async Task<ActionResult<IEnumerable<ProductView>>> search([FromBody]  ProductSearchCriteria productSearch
             )
         {
@@ -39,7 +39,7 @@ namespace API.Controllers.Shop
 
 
         [HttpPost]
-        [Route("/creat")]
+        [Route("/api/creat")]
         public async Task<ActionResult> create([FromBody] ProductCreate product)
         {
 
@@ -51,7 +51,7 @@ namespace API.Controllers.Shop
         }
 
         [HttpDelete]
-        [Route("/delete")]
+        [Route("/api/delete")]
         public OkResult delete([FromBody] List<int> ids)
         {
             productApp.DeleteBy(ids); // تغییر متد DeleteBy برای پذیرش لیست آی‌دی‌ها
