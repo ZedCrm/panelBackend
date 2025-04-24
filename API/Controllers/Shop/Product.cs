@@ -39,7 +39,7 @@ namespace API.Controllers.Shop
 
 
         [HttpPost]
-        [Route("/api/creat")]
+        [Route("/api/create")]
         public async Task<ActionResult> create([FromBody] ProductCreate product)
         {
 

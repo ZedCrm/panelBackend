@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 
 namespace Domain.Objects.Shop
 {
-    public class PCountType : BaseDomain
+    public class CountType : BaseDomain
     {
-        [Column(TypeName = "smallint")]
+       // [Column(TypeName = "smallint")]
         public  int Id { get; set; }
         public string Name { get; set; } = "";
 

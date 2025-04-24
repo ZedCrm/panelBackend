@@ -1,17 +1,31 @@
-﻿using App.Contracts.Object.Shop.ProductCon;
+﻿// فایل: App/ClassMapping.cs
+using App.Contracts.Object.Shop.CountTypeCon;
+using App.Contracts.Object.Shop.ProductCon;
 using AutoMapper;
 using Domain.Objects.Shop;
 
 namespace App
 {
+    // این کلاس برای نگاشت (Map) بین مدل‌های دامنه (Entity) و مدل‌های انتقال داده (DTO) استفاده می‌شود
     public class ClassMapping : Profile
     {
-
         public ClassMapping()
         {
+            // نگاشت از مدل دامنه Product به مدل نمایشی ProductView
             CreateMap<Product, ProductView>();
-            CreateMap<ProductCreate , Product>().
-                ForMember(p=>p.Id , o=>o.MapFrom(pc=>pc.CountTypeId)).ForMember(p => p.Id, o => o.Ignore());
+
+            // نگاشت از مدل ساخت ProductCreate به مدل دامنه Product
+            CreateMap<ProductCreate, Product>()
+                // ویژگی Id را نادیده می‌گیریم چون در زمان ایجاد توسط دیتابیس مقداردهی می‌شود
+                .ForMember(p => p.Id, o => o.Ignore());
+
+            // نگاشت از مدل دامنه CountType به مدل نمایشی CountTypeViw
+            CreateMap<CountType, CountTypeView>();
+
+            // نگاشت از مدل ساخت CountTypeCreate به مدل دامنه CountType
+            CreateMap<CountTypeCreate, CountType>()
+                // ویژگی Id باید در ساخت جدید مقدار نداشته باشد چون توسط دیتابیس مقداردهی می‌شود
+                .ForMember(p => p.Id, o => o.Ignore());
         }
     }
 }

@@ -19,9 +19,15 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-CRMBootstraper.AddCRMManagement(builder.Services, connectionString);
+if (builder.Environment.IsDevelopment())
+{
+    CRMBootstraper.AddCRMManagement(builder.Services, "Data Source=dev.db", DbProvider.Sqlite);
+}
+else
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    CRMBootstraper.AddCRMManagement(builder.Services, connectionString, DbProvider.SqlServer);
+}
 
 var app = builder.Build();
 

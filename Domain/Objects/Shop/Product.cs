@@ -15,7 +15,7 @@ namespace Domain.Objects.Shop
         public string Name { get; set; } = "";
         public int Price { get; set; }
         public int CountTypeId { get; set; }
-        public PCountType CountType { get; set; }
+        public CountType CountType { get; set; }
 
     }
 }

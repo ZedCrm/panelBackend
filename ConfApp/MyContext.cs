@@ -11,6 +11,7 @@ namespace ConfApp
         #region DbSet 
         public DbSet<Person> Persons { get; set; }
         public DbSet<Product> Products { get; set; }
+        public DbSet<CountType> CountTypes { get; set; }
         #endregion
         public MyContext(DbContextOptions<MyContext> options) : base(options)
         {
