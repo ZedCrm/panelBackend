@@ -124,6 +124,32 @@ namespace App.Object.Shop.ProductApp
            var products = await _productRep.GetFilteredAsync(filter , criteria);
             return _mapper.Map<List<ProductView>>(products);
         }
+
+        public async Task<OPTResult<ProductView>> GetById(int id)
+        {
+            var product = await _productRep.GetAsync(id);
+            if (product == null) { return new OPTResult<ProductView> { IsSucceeded = false, Message = "محصول یافت نشد" }; }
+            var productView = _mapper.Map<ProductView>(product);
+            return  OPTResult<ProductView>.Success(productView, "محصول با موفقیت بارگذاری شد");
+        }
+
+        public async Task<OPTResult<ProductView>> Update(ProductView productView)
+        {
+            var product = await _productRep.GetAsync(productView.Id);
+            if (product == null) { return new OPTResult<ProductView> { IsSucceeded = false, Message = "محصول یافت نشد" }; }
+            var codeExist = await _productRep.ExistAsync(c => c.ProductCode == productView.ProductCode && c.Id != productView.Id);
+            if (codeExist) { return new OPTResult<ProductView> { IsSucceeded = false, Message = "کد محصول تکراریست" }; }
+            else
+            {
+                product.Name = productView.Name;
+                product.Price = productView.Price;
+                product.ProductCode = productView.ProductCode;
+                await _productRep.UpdateAsync(product);
+                await _productRep.SaveChangesAsync();
+                return  OPTResult<ProductView>.Success(_mapper.Map<ProductView>(product));
+            }
+        }
+      
      
     }
 

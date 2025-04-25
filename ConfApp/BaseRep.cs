@@ -183,5 +183,28 @@ namespace ConfApp
         {
             throw new NotImplementedException();
         }
+
+
+        public Task<List<T>> GetByIdsAsync(List<TKey> ids)
+        {
+            return _ctx.Set<T>().Where(e => ids.Contains((TKey)(object)e.Id)).ToListAsync();
+        }
+        public void DeleteRange(List<T> entities)
+        {
+            foreach (var entity in entities)
+            {
+                entity.UpdateDate = DateTime.Now;
+                entity.IsDeleted = true;
+            }
+            _ctx.UpdateRange(entities);
+        }
+       
+       public  Task<bool> UpdateAsync(T entity)
+        {
+            entity.UpdateDate = DateTime.Now;
+            _ctx.Update(entity);
+            return Task.FromResult(true);   
+
+        }
     }
 }

@@ -42,6 +42,21 @@ namespace MyFrameWork.AppTool
             };
         }
 
+
+        // ساخت نتیجه موفق با پیام و بدون داده
+        public static OPTResult<T> Success(string message = "عملیات با موفقیت انجام شد")
+        {
+            return new OPTResult<T>
+            {
+                IsSucceeded = true,
+                Message = message
+            };
+        }
+
+
+
+
+
         // ساخت نتیجه ناموفق با پیام خطا
         public static OPTResult<T> Failed(string message = "عملیات با شکست مواجه شد")
         {

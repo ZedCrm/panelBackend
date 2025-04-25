@@ -9,6 +9,9 @@ namespace App.Contracts.Object.Shop.ProductCon
         Task<OPTResult<ProductView>> GetAll(Pagination pagination);
         Task<OPT> Create(ProductCreate productCreate);
         OPT DeleteBy(List<int> productids);
+        Task<OPTResult<ProductView>> GetById(int id);
+        Task<OPTResult<ProductView>> Update(ProductView productView);
+        
         //public void Dispose();
     }
 

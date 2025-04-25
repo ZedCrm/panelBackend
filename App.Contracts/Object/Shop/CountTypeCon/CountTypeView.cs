@@ -26,7 +26,6 @@ namespace App.Contracts.Object.Shop.CountTypeCon
     
         [Display(Name = " نام واحد شمارش")]
         [Required(ErrorMessage = "لطفا نام واحد شمارش را وارد کنید")]
-        [MaxLength(2, ErrorMessage = "نام واحد شمارش نمی تواند بیشتر از 50 کاراکتر باشد")]
         [RegularExpression(@"^[\u0600-\u06FF\s]+$", ErrorMessage = "فقط از حروف فارسی استفاده کنید")]
         [DataType(DataType.Text)]
         public string Name { get; set; } = "";
@@ -34,6 +33,7 @@ namespace App.Contracts.Object.Shop.CountTypeCon
        
 
     }
+    
    
 
 }

@@ -60,6 +60,31 @@ namespace App.Object.Shop.CountTypeApp
             var viewModel = _mapper.Map<CountTypeView>(entity);
             return OPTResult<CountTypeView>.Success(viewModel, "واحد شمارش با موفقیت ایجاد شد.");
         }
+        // متد حذف واحد شمارش بر اساس لیست شناسه‌ها
+
+        public async Task<OPTResult<CountTypeView>> DeleteBy(List<int> ids)
+        {
+            var entities = await _rep.GetByIdsAsync(ids);
+            if (entities == null || entities.Count == 0)
+                return OPTResult<CountTypeView>.Failed("هیچ واحد شماری برای حذف یافت نشد.");
+
+            _rep.DeleteRange(entities);
+            await _rep.SaveChangesAsync();
+
+            return OPTResult<CountTypeView>.Success( "واحد شمارش با موفقیت حذف شد.");
+        }
+        // متد به‌روزرسانی واحد شمارش (در صورت نیاز)
+         public async Task<OPTResult<CountTypeView>> Update(CountTypeView countTypeView)
+         {
+             var entity = await _rep.GetAsync(countTypeView.Id);
+             if (entity == null)          
+                 return OPTResult<CountTypeView>.Failed("واحد شمارش یافت نشد.");
+             _mapper.Map(countTypeView, entity);
+             await _rep.UpdateAsync(entity);
+             await _rep.SaveChangesAsync();
+             var viewModel = _mapper.Map<CountTypeView>(entity);
+             return OPTResult<CountTypeView>.Success(viewModel, "واحد شمارش با موفقیت به‌روزرسانی شد.");
+         }    
     }
 
     // اینترفیس ریپوزیتوری واحد شمارش که از ریپوزیتوری پایه ارث‌بری می‌کند

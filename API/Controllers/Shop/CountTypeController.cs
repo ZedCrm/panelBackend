@@ -26,6 +26,16 @@ namespace API.Controllers.Shop
 
             
         }
+        [HttpGet]
+        [Route("/api/CountType/GetById")]
+        public async Task<ActionResult<OPTResult<CountTypeView>>> GetById([FromQuery] int id)
+        {
+            var result = await countTypeApp.GetById(id);
+            if (result.IsSucceeded == true) { return Ok(result); }
+            else { return Ok(new { warning = result.Message }); }
+        }
+        
+
 
       
 
@@ -36,14 +46,50 @@ namespace API.Controllers.Shop
         {
 
             var opt = await countTypeApp.Create(countTypeCreate);
-            if (opt.IsSucceeded==true) { return Ok(); }
+            if (opt.IsSucceeded==true) { return Ok(opt); }
             else { return Ok ( new { warning = opt.Message } ); }
             
 
         }
        
 
+        [HttpPost]
+        [Route("/api/CountType/delete")]
+        public async Task<ActionResult> delete([FromBody] List<int> ids)
+        {
+            var result = await countTypeApp.DeleteBy(ids); 
+            return Ok(result);
+        }
 
+        [HttpDelete]
+        [Route("/api/CountType/deletebyid")]
+        public OkResult deletebyid([FromQuery] int id)
+        {
+            var ids = new List<int> { id };
+            countTypeApp.DeleteBy(ids); // تغییر متد DeleteBy برای پذیرش لیست آی‌دی‌ها
+            return Ok();
+        }
+
+
+        [HttpPost]
+        [Route("/api/CountType/update")]
+        public async Task<ActionResult> update([FromBody] CountTypeView countTypeView)
+        {
+            var opt = await countTypeApp.Update(countTypeView);
+            if (opt.IsSucceeded == true) { return Ok(opt); }
+            else { return Ok(new { warning = opt.Message }); }  
+        }        
+        [HttpGet("/api/counttype/CountTypelist")]
+        public IActionResult CountTypeList()
+        {
+            var pagination = new Pagination
+            {
+                PageNumber = 1,
+                PageSize = 1000
+            };
+            var list = countTypeApp.GetAll(pagination);
+            return Ok(list);
+        }
        
     }
 }

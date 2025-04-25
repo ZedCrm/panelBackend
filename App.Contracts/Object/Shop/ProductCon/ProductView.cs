@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using App.Contracts.Object.Shop.CountTypeCon;
+
 
 namespace App.Contracts.Object.Shop.ProductCon
 {
@@ -48,7 +50,8 @@ namespace App.Contracts.Object.Shop.ProductCon
         public int Price { get; set; }
 
         [Display(Name = " واحد شمارش")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]    
+        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]  
+        [SelectSource("/api/counttype/CountTypelist")]
         public int CountTypeId { get; set; }
        
        

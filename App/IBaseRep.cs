@@ -22,6 +22,10 @@ namespace App
         void DeleteById(TKey id);
         Task<int> CountAsync();
         Task<bool> ExistAsync(Expression<Func<T, bool>> expression  );
+        Task<bool> UpdateAsync(T entity);
         Task SaveChangesAsync();
+        Task<List<T>> GetByIdsAsync(List<TKey> ids);
+        public void DeleteRange(List<T> entities);
+        
     }
 }
