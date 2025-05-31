@@ -58,6 +58,7 @@ namespace API.Controllers.Shop
             return Ok();
         }
 
+        [HttpGet]
         [Route("/api/product/GetById")]
         public async Task<ActionResult<OPTResult<ProductView>>> GetById([FromQuery] int id)
         {

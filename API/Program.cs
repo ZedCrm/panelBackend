@@ -19,7 +19,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-if (builder.Environment.IsDevelopment())
+if (false)
 {
     CRMBootstraper.AddCRMManagement(builder.Services, "Data Source=dev.db", DbProvider.Sqlite);
 }
