@@ -32,7 +32,7 @@ namespace API.Controllers.Shop
         {
             var result = await countTypeApp.GetById(id);
             if (result.IsSucceeded == true) { return Ok(result); }
-            else { return Ok(new { warning = result.Message }); }
+            else { return Ok(result); }
         }
         
 
@@ -47,7 +47,7 @@ namespace API.Controllers.Shop
 
             var opt = await countTypeApp.Create(countTypeCreate);
             if (opt.IsSucceeded==true) { return Ok(opt); }
-            else { return Ok ( new { warning = opt.Message } ); }
+            else { return Ok ( opt); }
             
 
         }
@@ -77,7 +77,7 @@ namespace API.Controllers.Shop
         {
             var opt = await countTypeApp.Update(countTypeView);
             if (opt.IsSucceeded == true) { return Ok(opt); }
-            else { return Ok(new { warning = opt.Message }); }  
+            else { return Ok(opt); }  
         }        
         [HttpGet("/api/counttype/CountTypelist")]
         public IActionResult CountTypeList()

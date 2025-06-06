@@ -21,6 +21,7 @@ namespace App
         void Delete(T entity);
         void DeleteById(TKey id);
         Task<int> CountAsync();
+        Task<int> CountAsync(Expression<Func<T , bool>> filter);
         Task<bool> ExistAsync(Expression<Func<T, bool>> expression  );
         Task<bool> UpdateAsync(T entity);
         Task SaveChangesAsync();

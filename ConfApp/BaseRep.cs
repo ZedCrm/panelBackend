@@ -28,7 +28,7 @@ namespace ConfApp
 
         public async Task<int> CountAsync()
         {
-            return await _ctx.Set<T>().Where(e => !e.IsDeleted).CountAsync();  
+            return await _ctx.Set<T>().Where(e => !e.IsDeleted).CountAsync();
         }
 
 
@@ -42,18 +42,18 @@ namespace ConfApp
 
 
 
-        public  void Delete(T entity)
+        public void Delete(T entity)
         {
             entity.UpdateDate = DateTime.Now;
             entity.IsDeleted = true;
-             _ctx.Update(entity);
+            _ctx.Update(entity);
         }
 
 
-        
+
         public void DeleteById(TKey id)
         {
-            var TforDelete =  this.Get(id);
+            var TforDelete = this.Get(id);
 
             if (TforDelete == null)
             {
@@ -63,23 +63,23 @@ namespace ConfApp
             this.Delete(TforDelete);
         }
 
-      
+
 
         public async Task<bool> ExistAsync(Expression<Func<T, bool>> expression)
         {
-             return await _ctx.Set<T>().AnyAsync(expression);
+            return await _ctx.Set<T>().AnyAsync(expression);
         }
 
         public async Task<T> GetAsync(TKey id)
         {
-            
 
-                return await _ctx.Set<T>().FindAsync(id);
 
-            
+            return await _ctx.Set<T>().FindAsync(id);
+
+
         }
 
-        public async  Task<List<T>> GetAsync()
+        public async Task<List<T>> GetAsync()
         {
             return await _ctx.Set<T>().Where(e => !e.IsDeleted).AsNoTracking().ToListAsync();
         }
@@ -155,7 +155,7 @@ namespace ConfApp
                              .Take(pagination.PageSize);
             }
 
-            return  await query.AsNoTracking().ToListAsync();
+            return await query.AsNoTracking().ToListAsync();
         }
 
 
@@ -184,6 +184,11 @@ namespace ConfApp
             throw new NotImplementedException();
         }
 
+        public async Task<int> CountAsync(Expression<Func<T, bool>> filter)
+        {
+            return await _ctx.Set<T>().Where(e => !e.IsDeleted).Where(filter).CountAsync();
+        }
+
 
         public Task<List<T>> GetByIdsAsync(List<TKey> ids)
         {
@@ -198,12 +203,12 @@ namespace ConfApp
             }
             _ctx.UpdateRange(entities);
         }
-       
-       public  Task<bool> UpdateAsync(T entity)
+
+        public Task<bool> UpdateAsync(T entity)
         {
             entity.UpdateDate = DateTime.Now;
             _ctx.Update(entity);
-            return Task.FromResult(true);   
+            return Task.FromResult(true);
 
         }
     }

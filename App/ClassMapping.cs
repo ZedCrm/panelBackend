@@ -18,6 +18,7 @@ namespace App
             CreateMap<ProductCreate, Product>()
                 // ویژگی Id را نادیده می‌گیریم چون در زمان ایجاد توسط دیتابیس مقداردهی می‌شود
                 .ForMember(p => p.Id, o => o.Ignore());
+            CreateMap<Product, ProductUpdate>();
 
             // نگاشت از مدل دامنه CountType به مدل نمایشی CountTypeViw
             CreateMap<CountType, CountTypeView>();

@@ -19,19 +19,19 @@ namespace API.Controllers.Shop
         [Route("/api/product/GetAll")]
         public async Task<ActionResult<OPTResult<ProductView>>> Index([FromBody] Pagination pagination)
         {
-             return await productApp.GetAll(pagination);
+            return await productApp.GetAll(pagination);
 
-             
 
-            
+
+
         }
 
         [HttpPost]
         [Route("/api/product/search")]
-        public async Task<ActionResult<IEnumerable<ProductView>>> search([FromBody]  ProductSearchCriteria productSearch
+        public async Task<ActionResult<OPTResult<ProductView>>> search([FromBody] ProductSearchCriteria productSearch
             )
         {
-            
+
             return await productApp.SearchProducts(productSearch);
             ;
         }
@@ -45,22 +45,22 @@ namespace API.Controllers.Shop
 
             var opt = await productApp.Create(product);
             if (opt.IsSucceeded) { return Ok(opt); }
-            else { return Ok ( new { warning = opt.Message } ); }
-            
+            else { return Ok(opt); }
+
 
         }
 
         [HttpPost]
         [Route("/api/product/delete")]
-        public OkResult delete([FromBody] List<int> ids)
+        public async Task<OkObjectResult> delete([FromBody] List<int> ids)
         {
-            productApp.DeleteBy(ids); // تغییر متد DeleteBy برای پذیرش لیست آی‌دی‌ها
-            return Ok();
+            var opt = await productApp.DeleteBy(ids); // تغییر متد DeleteBy برای پذیرش لیست آی‌دی‌ها
+            return Ok(opt);
         }
 
         [HttpGet]
         [Route("/api/product/GetById")]
-        public async Task<ActionResult<OPTResult<ProductView>>> GetById([FromQuery] int id)
+        public async Task<ActionResult<OPTResult<ProductUpdate>>> GetById([FromQuery] int id)
         {
             var result = await productApp.GetById(id);
             if (result.IsSucceeded == true) { return Ok(result); }
@@ -73,12 +73,12 @@ namespace API.Controllers.Shop
         public async Task<ActionResult> update([FromBody] ProductView product)
         {
             var opt = await productApp.Update(product);
-            if (opt.IsSucceeded==true) { return Ok(opt); }
+            if (opt.IsSucceeded == true) { return Ok(opt); }
             else { return Ok(new { warning = opt.Message }); }
-            
+
         }
 
 
-  
+
     }
 }
