@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -31,6 +32,69 @@ namespace ConfApp
             return await _ctx.Set<T>().Where(e => !e.IsDeleted).CountAsync();
         }
 
+     public async Task<bool> HasRelationsAsync(T entity)
+{
+    var entityType = _ctx.Model.FindEntityType(typeof(T));
+    if (entityType == null)
+        throw new InvalidOperationException($"Entity type {typeof(T).Name} not found in DbContext model.");
+
+    var primaryKey = entityType.FindPrimaryKey();
+    if (primaryKey == null)
+        throw new InvalidOperationException($"Primary key for entity {typeof(T).Name} not found.");
+
+    var entityKey = primaryKey.Properties.FirstOrDefault();
+    if (entityKey == null)
+        throw new InvalidOperationException($"Primary key property not found for entity {typeof(T).Name}.");
+
+    var entityKeyValue = entity.GetType().GetProperty(entityKey.Name)?.GetValue(entity);
+    if (entityKeyValue == null)
+        throw new InvalidOperationException($"Value of primary key property '{entityKey.Name}' is null.");
+
+    var foreignKeys = _ctx.Model.GetEntityTypes()
+        .SelectMany(t => t.GetForeignKeys())
+        .Where(fk => fk.PrincipalEntityType.ClrType == typeof(T));
+
+    foreach (var fk in foreignKeys)
+    {
+        var dependentEntityType = fk.DeclaringEntityType.ClrType;
+
+        var dbSet = _ctx.GetType().GetMethod("Set", Type.EmptyTypes)
+            ?.MakeGenericMethod(dependentEntityType)
+            .Invoke(_ctx, null) as IQueryable;
+
+        if (dbSet == null)
+            continue;
+
+        var param = Expression.Parameter(dependentEntityType, "x");
+        var fkProperty = fk.Properties.FirstOrDefault();
+        if (fkProperty == null)
+            continue;
+
+        var property = Expression.Property(param, fkProperty.Name);
+        var constant = Expression.Constant(entityKeyValue);
+        var equal = Expression.Equal(property, constant);
+
+        var lambdaType = typeof(Func<,>).MakeGenericType(dependentEntityType, typeof(bool));
+        var lambda = Expression.Lambda(lambdaType, equal, param);
+
+        // متد AnyAsync با ۳ پارامتر (شامل CancellationToken)
+        var method = typeof(EntityFrameworkQueryableExtensions)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .FirstOrDefault(m => m.Name == "AnyAsync" && m.GetParameters().Length == 3);
+
+        if (method == null)
+            throw new InvalidOperationException("متد AnyAsync با پارامترهای سه‌گانه یافت نشد.");
+
+        method = method.MakeGenericMethod(dependentEntityType);
+
+        var task = (Task<bool>)method.Invoke(null, new object[] { dbSet, lambda, CancellationToken.None });
+
+        if (await task)
+            return true;
+    }
+
+    return false;
+}
 
 
 

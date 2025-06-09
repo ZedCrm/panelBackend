@@ -1,12 +1,7 @@
 ﻿using MyFrameWork.AppTool;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
-using App.Contracts.Object.Shop.CountTypeCon;
+
+
 
 
 namespace App.Contracts.Object.Shop.ProductCon

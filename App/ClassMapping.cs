@@ -1,5 +1,6 @@
 ﻿// فایل: App/ClassMapping.cs
 using App.Contracts.Object.Shop.CountTypeCon;
+using App.Contracts.Object.Shop.InvCon;
 using App.Contracts.Object.Shop.ProductCon;
 using AutoMapper;
 using Domain.Objects.Shop;
@@ -32,6 +33,8 @@ namespace App
             CreateMap<CountTypeCreate, CountType>()
                 // ویژگی Id باید در ساخت جدید مقدار نداشته باشد چون توسط دیتابیس مقداردهی می‌شود
                 .ForMember(p => p.Id, o => o.Ignore());
+
+            
         }
     }
 }

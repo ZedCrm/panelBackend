@@ -27,6 +27,6 @@ namespace App
         Task SaveChangesAsync();
         Task<List<T>> GetByIdsAsync(List<TKey> ids);
         public void DeleteRange(List<T> entities);
-        
+        public Task<bool> HasRelationsAsync(T entity);
     }
 }

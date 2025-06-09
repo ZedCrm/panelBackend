@@ -26,7 +26,7 @@ namespace App.Object.Shop.CountTypeApp
             var entities = await _rep.GetAsync(pagination);
             var viewModels = _mapper.Map<List<CountTypeView>>(entities);
             var totalRecords = await _rep.CountAsync();
-        
+
             return new OPTResult<CountTypeView>
             {
                 IsSucceeded = true,
@@ -68,28 +68,50 @@ namespace App.Object.Shop.CountTypeApp
             if (entities == null || entities.Count == 0)
                 return OPTResult<CountTypeView>.Failed("هیچ واحد شماری برای حذف یافت نشد.");
 
-            _rep.DeleteRange(entities);
-            await _rep.SaveChangesAsync();
+            var deletableEntities = new List<CountType>();
+            var usedEntities = new List<CountType>();
 
-            return OPTResult<CountTypeView>.Success( "واحد شمارش با موفقیت حذف شد.");
+            foreach (var entity in entities)
+            {
+                var isUsed = await _rep.HasRelationsAsync(entity); // ✅ بررسی استفاده در جداول رابطه‌ای
+                if (!isUsed)
+                    deletableEntities.Add(entity);
+                else
+                    usedEntities.Add(entity);
+            }
+
+            if (deletableEntities.Any())
+            {
+                _rep.DeleteRange(deletableEntities);
+                await _rep.SaveChangesAsync();
+            }
+
+            string message = "";
+            if (deletableEntities.Count > 0)
+                message += $"{deletableEntities.Count} واحد شمارش با موفقیت حذف شد. ";
+            if (usedEntities.Count > 0)
+                message += $"{usedEntities.Count} مورد به دلیل استفاده در بخش‌های دیگر حذف نشد.";
+
+            return OPTResult<CountTypeView>.Success(message.Trim());
         }
+
         // متد به‌روزرسانی واحد شمارش (در صورت نیاز)
-         public async Task<OPTResult<CountTypeView>> Update(CountTypeView countTypeView)
-         {
-             var entity = await _rep.GetAsync(countTypeView.Id);
-             if (entity == null)          
-                 return OPTResult<CountTypeView>.Failed("واحد شمارش یافت نشد.");
-             _mapper.Map(countTypeView, entity);
-             await _rep.UpdateAsync(entity);
-             await _rep.SaveChangesAsync();
-             var viewModel = _mapper.Map<CountTypeView>(entity);
-             return OPTResult<CountTypeView>.Success(viewModel, "واحد شمارش با موفقیت به‌روزرسانی شد.");
-         }    
+        public async Task<OPTResult<CountTypeView>> Update(CountTypeView countTypeView)
+        {
+            var entity = await _rep.GetAsync(countTypeView.Id);
+            if (entity == null)
+                return OPTResult<CountTypeView>.Failed("واحد شمارش یافت نشد.");
+            _mapper.Map(countTypeView, entity);
+            await _rep.UpdateAsync(entity);
+            await _rep.SaveChangesAsync();
+            var viewModel = _mapper.Map<CountTypeView>(entity);
+            return OPTResult<CountTypeView>.Success(viewModel, "واحد شمارش با موفقیت به‌روزرسانی شد.");
+        }
     }
 
     // اینترفیس ریپوزیتوری واحد شمارش که از ریپوزیتوری پایه ارث‌بری می‌کند
     public interface ICountTypeRep : IBaseRep<CountType, int> { }
 
 
- 
+
 }
