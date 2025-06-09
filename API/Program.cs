@@ -1,4 +1,6 @@
+using ConfApp;
 using Infrastructure;
+using Infrastructure.data.seed;
 using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -72,4 +74,16 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<MyContext>();
+
+    var seeder = new DatabaseSeeder(context);
+    seeder.SeedAll();
+}
+
+
+
 app.Run();
