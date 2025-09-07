@@ -1,13 +1,10 @@
 ﻿using App.Contracts.Object.Shop.ProductCon;
+using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace App.Object.Shop.ProductApp
 {
@@ -21,7 +18,6 @@ namespace App.Object.Shop.ProductApp
         {
             _productRep = productRep;
             this._mapper = mapper;
-            Console.WriteLine($"ProductApp Instance Created: {GetHashCode()}");
         }
         #endregion
 
@@ -30,19 +26,28 @@ namespace App.Object.Shop.ProductApp
         //Create method 
         public async Task<OPT> Create(ProductCreate productCreate)
         {
-            OPT opt = new OPT();
-            var codeExist = await _productRep.ExistAsync(c => c.ProductCode == productCreate.ProductCode);
-            if (codeExist) { opt.Failed("  کد محصول تکراریست ."); }
-            else if (productCreate.Price <= 0) { opt.Failed("  قیمت محصول باید بیشتر از صفر باشد"); }
-            else
-            {
-                var product = _mapper.Map<Product>(productCreate);
-                await _productRep.CreateAsync(product);
-                opt.Succeeded($".محصول مورد نظر ایجاد شد  {productCreate.Name.ToString()}");
-                await _productRep.SaveChangesAsync();
-            }
+            // اعتبارسنجی با ValidationUtility
+            var opt = ValidationUtility.ValidateNotEmpty(productCreate.Name, "نام محصول");
+            if (!opt.IsSucceeded) return opt;
 
-            return opt;
+            opt = ValidationUtility.ValidateLength(productCreate.ProductCode, "کد محصول", 3, 20);
+            if (!opt.IsSucceeded) return opt;
+
+
+            // اعتبارسنجی تکراری بودن کد محصول
+            var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<Product, int>(
+                _productRep,
+                c => c.ProductCode == productCreate.ProductCode,
+                ". کد محصول تکراری است"
+            );
+            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
+
+            // عملیات ایجاد محصول
+            var product = _mapper.Map<Product>(productCreate);
+            await _productRep.CreateAsync(product);
+            await _productRep.SaveChangesAsync();
+
+            return opt.Succeeded($".محصول مورد نظر ایجاد شد  {productCreate.Name}");
         }
 
 
@@ -51,17 +56,26 @@ namespace App.Object.Shop.ProductApp
 
         public async Task<OPT> DeleteBy(List<int> productids)
         {
-            OPT opt = new OPT();
-
-            foreach (var productid in productids)
+            var opt = new OPT();
+            try
             {
-                _productRep.DeleteById(productid);
+                if (productids == null || !productids.Any())
+                {
+                    opt.Failed("هیچ محصولی برای حذف انتخاب نشده است.");
+                    return opt;
+                }
+                foreach (var productid in productids)
+                    _productRep.DeleteById(productid);
+
+                await _productRep.SaveChangesAsync();
+                 opt.Succeeded("محصولات حذف گردید");
+            }
+            catch (Exception ex)
+            {
+                 opt.Failed($"خطا در حذف محصولات: {ex.Message}");
             }
 
-            await _productRep.SaveChangesAsync();
-
-            opt.Succeeded("محصولات حذف گردید");
-            return opt;
+            return opt ;
         }
 
 
@@ -86,7 +100,7 @@ namespace App.Object.Shop.ProductApp
             return new OPTResult<ProductView>
             {
                 IsSucceeded = true,
-                Message = "داده با موفقیت بارگذاری شد.",
+                Message = "داده با موفقیت بارگذاری شد",
                 Data = data,
                 TotalRecords = totalRecords,
                 TotalPages = totalPages,
@@ -128,7 +142,7 @@ namespace App.Object.Shop.ProductApp
 
             // گرفتن تعداد کل رکوردها برای صفحه‌بندی
             var totalRecords = await _productRep.CountAsync(filter);
-            var totalPages = criteria.CalculateTotalPages(totalRecords); 
+            var totalPages = criteria.CalculateTotalPages(totalRecords);
 
             return new OPTResult<ProductView>
             {
