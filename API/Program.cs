@@ -2,6 +2,9 @@ using ConfApp;
 using Infrastructure;
 using Infrastructure.data.seed;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authentication.JwtBearer; // اضافه شده
+using Microsoft.IdentityModel.Tokens; // اضافه شده
+using System.Text; // اضافه شده
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,13 +17,33 @@ builder.Services.AddCors(options =>
             builder.AllowAnyOrigin()
                    .AllowAnyMethod()
                    .AllowAnyHeader();
-                   //.AllowCredentials(); // اگر احراز هویت (مثل JWT) ندارید، این خط را حذف کنید
         });
 });
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// تنظیم احراز هویت JWT
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = "yourapp", // باید با "iss" توکن مطابقت داشته باشد
+        ValidAudience = "yourapp", // باید با "aud" توکن مطابقت داشته باشد
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars")) // کلید امضا
+    };
+});
+
 if (false)
 {
     CRMBootstraper.AddCRMManagement(builder.Services, "Data Source=dev.db", DbProvider.Sqlite);
@@ -44,14 +67,9 @@ app.UseRouting();
 // Middleware برای لاگ کردن درخواست‌ها
 app.Use(async (context, next) =>
 {
-    // Log Request Method و URL
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
     logger.LogInformation("Received {Method} request at {Url}", context.Request.Method, context.Request.Path);
-
-    // ادامه پردازش درخواست
     await next();
-
-    // Log Response Status Code
     logger.LogInformation("Response Status Code: {StatusCode}", context.Response.StatusCode);
 });
 
@@ -67,23 +85,20 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// فعال‌سازی CORS بعد از UseRouting
 app.UseCors("AllowAll");
 
-app.UseHttpsRedirection();
+app.UseAuthentication(); 
 app.UseAuthorization();
 
-app.MapControllers();
+app.UseHttpsRedirection();
 
+app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MyContext>();
-
     var seeder = new DatabaseSeeder(context);
     seeder.SeedAll();
 }
-
-
 
 app.Run();

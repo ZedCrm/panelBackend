@@ -38,6 +38,9 @@ namespace Infrastructure
             service.AddScoped<ITokenApp, TokenApp>();
             service.AddScoped<IUserRepository, UserRep>();
 
+            service.AddScoped<IPermissionRep, PermissionRepository>();
+            service.AddScoped<IPermissionService, PermissionService>();
+
 
 
 

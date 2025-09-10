@@ -1,4 +1,5 @@
-﻿using App.Contracts.Object.Shop.ProductCon;
+﻿using App.Contracts.Object.Base.auth;
+using App.Contracts.Object.Shop.ProductCon;
 using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
@@ -13,11 +14,13 @@ namespace App.Object.Shop.ProductApp
         #region constructor
         private readonly IProductRep _productRep;
         private readonly IMapper _mapper;
+        private readonly IPermissionService _PermissionService;
 
-        public ProductApp(IProductRep productRep, IMapper mapper)
+        public ProductApp(IProductRep productRep, IMapper mapper , IPermissionService permissionService)
         {
             _productRep = productRep;
             this._mapper = mapper;
+            _PermissionService = permissionService ;
         }
         #endregion
 
@@ -81,8 +84,25 @@ namespace App.Object.Shop.ProductApp
 
 
 
-        public async Task<OPTResult<ProductView>> GetAll(Pagination pagination)
-        {    // دریافت تمام محصولات  
+        public async Task<OPTResult<ProductView>> GetAll(Pagination pagination,int userId)
+        {  
+
+            bool hasEditPermission = await _PermissionService.HasPermissionAsync(userId, "ViewProduct");
+            if(!hasEditPermission) if (!hasEditPermission)
+    {
+        return new OPTResult<ProductView>
+        {
+            IsSucceeded = false,
+            Message = "شما دسترسی ندارید",
+            Data = null,
+            TotalRecords = 0,
+            TotalPages = 0,
+            PageNumber = pagination.PageNumber,
+            PageSize = pagination.PageSize
+        };
+    } ;
+            
+              // دریافت تمام محصولات  
             var products = await _productRep.GetAsync(pagination);
 
             // تبدیل داده‌ها به نوع ViewModel  

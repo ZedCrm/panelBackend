@@ -9,6 +9,7 @@ namespace App.Contracts.Object.Base.auth
 {
     public class AuthResponseDto
     {
+        public int UserId { get; set; } = default! ;
         public string Token { get; set; } = default!;
         public string Email { get; set; } = default!;
         public string FullName { get; set; } = default!;

@@ -29,7 +29,7 @@ namespace App.Object.Base.Auth
     var token = _tokenService.GenerateToken(user);
 
     return OPTResult<AuthResponseDto>.Success(new AuthResponseDto
-    {
+    {   UserId = user.Id,
         Email = user.Email,
         FullName = user.FullName,
         Token = token

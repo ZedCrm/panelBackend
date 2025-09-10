@@ -19,7 +19,15 @@ namespace API.Controllers.Shop
         [Route("/api/product/GetAll")]
         public async Task<ActionResult<OPTResult<ProductView>>> Index([FromBody] Pagination pagination)
         {
-            return await productApp.GetAll(pagination);
+
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized("کاربر شناسایی نشد.");
+            }
+
+
+            return await productApp.GetAll(pagination , userId);
 
 
 

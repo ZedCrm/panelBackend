@@ -24,7 +24,7 @@ namespace App.Object.Base.auth
     };
 
             // 🔒 هاردکد موقتی برای امضا
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("this_is_a_very_strong_key_for_jwt_tokenddjjdf")); // اینو بعداً می‌بری توی appsettings
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars")); // اینو بعداً می‌بری توی appsettings
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(

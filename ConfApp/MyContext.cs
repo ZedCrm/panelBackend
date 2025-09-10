@@ -14,6 +14,11 @@ namespace ConfApp
         public DbSet<CountType> CountTypes { get; set; }
         public DbSet<Inv> inventories { get; set; }
         public DbSet<User> Users {get; set;}
+        public DbSet<Role> roles {get; set;}
+        public DbSet<Permission> permissions {get; set;}
+        public DbSet<UserRole> userRoles {get; set;}
+        public DbSet<RolePermission> rolePermissions {get; set;}
+
         #endregion
         public MyContext(DbContextOptions<MyContext> options) : base(options)
         {
