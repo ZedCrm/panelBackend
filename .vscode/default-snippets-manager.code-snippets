@@ -1,0 +1,26 @@
+{
+	"disname": {
+		"prefix": "disname",
+		"description": "disname",
+		"scope": "csharp",
+		"body": [
+			"[Display(Name = \"\")]"
+		]
+	},
+	"req": {
+		"prefix": "req",
+		"description": "req",
+		"scope": "csharp",
+		"body": [
+			"[Required(ErrorMessage = MessageApp.IsRequiredcustom)]"
+		]
+	},
+	"maxlen": {
+		"prefix": "maxlen",
+		"description": "maxlen",
+		"scope": "csharp",
+		"body": [
+			"[MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]"
+		]
+	}
+}

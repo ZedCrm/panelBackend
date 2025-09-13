@@ -9,7 +9,7 @@ namespace Domain.Objects.Base
     {
 
         public string FullName { get; set; } = default!;
-        public string Username { get; set; }
+        public string Username { get; set; }= default!   ;
         public string Email { get; set; } = default!;
         public string PasswordHash { get; set; } = default!;
         public List<UserRole> UserRoles { get; set; }
@@ -20,7 +20,7 @@ namespace Domain.Objects.Base
     public class Role
 {
     public int Id { get; set; }
-    public string Name { get; set; } // مثل Admin, Editor, Viewer
+    public string Name { get; set; } 
     public List<UserRole> UserRoles { get; set; }
     public List<RolePermission> RolePermissions { get; set; }
 }

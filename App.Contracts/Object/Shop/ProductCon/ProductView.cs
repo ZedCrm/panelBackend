@@ -8,19 +8,20 @@ namespace App.Contracts.Object.Shop.ProductCon
 {
     public class ProductView
     {
+       
         public int Id { get; set; }
-        [Display(Name = " محصول")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]
-        [MaxLength(20,ErrorMessage = " . تعداد کارکترهای {0} نمیتواند بیشتر از {1} باشد")]
+        [Display(Name = " کد محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
         public string ProductCode { get; set; }
 
         [Display(Name = " نام محصول")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]
-        [MaxLength(20, ErrorMessage = " . تعداد کارکترهای {0} نمیتواند بیشتر از {1} باشد")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
         public string Name { get; set; }
 
         [Display(Name = " قیمت")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]    
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
         
         public int Price { get; set; }
         
@@ -29,23 +30,23 @@ namespace App.Contracts.Object.Shop.ProductCon
     public class ProductCreate 
     {
 
-        [Display(Name = " محصول")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]
-        [MaxLength(20,ErrorMessage = " . تعداد کارکترهای {0} نمیتواند بیشتر از {1} باشد")]
+        [Display(Name = " کد محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
         public string ProductCode { get; set; }
 
         [Display(Name = " نام محصول")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]
-        [MaxLength(20, ErrorMessage = " . تعداد کارکترهای {0} نمیتواند بیشتر از {1} باشد")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
         public string Name { get; set; }
 
         [Display(Name = " قیمت")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]    
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
         
         public int Price { get; set; }
 
         [Display(Name = " واحد شمارش")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]  
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]  
         [SelectSource("/api/counttype/CountTypelist")]
         public int CountTypeId { get; set; }
        
@@ -58,23 +59,23 @@ namespace App.Contracts.Object.Shop.ProductCon
 
         public int Id { get; set; }
 
-        [Display(Name = " محصول")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]
-        [MaxLength(20,ErrorMessage = " . تعداد کارکترهای {0} نمیتواند بیشتر از {1} باشد")]
+        [Display(Name = " کد محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
         public string ProductCode { get; set; }
 
         [Display(Name = " نام محصول")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]
-        [MaxLength(20, ErrorMessage = " . تعداد کارکترهای {0} نمیتواند بیشتر از {1} باشد")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
         public string Name { get; set; }
 
         [Display(Name = " قیمت")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]    
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
         
         public int Price { get; set; }
 
         [Display(Name = " واحد شمارش")]
-        [Required(ErrorMessage = ". لطفا {0} را وارد کنید")]  
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]  
         [SelectSource("/api/counttype/CountTypelist")]
         public int CountTypeId { get; set; }
        

@@ -23,10 +23,15 @@ namespace App.Object.Base
                 Id = c.Id,
                 Name = c.Name,
                 Family = c.Family,
-                age = c.age,
+                age = c.Age,
 
             }).ToList();
 
+        }
+
+        public Task<List<PersonView>> PersonViews()
+        {
+            throw new NotImplementedException();
         }
     }
 }

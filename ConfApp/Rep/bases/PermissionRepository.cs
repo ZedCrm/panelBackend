@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 using App.Object.Base.auth;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,9 +15,9 @@ namespace ConfApp.Rep.bases
 
         public async Task<bool> HasPermissionAsync(int userId, string permission)
         {
-            return await _context.userRoles
+            return await _context.UserRoles
                 .Where(ur => ur.Id == userId)
-                .Join(_context.rolePermissions,
+                .Join(_context.RolePermissions,
                     ur => ur.Id,
                     rp => rp.Id,
                     (ur, rp) => rp.Permission.Name)

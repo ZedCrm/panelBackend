@@ -1,15 +1,18 @@
 ﻿using App;
 using App.Contracts.Object.Base;
 using App.Contracts.Object.Base.auth;
+using App.Contracts.Object.Base.Users;
 using App.Contracts.Object.Shop.CountTypeCon;
 using App.Contracts.Object.Shop.InvCon;
 using App.Contracts.Object.Shop.ProductCon;
 using App.Object.Base;
 using App.Object.Base.auth;
 using App.Object.Base.Auth;
+using App.Object.Base.Users;
 using App.Object.Shop.CountTypeApp;
 using App.Object.Shop.invApp;
 using App.Object.Shop.ProductApp;
+using App.utility;
 using AutoMapper;
 using ConfApp;
 using ConfApp.Rep;
@@ -42,7 +45,8 @@ namespace Infrastructure
             service.AddScoped<IPermissionService, PermissionService>();
 
 
-
+            service.AddScoped<IMyUserRepository, MyuserRepo>();
+            service.AddScoped<IUsersApp, UsersApp>();
 
             // Register AutoMapper  
             service.AddAutoMapper(typeof(ClassMapping));

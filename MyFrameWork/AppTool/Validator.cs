@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace MyFrameWork.AppTool
 {
-    public static class Validator
+    public static class Validators
     {
 
         public static void CheckRequired(string value, string fieldName)

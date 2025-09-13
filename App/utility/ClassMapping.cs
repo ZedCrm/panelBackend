@@ -1,11 +1,13 @@
 ﻿// فایل: App/ClassMapping.cs
+using App.Contracts.Object.Base.Users;
 using App.Contracts.Object.Shop.CountTypeCon;
 using App.Contracts.Object.Shop.InvCon;
 using App.Contracts.Object.Shop.ProductCon;
 using AutoMapper;
+using Domain.Objects.Base;
 using Domain.Objects.Shop;
 
-namespace App
+namespace App.utility
 {
     // این کلاس برای نگاشت (Map) بین مدل‌های دامنه (Entity) و مدل‌های انتقال داده (DTO) استفاده می‌شود
     public class ClassMapping : Profile
@@ -35,6 +37,9 @@ namespace App
                 .ForMember(p => p.Id, o => o.Ignore());
 
             
+            CreateMap<User,UsersView>();
+
+
         }
     }
 }

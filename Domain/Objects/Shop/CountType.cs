@@ -9,9 +9,8 @@ namespace Domain.Objects.Shop
 {
     public class CountType : BaseDomain
     {
-       // [Column(TypeName = "smallint")]
-        public  int Id { get; set; }
-        public string Name { get; set; } = "";
+       
+        public string Name { get; set; } = default!;
 
         public ICollection<Product> products { get; set; } 
     }

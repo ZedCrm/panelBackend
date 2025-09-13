@@ -10,12 +10,10 @@ namespace Domain.Objects.Shop
 {
     public class Product : BaseDomain
     {
-        public int Id { get; set; }
         public string? ProductCode { get; set; }
-        public string Name { get; set; } = "";
+        public string Name { get; set; } = default!;
         public int Price { get; set; }
         public int CountTypeId { get; set; }
         public CountType CountType { get; set; }
-
     }
 }

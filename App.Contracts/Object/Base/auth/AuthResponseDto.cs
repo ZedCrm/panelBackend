@@ -33,6 +33,7 @@ namespace App.Contracts.Object.Base.auth
     {
          Task<OPTResult<AuthResponseDto>>  RegisterAsync(RegisterRequestDto dto);
         Task<OPTResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
+        
     }
 
      public interface ITokenApp

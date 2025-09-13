@@ -25,7 +25,8 @@ namespace App.Contracts.Object.Shop.CountTypeCon
         
     
         [Display(Name = " نام واحد شمارش")]
-        [Required(ErrorMessage = "لطفا نام واحد شمارش را وارد کنید")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
         [RegularExpression(@"^[\u0600-\u06FF\s]+$", ErrorMessage = "فقط از حروف فارسی استفاده کنید")]
         [DataType(DataType.Text)]
         public string Name { get; set; } = "";

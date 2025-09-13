@@ -8,7 +8,7 @@ namespace Domain.Objects.Shop
 {
     public class Inv : BaseDomain
     {
-        public int Id { get; set; }
+        
         public string Name { get; set; }
         public Boolean Active  { get; set; }=true;
 
