@@ -5,7 +5,7 @@ namespace MyFrameWork.AppTool
 {
     public class OPTResult<T> where T : class
     {
-        public bool? IsSucceeded { get; set; }   // وضعیت موفقیت عملیات
+        public bool IsSucceeded { get; set; }   // وضعیت موفقیت عملیات
         public string? Message { get; set; }     // پیام عملیات
         public List<T>? Data { get; set; }       // لیست داده‌ها برای حالت لیستی
         public T? SingleData { get; set; }       // داده‌ی تکی برای عملیات‌های خاص

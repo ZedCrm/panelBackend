@@ -26,18 +26,20 @@ namespace App.utility
             // نگاشت از مدل دامنه CountType به مدل نمایشی CountTypeViw
             CreateMap<CountType, CountTypeView>();
 
-            
+
             // نگاشت از مدل دامنه CountType به مدل ساخت CountTypeView
             CreateMap<CountTypeView, CountType>();
-                
+
 
             // نگاشت از مدل ساخت CountTypeCreate به مدل دامنه CountType
             CreateMap<CountTypeCreate, CountType>()
                 // ویژگی Id باید در ساخت جدید مقدار نداشته باشد چون توسط دیتابیس مقداردهی می‌شود
                 .ForMember(p => p.Id, o => o.Ignore());
 
-            
-            CreateMap<User,UsersView>();
+
+            CreateMap<User, UsersView>();
+            CreateMap<UsersCreat,User>().ForMember(p => p.Id, o => o.Ignore());
+            CreateMap<User, UsersCreat>();
 
 
         }

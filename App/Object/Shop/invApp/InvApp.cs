@@ -1,4 +1,5 @@
 using App.Contracts.Object.Shop.InvCon;
+using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
@@ -15,29 +16,39 @@ namespace App.Object.Shop.invApp
             _rep = rep;
             _mapper = mapper;
         }
-        public async Task<OPTResult<invCreate>> Create(invCreate createData)
+        
+
+
+
+        public async Task<OPTResult<InvCreate>> Create(InvCreate createData)
         {
+            var validateAllProperties =  ModelValidator.ValidateToOptResult<InvCreate>(createData);
+            if (!validateAllProperties.IsSucceeded) return validateAllProperties;
+
             var entity = _mapper.Map<Inv>(createData);
             await _rep.CreateAsync(entity);
             await _rep.SaveChangesAsync();
 
-            var viewModel = _mapper.Map<invCreate>(entity);
-            return OPTResult<invCreate>.Success(viewModel, "رکورد با موفقیت ایجاد شد.");
-       
+            var viewModel = _mapper.Map<InvCreate>(entity);
+            return OPTResult<InvCreate>.Success(viewModel, MessageApp.AcceptOpt);
+
         }
 
-        public async Task<OPTResult<invView>> DeleteBy(List<int> ids)
+
+
+
+        public async Task<OPTResult<InvView>> DeleteBy(List<int> ids)
         {
-             var entities = await _rep.GetByIdsAsync(ids);
+            var entities = await _rep.GetByIdsAsync(ids);
             if (entities == null || entities.Count == 0)
-                return OPTResult<invView>.Failed("هیچ رکوردی برای حذف یافت نشد.");
+                return OPTResult<InvView>.Failed(MessageApp.NotFound);
 
             var deletableEntities = new List<Inv>();
             var usedEntities = new List<Inv>();
 
             foreach (var entity in entities)
             {
-                var isUsed = await _rep.HasRelationsAsync(entity); // ✅ بررسی استفاده در جداول رابطه‌ای
+                var isUsed = await _rep.HasRelationsAsync(entity); 
                 if (!isUsed)
                     deletableEntities.Add(entity);
                 else
@@ -56,18 +67,23 @@ namespace App.Object.Shop.invApp
             if (usedEntities.Count > 0)
                 message += $"{usedEntities.Count} مورد به دلیل استفاده در بخش‌های دیگر حذف نشد.";
 
-            return OPTResult<invView>.Success(message.Trim());
+            return OPTResult<InvView>.Success(message.Trim());
         }
 
-        public async Task<OPTResult<invView>> GetAll(Pagination pagination)
+
+
+
+
+
+        public async Task<OPTResult<InvView>> GetAll(Pagination pagination)
         {
             var entities = await _rep.GetAsync(pagination);
-            var viewModels = _mapper.Map<List<invView>>(entities);
+            var viewModels = _mapper.Map<List<InvView>>(entities);
             var totalRecords = await _rep.CountAsync();
-            return new OPTResult<invView>
+            return new OPTResult<InvView>
             {
                 IsSucceeded = true,
-                Message = "دریافت لیست با موفقیت انجام شد.",
+                Message = MessageApp.AcceptOpt,
                 Data = viewModels,
                 PageNumber = pagination.PageNumber,
                 PageSize = pagination.PageSize,
@@ -77,44 +93,47 @@ namespace App.Object.Shop.invApp
 
         }
 
-        public async Task<OPTResult<invUpdate>> GetById(int id)
+
+
+
+
+
+        public async Task<OPTResult<InvUpdate>> GetById(int id)
         {
             var entity = await _rep.GetAsync(id);
             if (entity == null)
-                return OPTResult<invUpdate>.Failed("رکورد یافت نشد.");
+                return OPTResult<InvUpdate>.Failed(MessageApp.FailOpt);
 
-            var viewModel = _mapper.Map<invUpdate>(entity);
-            return OPTResult<invUpdate>.Success(viewModel, "رکورد با موفقیت دریافت شد.");
+            var viewModel = _mapper.Map<InvUpdate>(entity);
+            return OPTResult<InvUpdate>.Success(viewModel, MessageApp.AcceptOpt);
         }
 
-        public async Task<OPTResult<invUpdate>> Update(invUpdate updateData)
+
+
+
+
+
+
+        public async Task<OPTResult<InvUpdate>> Update(InvUpdate updateData)
         {
             var entity = await _rep.GetAsync(updateData.Id);
             if (entity == null)
-                return OPTResult<invUpdate>.Failed("رکورد یافت نشد.");
+                return OPTResult<InvUpdate>.Failed(MessageApp.NotFound);
             _mapper.Map(updateData, entity);
             await _rep.UpdateAsync(entity);
             await _rep.SaveChangesAsync();
-            var viewModel = _mapper.Map<invUpdate>(entity);
-            return OPTResult<invUpdate>.Success(viewModel, "رکورد با موفقیت به‌روزرسانی شد.");
+            var viewModel = _mapper.Map<InvUpdate>(entity);
+            return OPTResult<InvUpdate>.Success(viewModel,MessageApp.AcceptOpt);
         }
     }
+
+
+ 
+
 
 
     public interface IInvRep : IBaseRep<Inv, int> { }
 
 
-    public class InvProfile : Profile
-    {
-        public InvProfile()
-        {
-            CreateMap<Inv, invView>();
-            CreateMap<Inv, invUpdate>();
-            CreateMap<invUpdate, Inv>();
-            CreateMap<invCreate, Inv>()
-            .ForMember(dest => dest.Id, opt => opt.Ignore());
-            CreateMap<Inv, invCreate>();
 
-        }
-    }
 }

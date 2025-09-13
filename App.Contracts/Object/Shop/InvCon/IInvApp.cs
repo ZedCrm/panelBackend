@@ -8,10 +8,10 @@ namespace App.Contracts.Object.Shop.InvCon
 {
     public interface IInvApp
     {
-        public Task<OPTResult<invView>> GetAll(Pagination pagination);
-        public Task<OPTResult<invUpdate>> GetById(int id);
-        public Task<OPTResult<invCreate>> Create(invCreate createData);
-        public Task<OPTResult<invUpdate>> Update(invUpdate updateData);
-        public Task<OPTResult<invView>> DeleteBy(List<int> ids);
+        public Task<OPTResult<InvView>> GetAll(Pagination pagination);
+        public Task<OPTResult<InvUpdate>> GetById(int id);
+        public Task<OPTResult<InvCreate>> Create(InvCreate createData);
+        public Task<OPTResult<InvUpdate>> Update(InvUpdate updateData);
+        public Task<OPTResult<InvView>> DeleteBy(List<int> ids);
     }
 }

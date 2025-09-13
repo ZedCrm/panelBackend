@@ -7,7 +7,7 @@ using MyFrameWork.AppTool;
 
 namespace App.Contracts.Object.Shop.InvCon
 {
-    public class invView
+    public class InvView
     {
         public int Id { get; set; }
         [Display(Name = "نام")]
@@ -18,7 +18,7 @@ namespace App.Contracts.Object.Shop.InvCon
     }
 
 
-    public class invCreate
+    public class InvCreate
     {
         
         [Display(Name = "نام")]
@@ -29,7 +29,7 @@ namespace App.Contracts.Object.Shop.InvCon
     }
     
 
-        public class invUpdate
+        public class InvUpdate
     {
         public int Id { get; set; }
         [Display(Name = "نام")]

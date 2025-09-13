@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using App.Contracts.Object.Base.auth;
 using App.Contracts.Object.Base.Users;
 using App.Object.Base.Auth;
+using App.utility;
 using AutoMapper;
 using Domain.Objects.Base;
 using MyFrameWork.AppTool;
@@ -28,36 +29,103 @@ namespace App.Object.Base.Users
         }
         #endregion
 
-        public Task<OPT> Create(UsersCreat objectCreate)
+
+
+
+
+
+        public async Task<OPT> Create(UsersCreat objectCreate)
         {
-            throw new NotImplementedException();
+            var validateAllProperties = ModelValidator.ValidateToOpt<UsersCreat>(objectCreate);
+            if (!validateAllProperties.IsSucceeded) return validateAllProperties ;
+
+
+            // check uniq email
+            var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
+                _userRepository,
+                c => c.Email == objectCreate.Email,
+                
+                MessageApp.DuplicateField(objectCreate.Email)
+            );
+            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
+
+            // check uniq username
+             uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
+                _userRepository,
+                c => c.Username == objectCreate.Username,
+                
+                MessageApp.DuplicateField(objectCreate.Username)
+            );
+            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
+
+
+            var user = _mapper.Map<User>(objectCreate);
+            await _userRepository.CreateAsync(user);
+            await _userRepository.SaveChangesAsync();
+
+
+            var opt = new OPT();
+            return opt.Succeeded(MessageApp.CustomAddsuccses(objectCreate.Username));
         }
 
-        public Task<OPT> DeleteBy(List<int> objectids)
+
+
+
+
+
+
+
+        public async Task<OPT> DeleteBy(List<int> objectids)
         {
-            throw new NotImplementedException();
+            
+            
+             var opt = new OPT();
+            try
+            {
+                if (objectids == null || !objectids.Any())
+                {
+                    opt.Failed(MessageApp.NotFound);
+                    return opt;
+                }
+                foreach (var productid in objectids)
+                    _userRepository.DeleteById(productid);
+
+                await _userRepository.SaveChangesAsync();
+                 opt.Succeeded(MessageApp.CustomSuccess("حذف"));
+            }
+            catch (Exception ex)
+            {
+                 opt.Failed(MessageApp.CustomDeleteFail(ex.Message));
+            }
+
+            return opt ;
         }
+        
+
+
+
 
         public async Task<OPTResult<UsersView>> GetAll(Pagination pagination, int objectId)
         {
 
-            
-            bool hasEditPermission = await _PermissionService.HasPermissionAsync(objectId, "ViewProduct");
-            if(!hasEditPermission) if (!hasEditPermission)
-    {
-        return new OPTResult<UsersView>
-        {
-            IsSucceeded = false,
-            Message = MessageApp.NotPermission,
-         
-        };
-    } ;
 
-            var data =  await _userRepository.GetAsync();
+            bool hasEditPermission = await _PermissionService.HasPermissionAsync(objectId, "ViewProduct");
+            if (!hasEditPermission) if (!hasEditPermission)
+                {
+                    return new OPTResult<UsersView>
+                    {
+                        IsSucceeded = false,
+                        Message = MessageApp.NotPermission,
+
+                    };
+                }
+            ;
+
+            var data = await _userRepository.GetAsync();
 
             var users = _mapper.Map<List<UsersView>>(data);
 
-            
+
 
             // تعداد کل رکوردها  
             var totalRecords = await _userRepository.CountAsync();
@@ -80,18 +148,63 @@ namespace App.Object.Base.Users
             };
 
 
-           
+
         }
 
-        public Task<OPTResult<UsersCreat>> GetById(int id)
+        public async Task<OPTResult<UsersCreat>> GetById(int id)
         {
-            throw new NotImplementedException();
+            var user = await _userRepository.GetAsync(id);
+            if (user == null) { return new OPTResult<UsersCreat> { IsSucceeded = false, Message =MessageApp.NotFound}; }
+            var userCreat = _mapper.Map<UsersCreat>(user);
+            return OPTResult<UsersCreat>.Success(userCreat, MessageApp.AcceptOpt);
         }
 
-        public Task<OPTResult<UsersView>> Update(UsersView objectView)
+
+
+
+
+        public async Task<OPT> Update(UsersCreat objectView)
         {
-            throw new NotImplementedException();
+            var validateAllProperties = ModelValidator.ValidateToOpt<UsersCreat>(objectView);
+            if (!validateAllProperties.IsSucceeded) return validateAllProperties;
+
+
+            // check uniq email
+            var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
+                _userRepository,
+                c => c.Email == objectView.Email && c.Id != objectView.Id,
+
+
+                MessageApp.DuplicateField(objectView.Email)
+            );
+            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
+
+            // check uniq username
+            uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
+               _userRepository,
+               c => c.Username == objectView.Username && c.Id != objectView.Id,
+
+               MessageApp.DuplicateField(objectView.Username)
+           );
+            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
+            
+                  else
+            {
+                var user = await _userRepository.GetAsync(objectView.Id);
+                
+                user.Username = objectView.Username;
+                user.Email = objectView.Email;
+                user.PasswordHash = objectView.PasswordHash;
+                
+                await _userRepository.UpdateAsync(user);
+                await _userRepository.SaveChangesAsync();
+                return  uniqueOpt.Succeeded(MessageApp.AcceptOpt);
+            }
+
         }
+
+
+        
     }
 
 

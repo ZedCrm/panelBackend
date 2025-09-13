@@ -5,7 +5,7 @@ using AutoMapper;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
 using System.Linq.Expressions;
-using System.Runtime.InteropServices;
+
 
 
 namespace App.Object.Shop.ProductApp
@@ -43,7 +43,8 @@ namespace App.Object.Shop.ProductApp
             var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<Product, int>(
                 _productRep,
                 c => c.ProductCode == productCreate.ProductCode,
-                ". کد محصول تکراری است"
+                
+                MessageApp.DuplicateField(productCreate.ProductCode)
             );
             if (!uniqueOpt.IsSucceeded) return uniqueOpt;
 
@@ -192,10 +193,18 @@ namespace App.Object.Shop.ProductApp
             return OPTResult<ProductUpdate>.Success(productupdate, MessageApp.AcceptOpt);
         }
 
+
+
+
+
         public async Task<OPTResult<ProductView>> Update(ProductView productView)
         {
+
+            var validationOpt = ModelValidator.ValidateToOptResult(productView);
+            if (!validationOpt.IsSucceeded) return validationOpt;
+
             var product = await _productRep.GetAsync(productView.Id);
-            if (product == null) { return new OPTResult<ProductView> { IsSucceeded = false, Message= MessageApp.AcceptOpt }; }
+            if (product == null) { return new OPTResult<ProductView> { IsSucceeded = false, Message = MessageApp.FailOpt }; }
             var codeExist = await _productRep.ExistAsync(c => c.ProductCode == productView.ProductCode && c.Id != productView.Id);
             if (codeExist) { return new OPTResult<ProductView> { IsSucceeded = false, Message = MessageApp.DuplicateField(productView.ProductCode) }; }
             else

@@ -7,7 +7,7 @@ namespace App.Contracts.Object.Base.Users
 {
     public class UsersView
     {
-
+        public int Id { get; set; } = default!;
         public string FullName { get; set; } = default!;
      
         public string Username { get; set; }  = default!;
@@ -16,6 +16,7 @@ namespace App.Contracts.Object.Base.Users
     }
         public class UsersCreat
     {
+         public int Id { get; set; } = default!;
         public string FullName { get; set; } = default!;
         public string Username { get; set; }  = default!;
         public string Email { get; set; } = default!;
