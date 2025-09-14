@@ -31,6 +31,21 @@ namespace API.Controllers.bases
             return await _usersApp.GetAll(pagination , userId);
 
 
+        }
+
+
+
+
+
+
+          [HttpPost]
+        [Route("/api/user/create")]
+        public async Task<ActionResult> Create([FromBody] UsersCreat usercreat)
+        {
+
+            var opt = await _usersApp.Create(usercreat);
+            if (opt.IsSucceeded) { return Ok(opt); }
+            else { return Ok(opt); }
 
 
         }

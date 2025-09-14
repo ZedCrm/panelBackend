@@ -38,7 +38,10 @@ namespace App.utility
 
 
             CreateMap<User, UsersView>();
-            CreateMap<UsersCreat,User>().ForMember(p => p.Id, o => o.Ignore());
+            CreateMap<UsersCreat,User>() .ForMember(d => d.Id, o => o.Ignore())
+    .ForMember(d => d.PasswordHash, o => o.MapFrom(src =>
+        string.IsNullOrEmpty(src.Password) ? null : BCrypt.Net.BCrypt.HashPassword(src.Password)
+    ));
             CreateMap<User, UsersCreat>();
 
 

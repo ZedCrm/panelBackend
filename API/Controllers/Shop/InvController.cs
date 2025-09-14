@@ -28,14 +28,14 @@ namespace API.Controllers.Shop
 
         [HttpPost]
         [Route("/api/inv/GetAll")]
-        public async Task<ActionResult<OPTResult<invView>>> Index([FromBody] Pagination pagination)
+        public async Task<ActionResult<OPTResult<InvView>>> Index([FromBody] Pagination pagination)
         {
             return await invApp.GetAll(pagination);
         }
 
         [HttpGet]
         [Route("/api/inv/GetById")]
-        public async Task<ActionResult<OPTResult<invUpdate>>> GetById([FromQuery] int id)
+        public async Task<ActionResult<OPTResult<InvUpdate>>> GetById([FromQuery] int id)
         {
             var result = await invApp.GetById(id);
             if (result.IsSucceeded == true) { return Ok(result); }
@@ -44,7 +44,7 @@ namespace API.Controllers.Shop
 
         [HttpPost]
         [Route("/api/inv/create")]
-        public async Task<ActionResult> create([FromBody] invCreate invCreate)
+        public async Task<ActionResult> create([FromBody] InvCreate invCreate)
         {
 
             var opt = await invApp.Create(invCreate);
@@ -74,7 +74,7 @@ namespace API.Controllers.Shop
 
         [HttpPost]
         [Route("/api/inv/update")]
-        public async Task<ActionResult> update([FromBody] invUpdate invUpdate)
+        public async Task<ActionResult> update([FromBody] InvUpdate invUpdate)
         {
             var opt = await invApp.Update(invUpdate);
             if (opt.IsSucceeded == true) { return Ok(opt); }

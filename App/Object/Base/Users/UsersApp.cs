@@ -194,7 +194,7 @@ namespace App.Object.Base.Users
                 
                 user.Username = objectView.Username;
                 user.Email = objectView.Email;
-                user.PasswordHash = objectView.PasswordHash;
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(objectView.Password);
                 
                 await _userRepository.UpdateAsync(user);
                 await _userRepository.SaveChangesAsync();
