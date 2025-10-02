@@ -163,9 +163,9 @@ namespace App.Object.Base.Users
 
 
 
-        public async Task<OPT> Update(UsersCreat objectView)
+        public async Task<OPT> Update(UsersUpdate objectView)
         {
-            var validateAllProperties = ModelValidator.ValidateToOpt<UsersCreat>(objectView);
+            var validateAllProperties = ModelValidator.ValidateToOpt<UsersUpdate>(objectView);
             if (!validateAllProperties.IsSucceeded) return validateAllProperties;
 
 

@@ -28,6 +28,7 @@ namespace Domain.Objects.Base
 public class Permission
 {
     public int Id { get; set; }
+    public int Category {get; set;}
     public string Name { get; set; } // مثل ViewProduct, EditProduct
     public List<RolePermission> RolePermissions { get; set; }
 }

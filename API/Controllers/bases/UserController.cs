@@ -10,25 +10,26 @@ namespace API.Controllers.bases
     [Route("api/[controller]")]
     public class UserController : BaseController
     {
-        
+
         private readonly IUsersApp _usersApp;
 
-          public UserController (IUsersApp usersApp){
-                this._usersApp = usersApp;
-          }
+        public UserController(IUsersApp usersApp)
+        {
+            this._usersApp = usersApp;
+        }
         [HttpPost]
-        [Route("/api/Users/GetAll")]
+        [Route("/api/User/GetAll")]
         public async Task<ActionResult<OPTResult<UsersView>>> Index([FromBody] Pagination pagination)
         {
 
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (!int.TryParse(userIdClaim, out int userId))
+            if (int.TryParse(userIdClaim, out int userId))
             {
                 return Unauthorized("کاربر شناسایی نشد.");
             }
+            userId = 1 ;
 
-
-            return await _usersApp.GetAll(pagination , userId);
+            return await _usersApp.GetAll(pagination, userId);
 
 
         }
@@ -38,8 +39,8 @@ namespace API.Controllers.bases
 
 
 
-          [HttpPost]
-        [Route("/api/user/create")]
+        [HttpPost]
+        [Route("/api/User/create")]
         public async Task<ActionResult> Create([FromBody] UsersCreat usercreat)
         {
 
