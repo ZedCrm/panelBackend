@@ -15,6 +15,6 @@ namespace App.Contracts.Object.Base.Users
         Task<OPT> DeleteBy(List<int> objectids);
         Task<OPTResult<UsersCreat>> GetById(int id);
         Task<OPT> Update(UsersUpdate objectView);
-        
+        Task<OPTResult<UserCreateFormData>> CreateForm();
     }
 }

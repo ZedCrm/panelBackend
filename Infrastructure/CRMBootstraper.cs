@@ -47,6 +47,7 @@ namespace Infrastructure
 
             service.AddScoped<IMyUserRepository, MyuserRepo>();
             service.AddScoped<IUsersApp, UsersApp>();
+            service.AddScoped<IRoleRep , RoleRepo>();
 
             // Register AutoMapper  
             service.AddAutoMapper(typeof(ClassMapping));

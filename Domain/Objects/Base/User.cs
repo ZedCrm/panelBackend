@@ -17,7 +17,7 @@ namespace Domain.Objects.Base
     }
 
 
-    public class Role
+    public class Role : BaseDomain
 {
     public int Id { get; set; }
     public string Name { get; set; } 
@@ -25,7 +25,7 @@ namespace Domain.Objects.Base
     public List<RolePermission> RolePermissions { get; set; }
 }
 
-public class Permission
+public class Permission : BaseDomain
 {
     public int Id { get; set; }
     public int Category {get; set;}
@@ -33,7 +33,7 @@ public class Permission
     public List<RolePermission> RolePermissions { get; set; }
 }
 
-public class UserRole
+public class UserRole : BaseDomain
 {
     public int Id { get; set; }
     public User User { get; set; }
@@ -41,7 +41,7 @@ public class UserRole
     public Role Role { get; set; }
 }
 
-public class RolePermission
+public class RolePermission : BaseDomain
 {
     public int Id { get; set; }
     public Role Role { get; set; }
