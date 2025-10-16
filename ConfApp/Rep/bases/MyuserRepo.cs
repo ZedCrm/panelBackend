@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using App.Object.Base.Users;
 using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
 
 namespace ConfApp.Rep.bases
 {
@@ -15,6 +16,16 @@ namespace ConfApp.Rep.bases
         public MyuserRepo(MyContext context) : base(context) 
         {
             _context = context;
+        }
+
+
+
+       public async Task<User> GetAsync(int userId)
+        {
+            return await _context.Users
+                .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
         }
     }
 }

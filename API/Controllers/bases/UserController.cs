@@ -34,7 +34,7 @@ namespace API.Controllers.bases
 
         [HttpGet]
         [Route("/api/User/GetById")]
-        public async Task<ActionResult<OPTResult<UsersCreat>>> GetById([FromQuery] int id)
+        public async Task<ActionResult<OPTResult<UsersUpdate>>> GetById([FromQuery] int id)
         {
             var result = await _usersApp.GetById(id);
             return Ok(result);

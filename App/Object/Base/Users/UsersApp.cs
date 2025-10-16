@@ -120,12 +120,12 @@ namespace App.Object.Base.Users
 
 
             bool hasEditPermission = await _PermissionService.HasPermissionAsync(objectId, "ViewProduct");
-            if (!hasEditPermission) if (!hasEditPermission)
+            if (!hasEditPermission) 
                 {
                     return new OPTResult<UsersView>
                     {
                         IsSucceeded = false,
-                        Message = MessageApp.NotPermission,
+                        Message = objectId.ToString() + " "  ,
 
                     };
                 }
@@ -161,49 +161,54 @@ namespace App.Object.Base.Users
 
         }
 
-        public async Task<OPTResult<UsersCreat>> GetById(int id)
+        public async Task<OPTResult<UsersUpdate>> GetById(int id)
         {
             var user = await _userRepository.GetAsync(id);
-            if (user == null) { return new OPTResult<UsersCreat> { IsSucceeded = false, Message = MessageApp.NotFound }; }
-            var userCreat = _mapper.Map<UsersCreat>(user);
-            return OPTResult<UsersCreat>.Success(userCreat, MessageApp.AcceptOpt);
+            if (user == null) { return new OPTResult<UsersUpdate> { IsSucceeded = false, Message = MessageApp.NotFound }; }
+            var userCreat = _mapper.Map<UsersUpdate>(user);
+            
+            return OPTResult<UsersUpdate>.Success(userCreat, MessageApp.AcceptOpt);
         }
 
 
 
 
-        public async Task<OPT> Update(UsersUpdate objectView)
-        {
-            var validateAllProperties = ModelValidator.ValidateToOpt<UsersUpdate>(objectView);
-            if (!validateAllProperties.IsSucceeded) return validateAllProperties;
+   public async Task<OPT> Update(UsersUpdate objectView)
+{
+    var validateAllProperties = ModelValidator.ValidateToOpt<UsersUpdate>(objectView);
+    if (!validateAllProperties.IsSucceeded) return validateAllProperties;
 
-            var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
+    var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
         _userRepository,
         c => c.Email == objectView.Email && c.Id != objectView.Id,
         MessageApp.DuplicateField(objectView.Email)
     );
     if (!uniqueOpt.IsSucceeded) return uniqueOpt;
 
-            uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
+    uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
         _userRepository,
         c => c.Username == objectView.Username && c.Id != objectView.Id,
         MessageApp.DuplicateField(objectView.Username)
     );
-            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
+    if (!uniqueOpt.IsSucceeded) return uniqueOpt;
 
-            var user = await _userRepository.GetAsync(objectView.Id);
-            if (user == null) return new OPT().Failed(MessageApp.NotFound);
+    var user = await _userRepository.GetAsync(objectView.Id);
+    if (user == null) return new OPT().Failed(MessageApp.NotFound);
 
-            user.Username = objectView.Username;
-            user.Email = objectView.Email;
-            user.FullName = objectView.FullName;
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(objectView.Password);
-            user.UserRoles = objectView.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList();
+    user.Username = objectView.Username;
+    user.Email = objectView.Email;
+    user.FullName = objectView.FullName;
+    // فقط در صورتی که Password خالی نباشد، PasswordHash را به‌روزرسانی کن
+    if (!string.IsNullOrEmpty(objectView.Password))
+    {
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(objectView.Password);
+    }
+    user.UserRoles = objectView.RoleIds.Select(roleId => new UserRole { RoleId = roleId, UserId = objectView.Id }).ToList();
 
-            await _userRepository.UpdateAsync(user);
-            await _userRepository.SaveChangesAsync();
-            return new OPT().Succeeded(MessageApp.AcceptOpt);
-        }
+    await _userRepository.UpdateAsync(user);
+    await _userRepository.SaveChangesAsync();
+    return new OPT().Succeeded(MessageApp.AcceptOpt);
+}
 
 
     }

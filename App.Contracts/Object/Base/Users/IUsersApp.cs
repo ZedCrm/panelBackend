@@ -13,7 +13,7 @@ namespace App.Contracts.Object.Base.Users
         Task<OPTResult<UsersView>> GetAll(Pagination pagination, int userId);
         Task<OPT> Create(UsersCreat objectCreate);
         Task<OPT> DeleteBy(List<int> objectids);
-        Task<OPTResult<UsersCreat>> GetById(int id);
+        Task<OPTResult<UsersUpdate>> GetById(int id);
         Task<OPT> Update(UsersUpdate objectView);
         Task<OPTResult<UserCreateFormData>> CreateForm();
     }

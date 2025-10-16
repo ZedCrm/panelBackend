@@ -37,12 +37,31 @@ namespace App.utility
                 .ForMember(p => p.Id, o => o.Ignore());
 
 
-            CreateMap<User, UsersView>();
-            CreateMap<UsersCreat,User>() .ForMember(d => d.Id, o => o.Ignore())
-    .ForMember(d => d.PasswordHash, o => o.MapFrom(src =>
-        string.IsNullOrEmpty(src.Password) ? null : BCrypt.Net.BCrypt.HashPassword(src.Password)
-    ));
-            CreateMap<User, UsersCreat>();
+        // مپینگ برای UsersView (برای GetAll) - بدون RoleIds
+            CreateMap<User, UsersView>(); // نادیده گرفتن RoleIds
+
+            // مپینگ برای UsersUpdate (برای GetById) - شامل RoleIds
+            CreateMap<User, UsersUpdate>()
+                .ForMember(dest => dest.RoleIds, opt => opt.MapFrom(src => src.UserRoles.Select(ur => ur.RoleId).ToList()))
+                .ForMember(dest => dest.Password, opt => opt.Ignore()); // رمز عبور در پاسخ ارسال نشود
+
+            // مپینگ برای UsersCreat به User
+            CreateMap<UsersCreat, User>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src =>
+                    string.IsNullOrEmpty(src.Password) ? null : BCrypt.Net.BCrypt.HashPassword(src.Password)))
+                .ForMember(dest => dest.UserRoles, opt => opt.MapFrom(src => src.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList()));
+
+            // مپینگ برای UsersUpdate به User
+            CreateMap<UsersUpdate, User>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src =>
+                    string.IsNullOrEmpty(src.Password) ? null : BCrypt.Net.BCrypt.HashPassword(src.Password)))
+                .ForMember(dest => dest.UserRoles, opt => opt.MapFrom(src => src.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList()));
+
+            // مپینگ معکوس (اختیاری، در صورت نیاز)
+            CreateMap<User, UsersCreat>()
+                .ForMember(dest => dest.RoleIds, opt => opt.MapFrom(src => src.UserRoles.Select(ur => ur.RoleId).ToList()));
 
 
         }
