@@ -22,12 +22,12 @@ namespace API.Controllers.bases
         public async Task<ActionResult<OPTResult<UsersView>>> GetAll([FromBody] Pagination pagination)
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (int.TryParse(userIdClaim, out int userId))
+            if (!int.TryParse(userIdClaim, out int userId))
             {
                 return Unauthorized("کاربر شناسایی نشد.");
             }
             
-            userId = 1;            // /******************************************************************************************this is  for  test  remove it 
+            
             var result = await _usersApp.GetAll(pagination, userId);
             return Ok(result);
         }
