@@ -115,21 +115,10 @@ namespace App.Object.Base.Users
 
 
 
-        public async Task<OPTResult<UsersView>> GetAll(Pagination pagination, int objectId)
+        public async Task<OPTResult<UsersView>> GetAll(Pagination pagination)
         {
 
 
-            bool hasEditPermission = await _PermissionService.HasPermissionAsync(objectId, "ViewProduct");
-            if (!hasEditPermission) 
-                {
-                    return new OPTResult<UsersView>
-                    {
-                        IsSucceeded = false,
-                        Message = objectId.ToString() + " "  ,
-
-                    };
-                }
-            ;
 
             var data = await _userRepository.GetAsync();
 

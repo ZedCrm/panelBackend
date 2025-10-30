@@ -1,0 +1,125 @@
+﻿API
++-- Attributes
+|   +-- RequirePermissionAttribute.cs
++-- Controllers
+|   +-- bases
+|   |   +-- AuthController.cs
+|   |   +-- UserController.cs
+|   +-- Shop
+|   |   +-- CountTypeController.cs
+|   |   +-- InvController.cs
+|   |   +-- Product.cs
+|   +-- BaseController.cs
+|   +-- MetadataController.cs
++-- Middleware
+|   +-- TokenValidationMiddleware.cs
++-- Properties
+|   +-- launchSettings.json
++-- appsettings.Development.json
++-- appsettings.json
++-- Program.cs
++-- test.js
+App
++-- Object
+|   +-- Base
+|   |   +-- auth
+|   |   |   +-- UserContext
+|   |   |   |   +-- UserContext.cs
+|   |   |   +-- AuthApp.cs
+|   |   |   +-- IPermissionRep.cs
+|   |   |   +-- PermissionService.cs
+|   |   |   +-- TokenApp.cs
+|   |   +-- Users
+|   |   |   +-- Roles
+|   |   |   |   +-- IRoleRep.cs
+|   |   |   +-- UsersApp.cs
+|   |   +-- IPersonRep.cs
+|   |   +-- PersonApp.cs
+|   |   +-- CountTypeApp
+|   |   |   +-- ContTypeApp.cs
+|   |   +-- invApp
+|   |   |   +-- InvApp.cs
+|   |   +-- ProductApp
+|   |   |   +-- ProductApp.cs
++-- utility
+|   +-- ClassMapping.cs
+|   +-- ModelValidator.cs
+|   +-- ValidationUtility.cs
++-- IBaseRep.cs
+App.Contracts
+|   |   |   |   +-- IUserContext.cs
+|   |   |   +-- AuthResponseDto.cs
+|   |   |   +-- IPermissionService.cs
+|   |   |   +-- IUsersApp.cs
+|   |   |   +-- UsersDto.cs
+|   |   +-- IPersonApp.cs
+|   |   +-- PersonView.cs
+|   |   +-- CountTypeCon
+|   |   |   +-- CountTypeView.cs
+|   |   |   +-- ICountTypeApp.cs
+|   |   +-- InvCon
+|   |   |   +-- IInvApp.cs
+|   |   |   +-- invView.cs
+|   |   +-- ProductCon
+|   |   |   +-- IProductApp.cs
+|   |   |   +-- ProductView.cs
+ConfApp
++-- Mapping
+|   +-- Inv
+|   |   +-- CountTypeMapping.cs
+|   |   +-- ProductMapping.cs
+|   +-- PersonMapping.cs
++-- Rep
+|   |   +-- MyuserRepo.cs
+|   |   +-- PermissionRepository.cs
+|   |   +-- RoleRepo.cs
+|   |   +-- UserRep.cs
+|   |   +-- CountTypeRep.cs
+|   |   +-- invRep.cs
+|   |   +-- ProductRep.cs
+|   +-- PersonRep.cs
++-- BaseRep.cs
++-- MyContext.cs
+Domain
++-- Objects
+|   |   +-- Person.cs
+|   |   +-- User.cs
+|   |   +-- CountType.cs
+|   |   +-- Inv.cs
+|   |   +-- InvTran.cs
+|   |   +-- InvTranDetail.cs
+|   +-- BaseDomain.cs
+Infrastructure
++-- data
+|   +-- seed
+|   |   +-- UserSeeder.cs
++-- Migrations
+|   +-- 20250529121411_InitialCreate.cs
+|   +-- 20250529121411_InitialCreate.Designer.cs
+|   +-- 20250607132727_add-inventory.cs
+|   +-- 20250607132727_add-inventory.Designer.cs
+|   +-- 20250609143134_add-auth.cs
+|   +-- 20250609143134_add-auth.Designer.cs
+|   +-- 20250910100522_permisins.cs
+|   +-- 20250910100522_permisins.Designer.cs
+|   +-- 20250913115646_permisins2.cs
+|   +-- 20250913115646_permisins2.Designer.cs
+|   +-- 20250913135525_permisins3.cs
+|   +-- 20250913135525_permisins3.Designer.cs
+|   +-- 20251013070849_ChangeAuthDomainsToTest.cs
+|   +-- 20251013070849_ChangeAuthDomainsToTest.Designer.cs
+|   +-- 20251016075250_ChangeUSERROLEdOMAIN.cs
+|   +-- 20251016075250_ChangeUSERROLEdOMAIN.Designer.cs
+|   +-- MyContextModelSnapshot.cs
++-- CRMBootstraper.cs
+MyFrameWork
++-- AppTool
+|   +-- MessageApp.cs
+|   +-- OPT.cs
+|   +-- OPTResult.cs
+|   +-- Pagination.cs
+|   +-- PredicateBuilder.cs
+|   +-- SelectSourceAttribute.cs
+|   +-- Validator.cs
++-- Class1.cs
+package-lock.json

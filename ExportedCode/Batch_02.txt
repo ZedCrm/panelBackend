@@ -1,0 +1,344 @@
+﻿===== FILE: API\appsettings.Development.json =====
+{
+  
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
+
+
+===== FILE: API\appsettings.json =====
+{
+    "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://0.0.0.0:90"
+      }
+    }
+  },
+  
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=.; Database=crm; User Id=sa; Password=Nm123456; Encrypt=True; TrustServerCertificate=True; MultipleActiveResultSets=True;"
+  },
+
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+
+
+===== FILE: API\Program.cs =====
+using ConfApp;
+using Infrastructure;
+using Infrastructure.data.seed;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authentication.JwtBearer; // Ø§Ø¶Ø§ÙÙ‡ Ø´Ø¯Ù‡
+using Microsoft.IdentityModel.Tokens; // Ø§Ø¶Ø§ÙÙ‡ Ø´Ø¯Ù‡
+using System.Text;
+using API.Middleware; // Ø§Ø¶Ø§ÙÙ‡ Ø´Ø¯Ù‡
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        builder =>
+        {
+            builder.AllowAnyOrigin()
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
+});
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// ØªÙ†Ø¸ÛŒÙ… Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª JWT
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = "yourapp", // Ø¨Ø§ÛŒØ¯ Ø¨Ø§ "iss" ØªÙˆÚ©Ù† Ù…Ø·Ø§Ø¨Ù‚Øª Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯
+        ValidAudience = "yourapp", // Ø¨Ø§ÛŒØ¯ Ø¨Ø§ "aud" ØªÙˆÚ©Ù† Ù…Ø·Ø§Ø¨Ù‚Øª Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars")) // Ú©Ù„ÛŒØ¯ Ø§Ù…Ø¶Ø§
+    };
+});
+
+if (false)
+{
+    CRMBootstraper.AddCRMManagement(builder.Services, "Data Source=dev.db", DbProvider.Sqlite);
+}
+else
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    CRMBootstraper.AddCRMManagement(builder.Services, connectionString, DbProvider.SqlServer);
+}
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseRouting();
+
+// Middleware Ø¨Ø±Ø§ÛŒ Ù„Ø§Ú¯ Ú©Ø±Ø¯Ù† Ø¯Ø±Ø®ÙˆØ§Ø³Øªâ€ŒÙ‡Ø§
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation("Received {Method} request at {Url}", context.Request.Method, context.Request.Path);
+    await next();
+    logger.LogInformation("Response Status Code: {StatusCode}", context.Response.StatusCode);
+});
+
+// Middleware Ø¨Ø±Ø§ÛŒ Ù‡Ù†Ø¯Ù„ Ú©Ø±Ø¯Ù† Ø¯Ø±Ø®ÙˆØ§Ø³Øªâ€ŒÙ‡Ø§ÛŒ Preflight (OPTIONS)
+app.Use(async (context, next) =>
+{
+    if (context.Request.Method == "OPTIONS")
+    {
+        context.Response.StatusCode = 200;
+        await context.Response.CompleteAsync();
+        return;
+    }
+    await next();
+});
+
+app.UseCors("AllowAll");
+
+app.UseAuthentication(); 
+app.UseTokenValidation();
+app.UseAuthorization();
+
+builder.Services.AddHttpContextAccessor();
+app.UseHttpsRedirection();
+
+app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<MyContext>();
+    var seeder = new DatabaseSeeder(context);
+    seeder.SeedAll();
+}
+
+app.Run();
+
+===== FILE: API\test.js =====
+
+
+===== FILE: App\Object\Base\auth\UserContext\UserContext.cs =====
+
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using App.Contracts.Object.Base.auth.UserContext;
+
+namespace App.Object.Base.auth.UserContext
+{
+    public class UserContext : IUserContext
+    {
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
+        public UserContext(IHttpContextAccessor httpContextAccessor)
+        {
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        public int? GetUserId()
+        {
+            if (_httpContextAccessor.HttpContext?.Items.TryGetValue("UserId", out var userIdObj) == true && userIdObj is int userId)
+            {
+                return userId;
+ 
+            }
+            return null;
+        }
+
+        public bool IsAuthenticated()
+        {
+            return _httpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated ?? false;
+        }
+    }
+}
+
+===== FILE: App\Object\Base\auth\AuthApp.cs =====
+using App.Contracts.Object.Base.auth;
+using Domain.Objects.Base;
+using MyFrameWork.AppTool;
+
+namespace App.Object.Base.Auth
+{
+
+    public class AuthApp : IAuthApp
+    {
+        private readonly IUserRepository _userRepository;
+        private readonly ITokenApp _tokenService;
+
+        public AuthApp(IUserRepository userRepository, ITokenApp tokenService)
+        {
+            _userRepository = userRepository;
+            _tokenService = tokenService;
+        }
+
+      public async Task<OPTResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
+{
+    var user = await _userRepository.GetByEmailAsync(request.Email);
+    if (user == null)
+        return OPTResult<AuthResponseDto>.Failed("Ú©Ø§Ø±Ø¨Ø±ÛŒ Ø¨Ø§ Ø§ÛŒÙ† Ø§ÛŒÙ…ÛŒÙ„ ÛŒØ§ÙØª Ù†Ø´Ø¯.");
+
+    var isPasswordCorrect = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+    if (!isPasswordCorrect)
+        return OPTResult<AuthResponseDto>.Failed("Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª.");
+
+    var token = _tokenService.GenerateToken(user);
+
+    return OPTResult<AuthResponseDto>.Success(new AuthResponseDto
+    {   UserId = user.Id,
+        Email = user.Email,
+        FullName = user.FullName,
+        Token = token
+    });
+}
+
+      public async Task<OPTResult<AuthResponseDto>> RegisterAsync(RegisterRequestDto request)
+{
+    if (await _userRepository.ExistsByEmailAsync(request.Email))
+        return OPTResult<AuthResponseDto>.Failed("Ø§ÛŒÙ…ÛŒÙ„ ÙˆØ§Ø±Ø¯ Ø´Ø¯Ù‡ Ù‚Ø¨Ù„Ø§Ù‹ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.");
+
+    var user = new User
+    {
+        FullName = request.FullName,
+        Email = request.Email,
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
+    };
+
+    await _userRepository.AddAsync(user);
+    var token = _tokenService.GenerateToken(user);
+
+    return OPTResult<AuthResponseDto>.Success(new AuthResponseDto
+    {
+        Email = user.Email,
+        FullName = user.FullName,
+        Token = token
+    });
+}
+    }
+    public interface IUserRepository
+    {
+        Task<User?> GetByEmailAsync(string email);
+        Task AddAsync(User user);
+        Task<bool> ExistsByEmailAsync(string email);
+    }
+
+}
+
+===== FILE: App\Object\Base\auth\IPermissionRep.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace App.Object.Base.auth
+{
+    public interface IPermissionRep 
+    {
+        Task<bool> HasPermissionAsync(int userId, string permission);
+    }
+}
+
+===== FILE: App\Object\Base\auth\PermissionService.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using App.Contracts.Object.Base.auth;
+
+namespace App.Object.Base.auth
+{
+    public class PermissionService :IPermissionService
+    {
+       private readonly IPermissionRep _permissionRep;
+
+        public PermissionService (IPermissionRep permissionRep)
+        {
+            _permissionRep = permissionRep;
+        }
+
+        public async Task<bool> HasPermissionAsync(int userId, string permission)
+        {
+            return await _permissionRep.HasPermissionAsync(userId, permission);
+        }
+    }
+}
+
+===== FILE: App\Object\Base\auth\TokenApp.cs =====
+
+using App.Contracts.Object.Base.auth;
+using Domain.Objects.Base;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+namespace App.Object.Base.auth
+{
+    public class TokenApp : ITokenApp
+    {
+
+
+
+
+        public string GenerateToken(User user)
+        {
+            var claims = new[]
+            {
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new Claim(ClaimTypes.Email, user.Email),
+        new Claim(ClaimTypes.Name, user.FullName)
+    };
+
+            // ðŸ”’ Ù‡Ø§Ø±Ø¯Ú©Ø¯ Ù…ÙˆÙ‚ØªÛŒ Ø¨Ø±Ø§ÛŒ Ø§Ù…Ø¶Ø§
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars")); // Ø§ÛŒÙ†Ùˆ Ø¨Ø¹Ø¯Ø§Ù‹ Ù…ÛŒâ€ŒØ¨Ø±ÛŒ ØªÙˆÛŒ appsettings
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                issuer: "yourapp",
+                audience: "yourapp",
+                claims: claims,
+                expires: DateTime.Now.AddHours(1),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+    }
+}
+
+===== FILE: App\Object\Base\Users\Roles\IRoleRep.cs =====
+using App;
+using Domain.Objects.Base;
+
+public interface IRoleRep :  IBaseRep<Role, int> {
+
+
+}
+

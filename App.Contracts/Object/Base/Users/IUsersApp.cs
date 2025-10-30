@@ -10,7 +10,7 @@ namespace App.Contracts.Object.Base.Users
     {
         
        // public Task<OPTResult<UsersView>> SearchProducts(ProductSearchCriteria criteria);
-        Task<OPTResult<UsersView>> GetAll(Pagination pagination, int userId);
+        Task<OPTResult<UsersView>> GetAll(Pagination pagination);
         Task<OPT> Create(UsersCreat objectCreate);
         Task<OPT> DeleteBy(List<int> objectids);
         Task<OPTResult<UsersUpdate>> GetById(int id);

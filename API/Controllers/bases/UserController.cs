@@ -21,14 +21,10 @@ namespace API.Controllers.bases
         [Route("/api/User/GetAll")]
         public async Task<ActionResult<OPTResult<UsersView>>> GetAll([FromBody] Pagination pagination)
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (!int.TryParse(userIdClaim, out int userId))
-            {
-                return Unauthorized("کاربر شناسایی نشد.");
-            }
+
             
             
-            var result = await _usersApp.GetAll(pagination, userId);
+            var result = await _usersApp.GetAll(pagination);
             return Ok(result);
         }
 

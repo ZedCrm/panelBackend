@@ -4,7 +4,8 @@ using Infrastructure.data.seed;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authentication.JwtBearer; // اضافه شده
 using Microsoft.IdentityModel.Tokens; // اضافه شده
-using System.Text; // اضافه شده
+using System.Text;
+using API.Middleware; // اضافه شده
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -88,8 +89,10 @@ app.Use(async (context, next) =>
 app.UseCors("AllowAll");
 
 app.UseAuthentication(); 
+app.UseTokenValidation();
 app.UseAuthorization();
 
+builder.Services.AddHttpContextAccessor();
 app.UseHttpsRedirection();
 
 app.MapControllers();

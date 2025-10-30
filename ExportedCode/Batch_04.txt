@@ -1,0 +1,269 @@
+﻿===== FILE: App.Contracts\Object\Base\auth\UserContext\IUserContext.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace App.Contracts.Object.Base.auth.UserContext
+{
+    public interface IUserContext
+    {
+        int? GetUserId();
+        bool IsAuthenticated();
+        // Ù…ÛŒâ€ŒØªÙˆÙ†ÛŒ Ù…ØªØ¯Ù‡Ø§ÛŒ Ø¯ÛŒÚ¯Ù‡â€ŒØ§ÛŒ Ù…Ø«Ù„ GetUserRoles ÛŒØ§ GetClaim Ø§Ø¶Ø§ÙÙ‡ Ú©Ù†ÛŒ
+    }
+}
+
+===== FILE: App.Contracts\Object\Base\auth\AuthResponseDto.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Domain.Objects.Base;
+using MyFrameWork.AppTool;
+
+namespace App.Contracts.Object.Base.auth
+{
+    public class AuthResponseDto
+    {
+        public int UserId { get; set; } = default! ;
+        public string Token { get; set; } = default!;
+        public string Email { get; set; } = default!;
+        public string FullName { get; set; } = default!;
+        
+    }
+
+     public class LoginRequestDto
+    {
+        public string Email { get; set; } = default!;
+        public string Password { get; set; } = default!;
+    }
+
+        public class RegisterRequestDto
+    {
+        public string FullName { get; set; } = default!;
+        public string Email { get; set; } = default!;
+        public string Password { get; set; } = default!;
+    }
+
+      public interface IAuthApp
+    {
+         Task<OPTResult<AuthResponseDto>>  RegisterAsync(RegisterRequestDto dto);
+        Task<OPTResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
+        
+    }
+
+     public interface ITokenApp
+    {
+        string GenerateToken(User user);
+    }
+}
+
+===== FILE: App.Contracts\Object\Base\auth\IPermissionService.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace App.Contracts.Object.Base.auth
+{
+    public interface IPermissionService
+    {
+        Task<bool> HasPermissionAsync(int userId, string permission);
+    }
+}
+
+===== FILE: App.Contracts\Object\Base\Users\IUsersApp.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using MyFrameWork.AppTool;
+
+namespace App.Contracts.Object.Base.Users
+{
+    public interface IUsersApp
+    {
+        
+       // public Task<OPTResult<UsersView>> SearchProducts(ProductSearchCriteria criteria);
+        Task<OPTResult<UsersView>> GetAll(Pagination pagination);
+        Task<OPT> Create(UsersCreat objectCreate);
+        Task<OPT> DeleteBy(List<int> objectids);
+        Task<OPTResult<UsersUpdate>> GetById(int id);
+        Task<OPT> Update(UsersUpdate objectView);
+        Task<OPTResult<UserCreateFormData>> CreateForm();
+    }
+}
+
+===== FILE: App.Contracts\Object\Base\Users\UsersDto.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace App.Contracts.Object.Base.Users
+{
+    public class UsersView
+    {
+        public int Id { get; set; } = default!;
+        public string FullName { get; set; } = default!;
+        public string Username { get; set; } = default!;
+        public string Email { get; set; } = default!;
+
+    }
+    public class UsersCreat
+    {
+
+        public string FullName { get; set; } = default!;
+        public string Username { get; set; } = default!;
+        public string Email { get; set; } = default!;
+        public string Password { get; set; } = default!;
+        // Ø´Ù†Ø§Ø³Ù‡â€Œ Ø±ÙˆÙ„â€ŒÙ‡Ø§ÛŒÛŒ Ú©Ù‡ Ú©Ø§Ø±Ø¨Ø± Ø¨Ø§ÛŒØ¯ Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ù‡
+        public List<int> RoleIds { get; set; } = new List<int>();
+
+    }
+
+    public class UsersUpdate
+    {
+        public int Id { get; set; } = default!;
+        public string FullName { get; set; } = default!;
+        public string Username { get; set; } = default!;
+        public string Email { get; set; } = default!;
+        public string? Password { get; set; } = default!;
+        public List<int> RoleIds { get; set; } = new List<int>();
+    }
+
+
+    public class UserCreateFormData
+    {
+        public List<RoleView> Roles { get; set; } = new();
+        
+    }
+
+    public class RoleView
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = default!;
+    }
+
+}
+
+===== FILE: App.Contracts\Object\Base\IPersonApp.cs =====
+namespace App.Contracts.Object.Base
+{
+    public interface IPersonApp
+    {
+        Task<List<PersonView>> PersonViews();
+    }
+}
+
+
+===== FILE: App.Contracts\Object\Base\PersonView.cs =====
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace App.Contracts.Object.Base
+{
+    public class PersonView
+    {
+        [Required]
+        public int Id { get; set; }
+
+        [Required]
+        [StringLength(3)]
+        public string Name { get; set; }
+
+        [Required]
+        [StringLength(3)]
+        public string Family { get; set; }
+
+        [Required]
+        public int age { get; set; }
+    }
+}
+
+
+===== FILE: App.Contracts\Object\Shop\CountTypeCon\CountTypeView.cs =====
+using MyFrameWork.AppTool;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Text.Json.Nodes;
+using System.Threading.Tasks;
+
+namespace App.Contracts.Object.Shop.CountTypeCon
+{
+    public class CountTypeView
+    {
+        [Display(Name = " Ø´Ù†Ø§Ø³Ù‡")]
+        public int Id { get; set; }
+    
+        [Display(Name = " Ù†Ø§Ù… ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´")]
+        public string Name { get; set; } = "";
+        
+
+    }
+    public class CountTypeCreate 
+    {
+
+        
+    
+        [Display(Name = " Ù†Ø§Ù… ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        [RegularExpression(@"^[\u0600-\u06FF\s]+$", ErrorMessage = "ÙÙ‚Ø· Ø§Ø² Ø­Ø±ÙˆÙ ÙØ§Ø±Ø³ÛŒ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ú©Ù†ÛŒØ¯")]
+        [DataType(DataType.Text)]
+        public string Name { get; set; } = "";
+       
+       
+
+    }
+    
+   
+
+}
+
+
+===== FILE: App.Contracts\Object\Shop\CountTypeCon\ICountTypeApp.cs =====
+using MyFrameWork.AppTool;
+
+
+namespace App.Contracts.Object.Shop.CountTypeCon
+{
+    public interface ICountTypeApp
+    {
+        public Task<OPTResult<CountTypeView>> GetAll(Pagination pagination);
+        public Task<OPTResult<CountTypeView>> GetById(int id);
+        public Task<OPTResult<CountTypeView>> Create(CountTypeCreate countTypeCreate);
+        public Task<OPTResult<CountTypeView>> Update(CountTypeView countTypeView);
+        public Task<OPTResult<CountTypeView>> DeleteBy(List<int> ids);
+    }
+
+}
+
+
+===== FILE: App.Contracts\Object\Shop\InvCon\IInvApp.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using MyFrameWork.AppTool;
+
+namespace App.Contracts.Object.Shop.InvCon
+{
+    public interface IInvApp
+    {
+        public Task<OPTResult<InvView>> GetAll(Pagination pagination);
+        public Task<OPTResult<InvUpdate>> GetById(int id);
+        public Task<OPTResult<InvCreate>> Create(InvCreate createData);
+        public Task<OPTResult<InvUpdate>> Update(InvUpdate updateData);
+        public Task<OPTResult<InvView>> DeleteBy(List<int> ids);
+    }
+}
+

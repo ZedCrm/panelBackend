@@ -1,0 +1,372 @@
+﻿===== FILE: App.Contracts\Object\Shop\InvCon\invView.cs =====
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Threading.Tasks;
+using MyFrameWork.AppTool;
+
+namespace App.Contracts.Object.Shop.InvCon
+{
+    public class InvView
+    {
+        public int Id { get; set; }
+        [Display(Name = "Ù†Ø§Ù…")]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+        [Display(Name = "ÙØ¹Ø§Ù„")]
+        public Boolean Active  { get; set; }=true;
+    }
+
+
+    public class InvCreate
+    {
+        
+        [Display(Name = "Ù†Ø§Ù…")]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+        [Display(Name = "ÙØ¹Ø§Ù„")]
+        public Boolean Active  { get; set; }=true;
+    }
+    
+
+        public class InvUpdate
+    {
+        public int Id { get; set; }
+        [Display(Name = "Ù†Ø§Ù…")]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+        [Display(Name = "ÙØ¹Ø§Ù„")]
+        public Boolean Active  { get; set; }=true;
+    
+    }
+
+}
+
+===== FILE: App.Contracts\Object\Shop\ProductCon\IProductApp.cs =====
+using MyFrameWork.AppTool;
+
+
+namespace App.Contracts.Object.Shop.ProductCon
+{
+    public interface IProductApp
+    {
+        /// <summary>
+    /// جستجوی محصولات بر اساس معیارهای مشخص (نام، حداقل و حداکثر قیمت).
+    /// </summary>
+    /// <param name="criteria">معیارهای جستجو شامل نام، قیمت و اطلاعات صفحه‌بندی.</param>
+    /// <returns>لیست محصولات به همراه اطلاعات صفحه‌بندی.</returns>
+    /// 
+
+    
+        public Task<OPTResult<ProductView>> SearchProducts(ProductSearchCriteria criteria);
+        Task<OPTResult<ProductView>> GetAll(Pagination pagination);
+        Task<OPT> Create(ProductCreate productCreate);
+        Task<OPT> DeleteBy(List<int> productids);
+        Task<OPTResult<ProductUpdate>> GetById(int id);
+        Task<OPTResult<ProductView>> Update(ProductView productView);
+        
+        //public void Dispose();
+    }
+
+}
+
+
+===== FILE: App.Contracts\Object\Shop\ProductCon\ProductView.cs =====
+using MyFrameWork.AppTool;
+using System.ComponentModel.DataAnnotations;
+
+
+
+
+namespace App.Contracts.Object.Shop.ProductCon
+{
+    public class ProductView
+    {
+       
+        public int Id { get; set; }
+        [Display(Name = " کد محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string ProductCode { get; set; }
+
+        [Display(Name = " نام محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+
+        [Display(Name = " قیمت")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
+        
+        public int Price { get; set; }
+        
+
+    }
+    public class ProductCreate 
+    {
+
+        [Display(Name = " کد محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string ProductCode { get; set; }
+
+        [Display(Name = " نام محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+
+        [Display(Name = " قیمت")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
+        
+        public int Price { get; set; }
+
+        [Display(Name = " واحد شمارش")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]  
+        [SelectSource("/api/counttype/CountTypelist")]
+        public int CountTypeId { get; set; }
+       
+       
+
+    }
+
+       public class ProductUpdate 
+    {
+
+        public int Id { get; set; }
+
+        [Display(Name = " کد محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string ProductCode { get; set; }
+
+        [Display(Name = " نام محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+
+        [Display(Name = " قیمت")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
+        
+        public int Price { get; set; }
+
+        [Display(Name = " واحد شمارش")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]  
+        [SelectSource("/api/counttype/CountTypelist")]
+        public int CountTypeId { get; set; }
+       
+       
+
+    }
+    public class ProductSearchCriteria : Pagination
+    {
+        public string? Name { get; set; }
+        public int? MinPrice { get; set; }
+        public int? MaxPrice { get; set; }
+    }
+
+}
+
+
+===== FILE: ConfApp\Mapping\Inv\CountTypeMapping.cs =====
+using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ConfApp.Mapping.Inv
+{
+    public class CountTypeMapping : IEntityTypeConfiguration<CountType>         
+    {           
+
+                public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<CountType> builder)
+                {
+                    builder.ToTable("CountTypes");
+                
+                    builder.HasKey(x => x.Id);
+                    builder.HasIndex(x => x.Id);
+                    builder.Property(x => x.Name).IsRequired().HasMaxLength(50);
+                
+                }
+    }           
+                
+}
+
+===== FILE: ConfApp\Mapping\Inv\ProductMapping.cs =====
+using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ConfApp.Mapping.Inv
+{
+    public class ProductMapping : IEntityTypeConfiguration<Product>
+    {
+        public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<Product> builder)
+        {
+            builder.ToTable("Products");
+
+            builder.HasKey(x => x.Id);
+            builder.HasIndex(x => x.Id);
+            builder.Property(x => x.Name).IsRequired().HasMaxLength(250);
+            
+
+        }
+    }
+}
+
+
+===== FILE: ConfApp\Mapping\PersonMapping.cs =====
+using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ConfApp.Mapping
+{
+    public class PersonMapping : IEntityTypeConfiguration<Person>
+    {
+        public void Configure(EntityTypeBuilder<Person> builder)
+        {
+            builder.ToTable("Persons");
+
+            builder.HasKey(x => x.Id);
+            builder.HasIndex(x => x.Id);
+            builder.Property(x => x.Name).IsRequired().HasMaxLength(250);
+            builder.Property(x => x.Family).IsRequired().HasMaxLength(250);
+
+        }
+    }
+}
+
+
+===== FILE: ConfApp\Rep\bases\MyuserRepo.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using App.Object.Base.Users;
+using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
+
+namespace ConfApp.Rep.bases
+{
+    public class MyuserRepo :  BaseRep<User , int> , IMyUserRepository 
+    {
+        
+        private readonly MyContext _context;
+
+        public MyuserRepo(MyContext context) : base(context) 
+        {
+            _context = context;
+        }
+
+
+
+       public async Task<User> GetAsync(int userId)
+        {
+            return await _context.Users
+                .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
+        }
+    }
+}
+
+===== FILE: ConfApp\Rep\bases\PermissionRepository.cs =====
+
+using App.Object.Base.auth;
+using Microsoft.EntityFrameworkCore;
+
+namespace ConfApp.Rep.bases
+{
+    public class PermissionRepository : IPermissionRep
+    {
+        private readonly MyContext _context;
+
+        public PermissionRepository(MyContext context)
+        {
+            _context = context;
+        }
+
+                    public async Task<bool> HasPermissionAsync(int userId, string permission)
+{
+            return await _context.UserRoles
+                .Where(ur => ur.UserId == userId && !ur.IsDeleted) 
+        .Include(ur => ur.Role) // Ù„ÙˆØ¯ Role
+        .ThenInclude(r => r.RolePermissions) // Ù„ÙˆØ¯ RolePermissions
+        .ThenInclude(rp => rp.Permission) // Ù„ÙˆØ¯ Permission
+        .AnyAsync(ur => ur.Role.RolePermissions.Any(rp => rp.Permission.Name == permission));
+        }
+    }
+}
+
+===== FILE: ConfApp\Rep\bases\RoleRepo.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Domain.Objects.Base;
+
+namespace ConfApp.Rep.bases
+{
+    public class RoleRepo : BaseRep<Role, int>, IRoleRep
+    {
+        private readonly MyContext ctx;
+        public RoleRepo(MyContext ctx) : base(ctx)
+        {
+            this.ctx = ctx;
+        }
+    }
+}
+
+===== FILE: ConfApp\Rep\bases\UserRep.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using App.Object.Base.Auth;
+using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
+
+namespace ConfApp.Rep.bases
+{
+    public class UserRep : IUserRepository
+    {
+        
+        private readonly MyContext _context;
+
+        public UserRep(MyContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<User?> GetByEmailAsync(string email)
+        {
+            return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+        }
+
+        public async Task AddAsync(User user)
+        {
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<bool> ExistsByEmailAsync(string email)
+        {
+            return await _context.Users.AnyAsync(u => u.Email == email);
+        }
+
+        
+    }
+}
+

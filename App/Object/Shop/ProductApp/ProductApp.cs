@@ -1,4 +1,5 @@
 ﻿using App.Contracts.Object.Base.auth;
+using App.Contracts.Object.Base.auth.UserContext;
 using App.Contracts.Object.Shop.ProductCon;
 using App.utility;
 using AutoMapper;
@@ -16,12 +17,14 @@ namespace App.Object.Shop.ProductApp
         private readonly IProductRep _productRep;
         private readonly IMapper _mapper;
         private readonly IPermissionService _PermissionService;
+        private readonly IUserContext _userContext;
 
-        public ProductApp(IProductRep productRep, IMapper mapper , IPermissionService permissionService)
+        public ProductApp(IProductRep productRep, IMapper mapper , IPermissionService permissionService , IUserContext userContext)
         {
             _productRep = productRep;
             this._mapper = mapper;
             _PermissionService = permissionService ;
+            _userContext = userContext;
         }
         #endregion
 
@@ -87,11 +90,10 @@ namespace App.Object.Shop.ProductApp
 
 
 
-        public async Task<OPTResult<ProductView>> GetAll(Pagination pagination,int userId)
+        public async Task<OPTResult<ProductView>> GetAll(Pagination pagination)
         {  
 
-            bool hasEditPermission = await _PermissionService.HasPermissionAsync(userId, "ViewProduct");
-            if(!hasEditPermission) if (!hasEditPermission)
+         
     {
         return new OPTResult<ProductView>
         {

@@ -1,0 +1,657 @@
+﻿===== FILE: API\Attributes\RequirePermissionAttribute.cs =====
+using Microsoft.AspNetCore.Mvc;
+
+namespace API.Attributes
+{
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+    public class RequirePermissionAttribute : Attribute
+    {
+        public string Permission { get; }
+        public RequirePermissionAttribute(string permission)
+        {
+            Permission = permission;
+        }
+    }
+}
+
+===== FILE: API\Controllers\bases\AuthController.cs =====
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
+using App.Contracts.Object.Base.auth;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using MyFrameWork.AppTool;
+
+namespace API.Controllers.bases
+{
+
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AuthController : ControllerBase
+    {
+        private readonly IAuthApp _authApp;
+
+        public AuthController(IAuthApp authApp)
+        {
+            _authApp = authApp;
+        }
+
+        [HttpPost("login")]
+        public async Task<ActionResult<OPTResult<AuthResponseDto>>> Login([FromBody] LoginRequestDto request)
+        {
+            var result = await _authApp.LoginAsync(request);
+            if (result.IsSucceeded == false)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register(RegisterRequestDto dto)
+        {
+            var result = await _authApp.RegisterAsync(dto);
+            if (result.IsSucceeded == false)
+                return BadRequest(result.Message);
+            return Ok(result.Data);
+        }
+    }
+}
+
+===== FILE: API\Controllers\bases\UserController.cs =====
+using App.Contracts.Object.Base.Users;
+using App.Object.Base.Users;
+using Microsoft.AspNetCore.Mvc;
+using MyFrameWork.AppTool;
+using System.Security.Claims;
+
+namespace API.Controllers.bases
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class UserController : BaseController
+    {
+        private readonly IUsersApp _usersApp;
+
+        public UserController(IUsersApp usersApp)
+        {
+            _usersApp = usersApp;
+        }
+
+        [HttpPost]
+        [Route("/api/User/GetAll")]
+        public async Task<ActionResult<OPTResult<UsersView>>> GetAll([FromBody] Pagination pagination)
+        {
+
+            
+            
+            var result = await _usersApp.GetAll(pagination);
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("/api/User/GetById")]
+        public async Task<ActionResult<OPTResult<UsersUpdate>>> GetById([FromQuery] int id)
+        {
+            var result = await _usersApp.GetById(id);
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("/api/User/create")]
+        public async Task<ActionResult<OPT>> Create([FromBody] UsersCreat userCreate)
+        {
+            var result = await _usersApp.Create(userCreate);
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("/api/User/update")]
+        public async Task<ActionResult<OPT>> Update([FromBody] UsersUpdate userUpdate)
+        {
+            var result = await _usersApp.Update(userUpdate);
+            return Ok(result);
+        }
+
+        [HttpPost]
+        [Route("/api/User/delete")]
+        public async Task<ActionResult<OPT>> Delete([FromBody] List<int> ids)
+        {
+            var result = await _usersApp.DeleteBy(ids);
+            return Ok(result);
+        }
+
+        [HttpGet]
+        [Route("/api/User/getcreateform")]
+        public async Task<ActionResult<OPTResult<UserCreateFormData>>> GetCreateForm()
+        {
+            var result = await _usersApp.CreateForm();
+            return Ok(result);
+        }
+    }
+}
+
+===== FILE: API\Controllers\Shop\CountTypeController.cs =====
+using App.Contracts.Object.Shop.CountTypeCon;
+using App.Contracts.Object.Shop.ProductCon;
+using Microsoft.AspNetCore.Mvc;
+using MyFrameWork.AppTool;
+
+namespace API.Controllers.Shop
+{
+
+    public class CountTypeController : BaseController
+    {
+            private readonly ICountTypeApp countTypeApp;
+
+           public CountTypeController(ICountTypeApp countTypeApp)
+        {
+            this.countTypeApp = countTypeApp;
+        }
+       
+
+        [HttpPost]
+        [Route("/api/CountType/GetAll")]
+        public async Task<ActionResult<OPTResult<CountTypeView>>> Index([FromBody] Pagination pagination)
+        {
+             return await countTypeApp.GetAll(pagination);
+
+             
+
+            
+        }
+        [HttpGet]
+        [Route("/api/CountType/GetById")]
+        public async Task<ActionResult<OPTResult<CountTypeView>>> GetById([FromQuery] int id)
+        {
+            var result = await countTypeApp.GetById(id);
+            if (result.IsSucceeded == true) { return Ok(result); }
+            else { return Ok(result); }
+        }
+        
+
+
+      
+
+
+        [HttpPost]
+        [Route("/api/CountType/create")]
+        public async Task<ActionResult> create([FromBody] CountTypeCreate countTypeCreate)
+        {
+
+            var opt = await countTypeApp.Create(countTypeCreate);
+            if (opt.IsSucceeded==true) { return Ok(opt); }
+            else { return Ok ( opt); }
+            
+
+        }
+       
+
+        [HttpPost]
+        [Route("/api/CountType/delete")]
+        public async Task<ActionResult> delete([FromBody] List<int> ids)
+        {
+            var result = await countTypeApp.DeleteBy(ids); 
+            return Ok(result);
+        }
+
+        [HttpDelete]
+        [Route("/api/CountType/deletebyid")]
+        public OkResult deletebyid([FromQuery] int id)
+        {
+            var ids = new List<int> { id };
+            countTypeApp.DeleteBy(ids); // ØªØºÛŒÛŒØ± Ù…ØªØ¯ DeleteBy Ø¨Ø±Ø§ÛŒ Ù¾Ø°ÛŒØ±Ø´ Ù„ÛŒØ³Øª Ø¢ÛŒâ€ŒØ¯ÛŒâ€ŒÙ‡Ø§
+            return Ok();
+        }
+
+
+        [HttpPost]
+        [Route("/api/CountType/update")]
+        public async Task<ActionResult> update([FromBody] CountTypeView countTypeView)
+        {
+            var opt = await countTypeApp.Update(countTypeView);
+            if (opt.IsSucceeded == true) { return Ok(opt); }
+            else { return Ok(opt); }  
+        }        
+        [HttpGet("/api/counttype/CountTypelist")]
+        public IActionResult CountTypeList()
+        {
+            var pagination = new Pagination
+            {
+                PageNumber = 1,
+                PageSize = 1000
+            };
+            var list = countTypeApp.GetAll(pagination);
+            return Ok(list);
+        }
+       
+    }
+}
+
+
+===== FILE: API\Controllers\Shop\InvController.cs =====
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
+using App.Contracts.Object.Shop.InvCon;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using MyFrameWork.AppTool;
+
+namespace API.Controllers.Shop
+{
+    [Route("[controller]")]
+    public class InvController : BaseController
+    {
+
+
+        private readonly IInvApp invApp;
+        private readonly ILogger<InvController> _logger;
+        public InvController(IInvApp invApp, ILogger<InvController> logger)
+        {
+            this.invApp = invApp;
+            _logger = logger;
+
+        }
+
+
+
+        [HttpPost]
+        [Route("/api/inv/GetAll")]
+        public async Task<ActionResult<OPTResult<InvView>>> Index([FromBody] Pagination pagination)
+        {
+            return await invApp.GetAll(pagination);
+        }
+
+        [HttpGet]
+        [Route("/api/inv/GetById")]
+        public async Task<ActionResult<OPTResult<InvUpdate>>> GetById([FromQuery] int id)
+        {
+            var result = await invApp.GetById(id);
+            if (result.IsSucceeded == true) { return Ok(result); }
+            else { return Ok(result); }
+        }
+
+        [HttpPost]
+        [Route("/api/inv/create")]
+        public async Task<ActionResult> create([FromBody] InvCreate invCreate)
+        {
+
+            var opt = await invApp.Create(invCreate);
+            if (opt.IsSucceeded == true) { return Ok(opt); }
+            else { return Ok(opt); }
+
+
+        }
+
+        [HttpPost]
+        [Route("/api/inv/delete")]
+        public async Task<ActionResult> delete([FromBody] List<int> ids)
+        {
+            var result = await invApp.DeleteBy(ids);
+            return Ok(result);
+        }
+
+        [HttpDelete]
+        [Route("/api/inv/deletebyid")]
+        public OkResult deletebyid([FromQuery] int id)
+        {
+            var ids = new List<int> { id };
+            invApp.DeleteBy(ids); // ØªØºÛŒÛŒØ± Ù…ØªØ¯ DeleteBy Ø¨Ø±Ø§ÛŒ Ù¾Ø°ÛŒØ±Ø´ Ù„ÛŒØ³Øª Ø¢ÛŒâ€ŒØ¯ÛŒâ€ŒÙ‡Ø§
+            return Ok();
+        }
+
+
+        [HttpPost]
+        [Route("/api/inv/update")]
+        public async Task<ActionResult> update([FromBody] InvUpdate invUpdate)
+        {
+            var opt = await invApp.Update(invUpdate);
+            if (opt.IsSucceeded == true) { return Ok(opt); }
+            else { return Ok(opt); }  
+        }  
+
+
+    }
+}
+
+===== FILE: API\Controllers\Shop\Product.cs =====
+using API.Attributes;
+using App.Contracts.Object.Shop.ProductCon;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using MyFrameWork.AppTool;
+
+namespace API.Controllers.Shop
+{
+    /// <summary>
+    /// کنترلر مربوط به مدیریت محصولات در سیستم
+    /// </summary>
+    public class Product : BaseController
+    {
+        private readonly IProductApp _productApp;
+
+        /// <summary>
+        /// سازنده کنترلر، تزریق وابستگی IProductApp
+        /// </summary>
+        /// <param name="productApp">سرویس لایه اپلیکیشن برای مدیریت محصولات</param>
+        public Product(IProductApp productApp)
+        {
+            _productApp = productApp;
+        }
+
+        /// <summary>
+        /// دریافت لیست محصولات با صفحه‌بندی
+        /// </summary>
+        /// <param name="pagination">اطلاعات صفحه‌بندی</param>
+        /// <returns>لیست محصولات یا خطای عدم دسترسی</returns>
+        [HttpPost]
+        [Route("/api/product/GetAll")]
+        [RequirePermission("ViewProduct")]
+        public async Task<ActionResult<OPTResult<ProductView>>> Index([FromBody] Pagination pagination)
+        {
+           
+            // فراخوانی متد GetAll از لایه اپلیکیشن با userId
+            return await _productApp.GetAll(pagination);
+        }
+
+        /// <summary>
+        /// جستجوی محصولات بر اساس معیارهای مشخص
+        /// </summary>
+        /// <param name="productSearch">معیارهای جستجو</param>
+        /// <returns>لیست محصولات فیلترشده</returns>
+        [HttpPost]
+        [Route("/api/product/search")]
+        public async Task<ActionResult<OPTResult<ProductView>>> Search([FromBody] ProductSearchCriteria productSearch)
+        {
+            return await _productApp.SearchProducts(productSearch);
+        }
+
+        /// <summary>
+        /// ایجاد محصول جدید
+        /// </summary>
+        /// <param name="product">اطلاعات محصول جدید</param>
+        /// <returns>نتیجه عملیات ایجاد</returns>
+        [HttpPost]
+        [Route("/api/product/create")]
+        public async Task<ActionResult> Create([FromBody] ProductCreate product)
+        {
+            var opt = await _productApp.Create(product);
+            return Ok(opt);
+        }
+
+        /// <summary>
+        /// حذف محصولات بر اساس لیست آیدی‌ها
+        /// </summary>
+        /// <param name="ids">لیست آیدی‌های محصولات</param>
+        /// <returns>نتیجه عملیات حذف</returns>
+        [HttpPost]
+        [Route("/api/product/delete")]
+        public async Task<OkObjectResult> Delete([FromBody] List<int> ids)
+        {
+            var opt = await _productApp.DeleteBy(ids);
+            return Ok(opt);
+        }
+
+        /// <summary>
+        /// دریافت اطلاعات یک محصول بر اساس آیدی
+        /// </summary>
+        /// <param name="id">آیدی محصول</param>
+        /// <returns>اطلاعات محصول یا پیام خطا</returns>
+        [HttpGet]
+        [Route("/api/product/GetById")]
+        public async Task<ActionResult<OPTResult<ProductUpdate>>> GetById([FromQuery] int id)
+        {
+            var result = await _productApp.GetById(id);
+            if (result.IsSucceeded)
+            {
+                return Ok(result);
+            }
+            return Ok(new { warning = result.Message });
+        }
+
+        /// <summary>
+        /// به‌روزرسانی اطلاعات محصول
+        /// </summary>
+        /// <param name="product">اطلاعات به‌روزرسانی‌شده محصول</param>
+        /// <returns>نتیجه عملیات به‌روزرسانی</returns>
+        [HttpPost]
+        [Route("/api/product/update")]
+        public async Task<ActionResult> Update([FromBody] ProductView product)
+        {
+            var opt = await _productApp.Update(product);
+            if (opt.IsSucceeded)
+            {
+                return Ok(opt);
+            }
+            return Ok(new { warning = opt.Message });
+        }
+    }
+}
+
+===== FILE: API\Controllers\BaseController.cs =====
+using Microsoft.AspNetCore.Mvc;
+
+namespace API.Controllers
+{
+
+    [ApiController]
+    [Route("[controller]")]
+    public class BaseController : ControllerBase
+    {
+    }
+}
+
+
+===== FILE: API\Controllers\MetadataController.cs =====
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Reflection;
+using Microsoft.AspNetCore.Mvc;
+using MyFrameWork.AppTool;
+
+namespace API.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class MetadataController : ControllerBase
+    {
+        [HttpGet("GetModelMetadata/{modelName}")]
+        public IActionResult GetModelMetadata(string modelName)
+        {
+            var assembly = Assembly.Load("App.Contracts");
+
+            var type = assembly.GetTypes()
+                .FirstOrDefault(t =>
+                    t.IsClass &&
+                    t.Namespace != null &&
+                    t.Namespace.StartsWith("App.Contracts") &&
+                    t.Name.Equals(modelName, StringComparison.OrdinalIgnoreCase));
+
+            if (type == null)
+                return NotFound($"Model '{modelName}' not found.");
+
+            var propertyMetadata = new List<object>();
+
+            foreach (var prop in type.GetProperties())
+            {
+                var displayAttr = prop.GetCustomAttribute<DisplayAttribute>();
+                var requiredAttr = prop.GetCustomAttribute<RequiredAttribute>();
+                var stringLengthAttr = prop.GetCustomAttribute<StringLengthAttribute>();
+                var minLengthAttr = prop.GetCustomAttribute<MinLengthAttribute>();
+                var maxLengthAttr = prop.GetCustomAttribute<MaxLengthAttribute>();
+                var selectSourceAttr = prop.GetCustomAttribute<SelectSourceAttribute>();
+
+                var inputType = prop.PropertyType == typeof(bool) ? "boolean" :
+                                prop.PropertyType == typeof(int) || prop.PropertyType == typeof(long) ? "number" :
+                                "text";
+
+                var metadata = new
+                {
+                    name = ToCamelCase(prop.Name),
+                    displayName = displayAttr?.Name ?? prop.Name,
+                    inputType,
+                    controlType = selectSourceAttr != null ? "select" : null,
+                    selectSource = selectSourceAttr?.SourceName,
+                    required = requiredAttr != null,
+                    maxLength = maxLengthAttr?.Length ?? stringLengthAttr?.MaximumLength,
+                    minLength = minLengthAttr?.Length ?? stringLengthAttr?.MinimumLength
+                };
+
+                propertyMetadata.Add(metadata);
+            }
+
+            return Ok(new Dictionary<string, List<object>> { { type.Name, propertyMetadata } });
+        }
+
+        private static string ToCamelCase(string input)
+        {
+            if (string.IsNullOrEmpty(input) || char.IsLower(input[0]))
+                return input;
+
+            return char.ToLower(input[0]) + input.Substring(1);
+        }
+    }
+}
+
+
+===== FILE: API\Middleware\TokenValidationMiddleware.cs =====
+using API.Attributes;
+using App.Contracts.Object.Base.auth;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using System.Security.Claims;
+using System.Threading.Tasks;
+
+namespace API.Middleware
+{
+    public class TokenValidationMiddleware
+    {
+        private readonly RequestDelegate _next;
+        private readonly ILogger<TokenValidationMiddleware> _logger;
+
+        public TokenValidationMiddleware(RequestDelegate next, ILogger<TokenValidationMiddleware> logger)
+        {
+            _next = next;
+            _logger = logger;
+        }
+
+  public async Task InvokeAsync(HttpContext context, IPermissionService permissionService)
+{
+    var endpoint = context.GetEndpoint();
+    var authorizeAttribute = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>();
+
+    // Ø§Ú¯Ø± Ø§Ú©Ø´Ù† Ù†ÛŒØ§Ø² Ø¨Ù‡ Ù„Ø§Ú¯ÛŒÙ† Ù†Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ù‡
+    if (authorizeAttribute == null)
+    {
+        await _next(context);
+        return;
+    }
+
+    // 1. Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª
+    if (!context.User.Identity?.IsAuthenticated ?? true)
+    {
+        context.Response.StatusCode = 401;
+        await context.Response.WriteAsync("Ø¯Ø³ØªØ±Ø³ÛŒ ØºÛŒØ±Ù…Ø¬Ø§Ø²: ØªÙˆÚ©Ù† Ù†Ø§Ù…Ø¹ØªØ¨Ø±.");
+        return;
+    }
+
+    // 2. Ø§Ø³ØªØ®Ø±Ø§Ø¬ userId
+    var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (!int.TryParse(userIdClaim, out int userId))
+    {
+        context.Response.StatusCode = 401;
+        await context.Response.WriteAsync("ØªÙˆÚ©Ù† Ù†Ø§Ù…Ø¹ØªØ¨Ø±: Ø´Ù†Ø§Ø³Ù‡ Ú©Ø§Ø±Ø¨Ø± ÛŒØ§ÙØª Ù†Ø´Ø¯.");
+        return;
+    }
+
+    context.Items["UserId"] = userId;
+
+    // 3. Ø§Ø³ØªØ®Ø±Ø§Ø¬ Ù¾Ø±Ù…ÛŒØ´Ù† Ù…ÙˆØ±Ø¯ Ù†ÛŒØ§Ø² Ø§Ø² Attribute Ø³ÙØ§Ø±Ø´ÛŒ
+    var requirePermissionAttribute = endpoint?.Metadata.GetMetadata<RequirePermissionAttribute>();
+    if (requirePermissionAttribute != null)
+    {
+        bool hasPermission = await permissionService.HasPermissionAsync(userId, requirePermissionAttribute.Permission);
+        if (!hasPermission)
+        {
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsync($"Ø¯Ø³ØªØ±Ø³ÛŒ Ù…Ù…Ù†ÙˆØ¹: Ø´Ù…Ø§ Ø§Ø¬Ø§Ø²Ù‡ '{requirePermissionAttribute.Permission}' Ø±Ø§ Ù†Ø¯Ø§Ø±ÛŒØ¯.");
+            return;
+        }
+    }
+
+    await _next(context);
+}
+    }
+
+    // Extension Ø¨Ø±Ø§ÛŒ Ø«Ø¨Øª Middleware
+    public static class TokenValidationMiddlewareExtensions
+    {
+        public static IApplicationBuilder UseTokenValidation(this IApplicationBuilder builder)
+        {
+            return builder.UseMiddleware<TokenValidationMiddleware>();
+        }
+    }
+}
+
+
+===== FILE: API\Properties\launchSettings.json =====
+{
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:49673",
+      "sslPort": 44398
+    }
+  },
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:80",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "https://localhost:80;http://localhost:80",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+      
+    },
+    "Production": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:80",  
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Production"
+      }
+    }
+  }
+}
+
+
