@@ -8,7 +8,7 @@
 |   +-- Shop
 |   |   +-- CountTypeController.cs
 |   |   +-- InvController.cs
-|   |   +-- Product.cs
+|   |   +-- ProductController.cs
 |   +-- BaseController.cs
 |   +-- MetadataController.cs
 +-- Middleware
@@ -88,6 +88,7 @@ Domain
 |   |   +-- Inv.cs
 |   |   +-- InvTran.cs
 |   |   +-- InvTranDetail.cs
+|   |   +-- Product.cs
 |   +-- BaseDomain.cs
 Infrastructure
 +-- data

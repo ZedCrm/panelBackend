@@ -93,15 +93,7 @@ namespace App.Object.Shop.ProductApp
         public async Task<OPTResult<ProductView>> GetAll(Pagination pagination)
         {  
 
-         
-    {
-        return new OPTResult<ProductView>
-        {
-            IsSucceeded = false,
-            Message = MessageApp.NotPermission,
-         
-        };
-    } ;
+        
             
               // دریافت تمام محصولات  
             var products = await _productRep.GetAsync(pagination);

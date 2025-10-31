@@ -27,9 +27,11 @@ namespace API.Controllers.Shop
         /// </summary>
         /// <param name="pagination">اطلاعات صفحه‌بندی</param>
         /// <returns>لیست محصولات یا خطای عدم دسترسی</returns>
+        
+        [RequirePermission("ViewProduct")]
         [HttpPost]
         [Route("/api/product/GetAll")]
-        [RequirePermission("ViewProduct")]
+        
         public async Task<ActionResult<OPTResult<ProductView>>> Index([FromBody] Pagination pagination)
         {
            

@@ -319,7 +319,7 @@ namespace API.Controllers.Shop
     }
 }
 
-===== FILE: API\Controllers\Shop\Product.cs =====
+===== FILE: API\Controllers\Shop\ProductController.cs =====
 using API.Attributes;
 using App.Contracts.Object.Shop.ProductCon;
 using Microsoft.AspNetCore.Authorization;
@@ -331,7 +331,7 @@ namespace API.Controllers.Shop
     /// <summary>
     /// کنترلر مربوط به مدیریت محصولات در سیستم
     /// </summary>
-    public class Product : BaseController
+    public class ProductController : BaseController
     {
         private readonly IProductApp _productApp;
 
@@ -339,7 +339,7 @@ namespace API.Controllers.Shop
         /// سازنده کنترلر، تزریق وابستگی IProductApp
         /// </summary>
         /// <param name="productApp">سرویس لایه اپلیکیشن برای مدیریت محصولات</param>
-        public Product(IProductApp productApp)
+        public ProductController(IProductApp productApp)
         {
             _productApp = productApp;
         }
@@ -440,7 +440,6 @@ namespace API.Controllers
 {
 
     [ApiController]
-    [Route("[controller]")]
     public class BaseController : ControllerBase
     {
     }

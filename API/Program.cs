@@ -93,7 +93,7 @@ app.UseTokenValidation();
 app.UseAuthorization();
 
 builder.Services.AddHttpContextAccessor();
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.MapControllers();
 
