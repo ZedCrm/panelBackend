@@ -64,6 +64,10 @@ namespace App.utility
                 .ForMember(dest => dest.RoleIds, opt => opt.MapFrom(src => src.UserRoles.Select(ur => ur.RoleId).ToList()));
 
 
+
+            CreateMap<Inv , InvView>();
+
+
         }
     }
 }

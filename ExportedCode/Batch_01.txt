@@ -237,6 +237,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using API.Attributes;
 using App.Contracts.Object.Shop.InvCon;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -262,6 +263,7 @@ namespace API.Controllers.Shop
 
         [HttpPost]
         [Route("/api/inv/GetAll")]
+        [RequirePermission("ViewProducs")]
         public async Task<ActionResult<OPTResult<InvView>>> Index([FromBody] Pagination pagination)
         {
             return await invApp.GetAll(pagination);
@@ -349,9 +351,11 @@ namespace API.Controllers.Shop
         /// </summary>
         /// <param name="pagination">اطلاعات صفحه‌بندی</param>
         /// <returns>لیست محصولات یا خطای عدم دسترسی</returns>
+        
+        [RequirePermission("ViewProduct")]
         [HttpPost]
         [Route("/api/product/GetAll")]
-        [RequirePermission("ViewProduct")]
+        
         public async Task<ActionResult<OPTResult<ProductView>>> Index([FromBody] Pagination pagination)
         {
            

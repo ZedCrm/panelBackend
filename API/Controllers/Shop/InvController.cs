@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using API.Attributes;
 using App.Contracts.Object.Shop.InvCon;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MyFrameWork.AppTool;
@@ -11,6 +13,7 @@ using MyFrameWork.AppTool;
 namespace API.Controllers.Shop
 {
     [Route("[controller]")]
+    [Authorize]
     public class InvController : BaseController
     {
 
@@ -28,7 +31,8 @@ namespace API.Controllers.Shop
 
         [HttpPost]
         [Route("/api/inv/GetAll")]
-        public async Task<ActionResult<OPTResult<InvView>>> Index([FromBody] Pagination pagination)
+        [RequirePermission("ViewProducs")]
+        public async Task<ActionResult<ApiResult<InvView>>> Index([FromBody] Pagination pagination)
         {
             return await invApp.GetAll(pagination);
         }

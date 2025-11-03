@@ -9,6 +9,8 @@ namespace API.Controllers.Shop
     /// <summary>
     /// کنترلر مربوط به مدیریت محصولات در سیستم
     /// </summary>
+    
+    [Authorize]
     public class ProductController : BaseController
     {
         private readonly IProductApp _productApp;
