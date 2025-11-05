@@ -111,10 +111,13 @@ Infrastructure
 |   +-- 20251013070849_ChangeAuthDomainsToTest.Designer.cs
 |   +-- 20251016075250_ChangeUSERROLEdOMAIN.cs
 |   +-- 20251016075250_ChangeUSERROLEdOMAIN.Designer.cs
+|   +-- 20251105081207_AddUserProfileAndStatusFields.cs
+|   +-- 20251105081207_AddUserProfileAndStatusFields.Designer.cs
 |   +-- MyContextModelSnapshot.cs
 +-- CRMBootstraper.cs
 MyFrameWork
 +-- AppTool
+|   +-- ApiResult.cs
 |   +-- MessageApp.cs
 |   +-- OPT.cs
 |   +-- OPTResult.cs

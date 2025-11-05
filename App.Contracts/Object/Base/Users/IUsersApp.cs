@@ -10,11 +10,12 @@ namespace App.Contracts.Object.Base.Users
     {
         
        // public Task<OPTResult<UsersView>> SearchProducts(ProductSearchCriteria criteria);
-        Task<OPTResult<UsersView>> GetAll(Pagination pagination);
-        Task<OPT> Create(UsersCreat objectCreate);
-        Task<OPT> DeleteBy(List<int> objectids);
-        Task<OPTResult<UsersUpdate>> GetById(int id);
-        Task<OPT> Update(UsersUpdate objectView);
-        Task<OPTResult<UserCreateFormData>> CreateForm();
+        Task<ApiResult<UsersView>> GetAll(Pagination pagination);
+        Task<ApiResult<object>> Create(UsersCreat objectCreate);
+        Task<ApiResult<object>> DeleteBy(List<int> objectids);
+        Task<ApiResult<UsersUpdate>> GetById(int id);
+        Task<ApiResult<object>> Update(UsersUpdate objectView);
+        Task<ApiResult<UserCreateFormData>> CreateForm();
+        Task<ApiResult<object>> KeepAlive(int userId);
     }
 }

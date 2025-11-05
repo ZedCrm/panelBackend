@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Domain.Objects.Base;
 
 namespace App.Contracts.Object.Base.Users
 {
@@ -9,6 +10,9 @@ namespace App.Contracts.Object.Base.Users
     {
         public int Id { get; set; } = default!;
         public string FullName { get; set; } = default!;
+        public string? ProfilePictureUrl { get; set; }  // جدید
+        public UserStatus Status { get; set; }  // جدید
+        public DateTime? LastSeen { get; set; }  // جدید
         public string Username { get; set; } = default!;
         public string Email { get; set; } = default!;
 
@@ -20,7 +24,7 @@ namespace App.Contracts.Object.Base.Users
         public string Username { get; set; } = default!;
         public string Email { get; set; } = default!;
         public string Password { get; set; } = default!;
-        // شناسه‌ رول‌هایی که کاربر باید داشته باشه
+        public IFormFile? ProfilePicture { get; set; }
         public List<int> RoleIds { get; set; } = new List<int>();
 
     }
@@ -32,6 +36,7 @@ namespace App.Contracts.Object.Base.Users
         public string Username { get; set; } = default!;
         public string Email { get; set; } = default!;
         public string? Password { get; set; } = default!;
+        public IFormFile? ProfilePicture { get; set; }
         public List<int> RoleIds { get; set; } = new List<int>();
     }
 

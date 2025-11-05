@@ -1,8 +1,6 @@
 using App.Contracts.Object.Base.Users;
-using App.Object.Base.Users;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
-using System.Security.Claims;
 
 namespace API.Controllers.bases
 {
@@ -17,54 +15,47 @@ namespace API.Controllers.bases
             _usersApp = usersApp;
         }
 
-        [HttpPost]
-        [Route("/api/User/GetAll")]
-        public async Task<ActionResult<OPTResult<UsersView>>> GetAll([FromBody] Pagination pagination)
+        [HttpPost("/api/User/GetAll")]
+        public async Task<ActionResult<ApiResult<UsersView>>> GetAll([FromBody] Pagination pagination)
         {
-
-            
-            
             var result = await _usersApp.GetAll(pagination);
             return Ok(result);
         }
 
-        [HttpGet]
-        [Route("/api/User/GetById")]
-        public async Task<ActionResult<OPTResult<UsersUpdate>>> GetById([FromQuery] int id)
+        [HttpGet("/api/User/GetById")]
+        public async Task<ActionResult<ApiResult<UsersUpdate>>> GetById([FromQuery] int id)
         {
             var result = await _usersApp.GetById(id);
             return Ok(result);
         }
 
-        [HttpPost]
-        [Route("/api/User/create")]
-        public async Task<ActionResult<OPT>> Create([FromBody] UsersCreat userCreate)
+        [HttpPost("/api/User/create")]
+        public async Task<ActionResult<ApiResult<object>>> Create([FromForm] UsersCreat userCreate)  // FromForm برای فایل
         {
             var result = await _usersApp.Create(userCreate);
             return Ok(result);
         }
 
-        [HttpPost]
-        [Route("/api/User/update")]
-        public async Task<ActionResult<OPT>> Update([FromBody] UsersUpdate userUpdate)
+        [HttpPost("/api/User/update")]
+        public async Task<ActionResult<ApiResult<object>>> Update([FromForm] UsersUpdate userUpdate)  // FromForm
         {
             var result = await _usersApp.Update(userUpdate);
             return Ok(result);
         }
 
-        [HttpPost]
-        [Route("/api/User/delete")]
-        public async Task<ActionResult<OPT>> Delete([FromBody] List<int> ids)
+        [HttpPost("/api/User/delete")]
+        public async Task<ActionResult<ApiResult<object>>> Delete([FromBody] List<int> ids)
         {
             var result = await _usersApp.DeleteBy(ids);
             return Ok(result);
         }
 
-        [HttpGet]
-        [Route("/api/User/getcreateform")]
-        public async Task<ActionResult<OPTResult<UserCreateFormData>>> GetCreateForm()
+        // جدید: برای keep alive
+        [HttpPost("/api/User/keepalive")]
+        public async Task<ActionResult<ApiResult<object>>> KeepAlive()
         {
-            var result = await _usersApp.CreateForm();
+            var userId = GetCurrentUserId();  
+            var result = await _usersApp.KeepAlive(userId);
             return Ok(result);
         }
     }

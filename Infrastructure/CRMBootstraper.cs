@@ -13,7 +13,7 @@ using App.Object.Base.Users;
 using App.Object.Shop.CountTypeApp;
 using App.Object.Shop.invApp;
 using App.Object.Shop.ProductApp;
-using App.utility;
+using App.utility; // فقط IFileService
 using ConfApp;
 using ConfApp.Rep;
 using ConfApp.Rep.bases;
@@ -21,63 +21,64 @@ using ConfApp.Rep.Inv;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-
-
 namespace Infrastructure
 {
     public static class CRMBootstraper
     {
-  public static void AddCRMManagement(IServiceCollection service, string connectionstring, DbProvider dbProvider)
-{
-    service.AddScoped<IPersonApp, PersonApp>();
-    service.AddScoped<IPersonRep, PersonRep>();
-    service.AddScoped<IProductApp, ProductApp>();
-    service.AddScoped<IProductRep, ProductRep>();
-    service.AddScoped<ICountTypeApp, CountTypeApp>();
-    service.AddScoped<ICountTypeRep, CountTypeRep>();
-    service.AddScoped<IInvApp, InvApp>();
-    service.AddScoped<IInvRep, InvRep>();
-
-    service.AddScoped<IAuthApp, AuthApp>();
-    service.AddScoped<ITokenApp, TokenApp>();
-    service.AddScoped<IUserRepository, UserRep>();
-    service.AddScoped<IPermissionRep, PermissionRepository>();
-    service.AddScoped<IPermissionService, PermissionService>();
-    service.AddScoped<IMyUserRepository, MyuserRepo>();
-    service.AddScoped<IUsersApp, UsersApp>();
-    service.AddScoped<IRoleRep, RoleRepo>();
-
-    // ✅ اضافه کردن HttpContextAccessor
-    service.AddHttpContextAccessor();
-
-    // Register AutoMapper
-    service.AddAutoMapper(typeof(ClassMapping));
-    service.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
-
-    service.AddScoped<IUserContext, UserContext>();
-
-    // DbContext configuration
-    service.AddDbContext<MyContext>(c =>
-    {
-        if (dbProvider == DbProvider.SqlServer)
+        public static void AddCRMManagement(IServiceCollection services, string connectionString, DbProvider dbProvider)
         {
-            c.UseSqlServer(connectionstring, b => b.MigrationsAssembly("Infrastructure"))
-             .EnableSensitiveDataLogging()
-             .LogTo(Console.WriteLine);
+            // === Repository ها ===
+            services.AddScoped<IPersonRep, PersonRep>();
+            services.AddScoped<IProductRep, ProductRep>();
+            services.AddScoped<ICountTypeRep, CountTypeRep>();
+            services.AddScoped<IInvRep, InvRep>();
+            services.AddScoped<IUserRepository, UserRep>();
+            services.AddScoped<IPermissionRep, PermissionRepository>();
+            services.AddScoped<IMyUserRepository, MyuserRepo>();
+            services.AddScoped<IRoleRep, RoleRepo>();
+
+            // === App Service ها ===
+            services.AddScoped<IPersonApp, PersonApp>();
+            services.AddScoped<IProductApp, ProductApp>();
+            services.AddScoped<ICountTypeApp, CountTypeApp>();
+            services.AddScoped<IInvApp, InvApp>();
+            services.AddScoped<IAuthApp, AuthApp>();
+            services.AddScoped<ITokenApp, TokenApp>();
+            services.AddScoped<IPermissionService, PermissionService>();
+            services.AddScoped<IUsersApp, UsersApp>();
+
+            // === سرویس‌های مشترک ===
+            services.AddSingleton<UserStatusService>();
+            // IFileService فقط در Program.cs ثبت می‌شه
+
+            // === HttpContextAccessor ===
+            services.AddHttpContextAccessor();
+
+            // === UserContext ===
+            services.AddScoped<IUserContext, UserContext>();
+
+            // === AutoMapper ===
+            services.AddAutoMapper(typeof(ClassMapping));
+            services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+            // === DbContext ===
+            services.AddDbContext<MyContext>(options =>
+            {
+                if (dbProvider == DbProvider.SqlServer)
+                {
+                    options.UseSqlServer(connectionString, b => b.MigrationsAssembly("Infrastructure"))
+                           .EnableSensitiveDataLogging()
+                           .LogTo(Console.WriteLine);
+                }
+                else if (dbProvider == DbProvider.Sqlite)
+                {
+                    options.UseSqlite(connectionString, b => b.MigrationsAssembly("Infrastructure"))
+                           .EnableSensitiveDataLogging()
+                           .LogTo(Console.WriteLine);
+                }
+            }, ServiceLifetime.Scoped);
         }
-        else if (dbProvider == DbProvider.Sqlite)
-        {
-            c.UseSqlite(connectionstring, b => b.MigrationsAssembly("Infrastructure"))
-             .EnableSensitiveDataLogging()
-             .LogTo(Console.WriteLine);
-        }
-    }, ServiceLifetime.Scoped);
-    
     }
-
-    }
-
-
 
     public enum DbProvider
     {
@@ -85,5 +86,3 @@ namespace Infrastructure
         Sqlite
     }
 }
-
-

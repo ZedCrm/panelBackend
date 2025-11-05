@@ -1,6 +1,6 @@
 # ExportMyCode.ps1
-# فقط فایل‌های سورسِ خودت را استخراج می‌کند و هر ۱۰‌تایی در یک فایل txt می‌ریزد.
-# یک فایل project_tree.txt هم می‌سازد که فقط همان فایل‌های استخراج‌شده و پوشه‌هایشان را نشان می‌دهد.
+# همه فایل‌های سورس را استخراج می‌کند و به ۵ فایل مساوی تقسیم می‌کند.
+# همچنین فایل project_tree.txt شامل ساختار پروژه را می‌سازد.
 
 param()
 
@@ -20,33 +20,34 @@ $files = Get-ChildItem -Path $rootDir -Include $include -Recurse -File |
              ($excludeDirs | ForEach-Object { $full -notlike "*\$_\*" }) -notcontains $false
          }
 
-Write-Host "Found $($files.Count) source files to export:"
+Write-Host "Found $($files.Count) source files to export:`n"
+
 $files | ForEach-Object {
     Write-Host "  - $($_.FullName.Substring($rootDir.Length).TrimStart('\'))"
 }
 
-# ذخیره دسته‌های ۱۰‌تایی
-$counter = 0
-$batch   = 1
-$output  = @()
+# تقسیم فایل‌ها به ۵ بخش
+$totalFiles = $files.Count
+if ($totalFiles -eq 0) { Write-Host "No files found!"; exit }
 
-foreach ($file in $files) {
-    $relPath = $file.FullName.Substring($rootDir.Length).TrimStart('\')
-    $header  = "===== FILE: $relPath ====="
-    $content = Get-Content $file.FullName -Raw
-    $output += "$header`n$content`n"
+$batchSize = [math]::Ceiling($totalFiles / 4)
+$batch = 1
+$index = 0
 
-    $counter++
-    if ($counter -eq 10) {
-        $outFile = Join-Path $outDir ("Batch_{0:D2}.txt" -f $batch)
-        $output | Out-File -FilePath $outFile -Encoding UTF8
-        $output = @(); $counter = 0; $batch++
+while ($index -lt $totalFiles) {
+    $output = @()
+    $subset = $files[$index..([math]::Min($index + $batchSize - 1, $totalFiles - 1))]
+    foreach ($file in $subset) {
+        $relPath = $file.FullName.Substring($rootDir.Length).TrimStart('\')
+        $header  = "===== FILE: $relPath ====="
+        $content = Get-Content $file.FullName -Raw
+        $output += "$header`n$content`n"
     }
-}
-
-if ($output.Count -gt 0) {
     $outFile = Join-Path $outDir ("Batch_{0:D2}.txt" -f $batch)
     $output | Out-File -FilePath $outFile -Encoding UTF8
+    Write-Host "Created $outFile with $($subset.Count) files"
+    $index += $batchSize
+    $batch++
 }
 
 # ساخت درخت فقط برای فایل‌های استخراج‌شده
@@ -62,3 +63,5 @@ foreach ($file in $files) {
 }
 $treeFile = Join-Path $outDir "project_tree.txt"
 $treeLines | Out-File -FilePath $treeFile -Encoding UTF8
+
+Write-Host "`nAll done. Exported to: $outDir"

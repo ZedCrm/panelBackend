@@ -1,996 +1,1629 @@
-﻿===== FILE: App\Object\Base\Users\UsersApp.cs =====
+﻿===== FILE: ConfApp\Rep\bases\RoleRepo.cs =====
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using App.Contracts.Object.Base.auth;
-using App.Contracts.Object.Base.Users;
+using Domain.Objects.Base;
+
+namespace ConfApp.Rep.bases
+{
+    public class RoleRepo : BaseRep<Role, int>, IRoleRep
+    {
+        private readonly MyContext ctx;
+        public RoleRepo(MyContext ctx) : base(ctx)
+        {
+            this.ctx = ctx;
+        }
+    }
+}
+
+===== FILE: ConfApp\Rep\bases\UserRep.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using App.Object.Base.Auth;
-using App.utility;
-using AutoMapper;
 using Domain.Objects.Base;
-using MyFrameWork.AppTool;
+using Microsoft.EntityFrameworkCore;
 
-namespace App.Object.Base.Users
+namespace ConfApp.Rep.bases
 {
-    public class UsersApp : IUsersApp
+    public class UserRep : IUserRepository
     {
+        
+        private readonly MyContext _context;
 
-
-        #region constructor
-        private readonly IMyUserRepository _userRepository;
-        private readonly IMapper _mapper;
-        private readonly IPermissionService _PermissionService;
-        private readonly IRoleRep _roleRep;
-
-        public UsersApp(IMyUserRepository userRepository, IMapper mapper, IPermissionService permissionService, IRoleRep roleRep)
+        public UserRep(MyContext context)
         {
-            _roleRep = roleRep;
-            _userRepository = userRepository;
-            _mapper = mapper;
-            _PermissionService = permissionService;
-        }
-        #endregion
-
-
-
-
-
-
-        public async Task<OPT> Create(UsersCreat objectCreate)
-        {
-            var validateAllProperties = ModelValidator.ValidateToOpt<UsersCreat>(objectCreate);
-            if (!validateAllProperties.IsSucceeded) return validateAllProperties;
-
-            // Ú†Ú© Ú©Ø±Ø¯Ù† Ø§ÛŒÙ…ÛŒÙ„ Ùˆ Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ ÛŒÚ©ØªØ§
-            var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
-                _userRepository,
-                c => c.Email == objectCreate.Email,
-                MessageApp.DuplicateField(objectCreate.Email)
-            );
-            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
-
-            uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
-                _userRepository,
-                c => c.Username == objectCreate.Username,
-                MessageApp.DuplicateField(objectCreate.Username)
-            );
-            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
-
-            var user = _mapper.Map<User>(objectCreate);
-            user.UserRoles = objectCreate.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList();
-            await _userRepository.CreateAsync(user);
-            await _userRepository.SaveChangesAsync();
-
-            var opt = new OPT();
-            return opt.Succeeded(MessageApp.CustomAddsuccses(objectCreate.Username));
+            _context = context;
         }
 
-
-
-
-        public async Task<OPTResult<UserCreateFormData>> CreateForm()
+        public async Task<User?> GetByEmailAsync(string email)
         {
-            var roles = await _roleRep.GetAsync();
-            var createForm = new UserCreateFormData
-            {
-                Roles = roles.Select(role => new RoleView
-                {
-                    Id = role.Id,
-                    Name = role.Name
-                }).ToList()
-            };
-
-
-
-            return OPTResult<UserCreateFormData>.Success(createForm, MessageApp.AcceptOpt);
+            return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        public async Task<OPT> DeleteBy(List<int> objectids)
+        public async Task AddAsync(User user)
         {
-
-
-            var opt = new OPT();
-            try
-            {
-                if (objectids == null || !objectids.Any())
-                {
-                    opt.Failed(MessageApp.NotFound);
-                    return opt;
-                }
-                foreach (var productid in objectids)
-                    _userRepository.DeleteById(productid);
-
-                await _userRepository.SaveChangesAsync();
-                opt.Succeeded(MessageApp.CustomSuccess("Ø­Ø°Ù"));
-            }
-            catch (Exception ex)
-            {
-                opt.Failed(MessageApp.CustomDeleteFail(ex.Message));
-            }
-
-            return opt;
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
         }
 
-
-
-
-
-        public async Task<OPTResult<UsersView>> GetAll(Pagination pagination)
+        public async Task<bool> ExistsByEmailAsync(string email)
         {
-
-
-
-            var data = await _userRepository.GetAsync();
-
-            var users = _mapper.Map<List<UsersView>>(data);
-
-
-
-            // ØªØ¹Ø¯Ø§Ø¯ Ú©Ù„ Ø±Ú©ÙˆØ±Ø¯Ù‡Ø§  
-            var totalRecords = await _userRepository.CountAsync();
-
-
-
-            // ØªØ¹Ø¯Ø§Ø¯ Ú©Ù„ ØµÙØ­Ø§Øª  
-            var totalPages = pagination.CalculateTotalPages(totalRecords);
-
-            // Ø¢Ù…Ø§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ùˆ Ø¨Ø§Ø²Ú¯Ø´Øª Ù†ØªÛŒØ¬Ù‡  
-            return new OPTResult<UsersView>
-            {
-                IsSucceeded = true,
-                Message = MessageApp.AcceptOpt,
-                Data = users,
-                TotalRecords = totalRecords,
-                TotalPages = totalPages,
-                PageNumber = pagination.PageNumber,
-                PageSize = pagination.PageSize
-            };
-
-
-
+            return await _context.Users.AnyAsync(u => u.Email == email);
         }
 
-        public async Task<OPTResult<UsersUpdate>> GetById(int id)
-        {
-            var user = await _userRepository.GetAsync(id);
-            if (user == null) { return new OPTResult<UsersUpdate> { IsSucceeded = false, Message = MessageApp.NotFound }; }
-            var userCreat = _mapper.Map<UsersUpdate>(user);
-            
-            return OPTResult<UsersUpdate>.Success(userCreat, MessageApp.AcceptOpt);
-        }
-
-
-
-
-   public async Task<OPT> Update(UsersUpdate objectView)
-{
-    var validateAllProperties = ModelValidator.ValidateToOpt<UsersUpdate>(objectView);
-    if (!validateAllProperties.IsSucceeded) return validateAllProperties;
-
-    var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
-        _userRepository,
-        c => c.Email == objectView.Email && c.Id != objectView.Id,
-        MessageApp.DuplicateField(objectView.Email)
-    );
-    if (!uniqueOpt.IsSucceeded) return uniqueOpt;
-
-    uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
-        _userRepository,
-        c => c.Username == objectView.Username && c.Id != objectView.Id,
-        MessageApp.DuplicateField(objectView.Username)
-    );
-    if (!uniqueOpt.IsSucceeded) return uniqueOpt;
-
-    var user = await _userRepository.GetAsync(objectView.Id);
-    if (user == null) return new OPT().Failed(MessageApp.NotFound);
-
-    user.Username = objectView.Username;
-    user.Email = objectView.Email;
-    user.FullName = objectView.FullName;
-    // ÙÙ‚Ø· Ø¯Ø± ØµÙˆØ±ØªÛŒ Ú©Ù‡ Password Ø®Ø§Ù„ÛŒ Ù†Ø¨Ø§Ø´Ø¯ØŒ PasswordHash Ø±Ø§ Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ú©Ù†
-    if (!string.IsNullOrEmpty(objectView.Password))
-    {
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(objectView.Password);
-    }
-    user.UserRoles = objectView.RoleIds.Select(roleId => new UserRole { RoleId = roleId, UserId = objectView.Id }).ToList();
-
-    await _userRepository.UpdateAsync(user);
-    await _userRepository.SaveChangesAsync();
-    return new OPT().Succeeded(MessageApp.AcceptOpt);
-}
-
-
-    }
-
-
-    public interface IMyUserRepository : IBaseRep<User, int>
-    {
-
+        
     }
 }
 
-
-
-===== FILE: App\Object\Base\IPersonRep.cs =====
-using Domain.Objects.Base;
-
-namespace App.Object.Base
-{
-    public interface IPersonRep : IBaseRep<Person, int>
-    {
-
-    }
-}
-
-
-===== FILE: App\Object\Base\PersonApp.cs =====
-using App.Contracts.Object.Base;
+===== FILE: ConfApp\Rep\Inv\CountTypeRep.cs =====
+using App.Object.Shop.CountTypeApp;
+using App.Object.Shop.ProductApp;
+using Domain.Objects.Shop;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace App.Object.Base
+namespace ConfApp.Rep.Inv
 {
-    public class PersonApp : IPersonApp
+    public class CountTypeRep : BaseRep<CountType, int>, ICountTypeRep
     {
-        private readonly IPersonRep _ctx;
-        public PersonApp(IPersonRep personRep)
+        public CountTypeRep(MyContext context) : base(context) 
         {
-            _ctx = personRep;
+            
         }
-        public async Task<List<PersonView>> personViews()
-        {
-            var persons = await _ctx.GetAsync();
+    }
+}
 
-            return  persons.Select(c => new PersonView
+
+===== FILE: ConfApp\Rep\Inv\invRep.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using App.Object.Shop.invApp;
+using Domain.Objects.Shop;
+
+namespace ConfApp.Rep.Inv
+{
+    public class InvRep : BaseRep<Domain.Objects.Shop.Inv , int> , IInvRep
+    {
+        
+        public InvRep(MyContext context): base(context)
+        {
+            
+        }
+    }
+}
+
+===== FILE: ConfApp\Rep\Inv\ProductRep.cs =====
+using App.Object.Shop.ProductApp;
+using Domain.Objects.Shop;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ConfApp.Rep.Inv
+{
+    public class ProductRep : BaseRep<Product, int>, IProductRep
+    {
+        public ProductRep(MyContext context) : base(context) 
+        {
+            
+        }
+    }
+}
+
+
+===== FILE: ConfApp\Rep\PersonRep.cs =====
+using App.Object.Base;
+using Domain.Objects.Base;
+
+
+namespace ConfApp.Rep
+{
+    public class PersonRep : BaseRep<Person, int>, IPersonRep
+    {
+        public PersonRep(MyContext context) : base(context)
+        {
+
+        }
+    }
+}
+
+
+===== FILE: ConfApp\BaseRep.cs =====
+using App;
+using App.Contracts.Object.Shop.ProductCon;
+using Domain.Objects;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ConfApp
+
+{
+    public abstract class BaseRep<T, TKey> : IBaseRep<T, TKey> where T : BaseDomain
+    {
+        #region constructor
+        private readonly MyContext _ctx;
+        public BaseRep(MyContext ctx)
+        {
+            _ctx = ctx;
+        }
+        #endregion
+
+
+
+
+        public async Task<int> CountAsync()
+        {
+            return await _ctx.Set<T>().Where(e => !e.IsDeleted).CountAsync();
+        }
+
+     public async Task<bool> HasRelationsAsync(T entity)
+{
+    var entityType = _ctx.Model.FindEntityType(typeof(T));
+    if (entityType == null)
+        throw new InvalidOperationException($"Entity type {typeof(T).Name} not found in DbContext model.");
+
+    var primaryKey = entityType.FindPrimaryKey();
+    if (primaryKey == null)
+        throw new InvalidOperationException($"Primary key for entity {typeof(T).Name} not found.");
+
+    var entityKey = primaryKey.Properties.FirstOrDefault();
+    if (entityKey == null)
+        throw new InvalidOperationException($"Primary key property not found for entity {typeof(T).Name}.");
+
+    var entityKeyValue = entity.GetType().GetProperty(entityKey.Name)?.GetValue(entity);
+    if (entityKeyValue == null)
+        throw new InvalidOperationException($"Value of primary key property '{entityKey.Name}' is null.");
+
+    var foreignKeys = _ctx.Model.GetEntityTypes()
+        .SelectMany(t => t.GetForeignKeys())
+        .Where(fk => fk.PrincipalEntityType.ClrType == typeof(T));
+
+    foreach (var fk in foreignKeys)
+    {
+        var dependentEntityType = fk.DeclaringEntityType.ClrType;
+
+        var dbSet = _ctx.GetType().GetMethod("Set", Type.EmptyTypes)
+            ?.MakeGenericMethod(dependentEntityType)
+            .Invoke(_ctx, null) as IQueryable;
+
+        if (dbSet == null)
+            continue;
+
+        var param = Expression.Parameter(dependentEntityType, "x");
+        var fkProperty = fk.Properties.FirstOrDefault();
+        if (fkProperty == null)
+            continue;
+
+        var property = Expression.Property(param, fkProperty.Name);
+        var constant = Expression.Constant(entityKeyValue);
+        var equal = Expression.Equal(property, constant);
+
+        var lambdaType = typeof(Func<,>).MakeGenericType(dependentEntityType, typeof(bool));
+        var lambda = Expression.Lambda(lambdaType, equal, param);
+
+        // متد AnyAsync با ۳ پارامتر (شامل CancellationToken)
+        var method = typeof(EntityFrameworkQueryableExtensions)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .FirstOrDefault(m => m.Name == "AnyAsync" && m.GetParameters().Length == 3);
+
+        if (method == null)
+            throw new InvalidOperationException("متد AnyAsync با پارامترهای سه‌گانه یافت نشد.");
+
+        method = method.MakeGenericMethod(dependentEntityType);
+
+        var task = (Task<bool>)method.Invoke(null, new object[] { dbSet, lambda, CancellationToken.None });
+
+        if (await task)
+            return true;
+    }
+
+    return false;
+}
+
+
+
+        public async Task CreateAsync(T entity)
+        {
+            entity.CreateDate = DateTime.Now;
+            await _ctx.AddAsync(entity);
+        }
+
+
+
+        public void Delete(T entity)
+        {
+            entity.UpdateDate = DateTime.Now;
+            entity.IsDeleted = true;
+            _ctx.Update(entity);
+        }
+
+
+
+        public void DeleteById(TKey id)
+        {
+            var TforDelete = this.Get(id);
+
+            if (TforDelete == null)
             {
-                Id = c.Id,
-                Name = c.Name,
-                Family = c.Family,
-                age = c.Age,
+                Console.WriteLine($"No item found with ID: {id}");
+                return; // یا می‌توانید استثنایی پرتاب کنید  
+            }
+            this.Delete(TforDelete);
+        }
 
-            }).ToList();
+
+
+        public async Task<bool> ExistAsync(Expression<Func<T, bool>> expression)
+        {
+            return await _ctx.Set<T>().AnyAsync(expression);
+        }
+
+        public async Task<T> GetAsync(TKey id)
+        {
+
+
+            return await _ctx.Set<T>().FindAsync(id);
+
 
         }
 
-        public Task<List<PersonView>> PersonViews()
+        public async Task<List<T>> GetAsync()
+        {
+            return await _ctx.Set<T>().Where(e => !e.IsDeleted).AsNoTracking().ToListAsync();
+        }
+
+        public async Task<List<T>> GetAsync(Pagination pagination)
+        {
+            var query = _ctx.Set<T>().Where(e => !e.IsDeleted).AsQueryable();
+
+            // Sorting  
+            if (!string.IsNullOrEmpty(pagination.SortBy))
+            {
+                var parameter = Expression.Parameter(typeof(T), "x");
+                var property = Expression.Property(parameter, pagination.SortBy);
+                var orderByExpression = Expression.Lambda(property, parameter);
+
+                // Use dynamic methods to infer type arguments  
+                var methodName = pagination.SortDirection ? "OrderBy" : "OrderByDescending";
+                var method = typeof(Queryable)
+                    .GetMethods()
+                    .First(m => m.Name == methodName && m.GetParameters().Length == 2)
+                    .MakeGenericMethod(typeof(T), property.Type);
+
+                // Call the method dynamically  
+                query = (IQueryable<T>)method.Invoke(null, new object[] { query, orderByExpression });
+            }
+
+            // Apply pagination  
+            return await query.Skip(pagination.CalculateSkip())
+                        .Take(pagination.PageSize).AsNoTracking()
+                        .ToListAsync();
+        }
+
+
+
+
+
+
+
+        public async Task<List<T>> GetFilteredAsync(Expression<Func<T, bool>> filter = null, ProductSearchCriteria pagination = null)
+        {
+
+            IQueryable<T> query = _ctx.Set<T>().Where(e => !e.IsDeleted);
+
+            // Apply filter if provided  
+            if (filter != null)
+            {
+                query = query.Where(filter);
+            }
+
+            // Apply sorting if pagination is provided  
+            if (pagination != null)
+            {
+                // Create an expression for sorting  
+                if (!string.IsNullOrEmpty(pagination.SortBy))
+                {
+                    var parameter = Expression.Parameter(typeof(T), "x");
+                    var property = Expression.Property(parameter, pagination.SortBy);
+                    var orderByExpression = Expression.Lambda(property, parameter);
+
+                    // Select the appropriate OrderBy or OrderByDescending method  
+                    var methodName = pagination.SortDirection ? "OrderBy" : "OrderByDescending";
+                    var method = typeof(Queryable)
+                        .GetMethods()
+                        .First(m => m.Name == methodName && m.GetParameters().Length == 2)
+                        .MakeGenericMethod(typeof(T), property.Type);
+
+                    // Call the method dynamically  
+                    query = (IQueryable<T>)method.Invoke(null, new object[] { query, orderByExpression });
+                }
+
+                // Apply pagination  
+                query = query.Skip(pagination.CalculateSkip())
+                             .Take(pagination.PageSize);
+            }
+
+            return await query.AsNoTracking().ToListAsync();
+        }
+
+
+
+
+
+
+        public async Task SaveChangesAsync()
+        {
+            await _ctx.SaveChangesAsync();
+        }
+
+        public void Dispose()
+        {
+            Console.WriteLine($"MyContext disposed at {DateTime.Now}");
+            _ctx?.Dispose();
+        }
+
+        public T Get(TKey id)
+        {
+            return _ctx.Set<T>().Find(id);
+        }
+
+        public Task DeleteByIDAsinc(TKey id)
         {
             throw new NotImplementedException();
         }
-    }
-}
 
-
-===== FILE: App\Object\Shop\CountTypeApp\ContTypeApp.cs =====
-// ÙØ§ÛŒÙ„: App/Object/Shop/CountTypeApp/CountTypeApp.cs
-using App.Contracts.Object.Shop.CountTypeCon;
-using App.utility;
-using AutoMapper;
-using Domain.Objects.Shop;
-using MyFrameWork.AppTool;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-namespace App.Object.Shop.CountTypeApp
-{
-    public class CountTypeApp : ICountTypeApp
-    {
-        private readonly ICountTypeRep _rep;
-        private readonly IMapper _mapper;
-
-        public CountTypeApp(ICountTypeRep rep, IMapper mapper)
+        public async Task<int> CountAsync(Expression<Func<T, bool>> filter)
         {
-            _rep = rep;
-            _mapper = mapper;
+            return await _ctx.Set<T>().Where(e => !e.IsDeleted).Where(filter).CountAsync();
         }
 
 
-
-
-
-
-        // Ù…ØªØ¯ Ø¯Ø±ÛŒØ§ÙØª Ù‡Ù…Ù‡ ÙˆØ§Ø­Ø¯Ù‡Ø§ÛŒ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø§ ØµÙØ­Ù‡â€ŒØ¨Ù†Ø¯ÛŒ
-        public async Task<OPTResult<CountTypeView>> GetAll(Pagination pagination)
+        public Task<List<T>> GetByIdsAsync(List<TKey> ids)
         {
-            
-            var entities = await _rep.GetAsync(pagination);
-            var viewModels = _mapper.Map<List<CountTypeView>>(entities);
-            var totalRecords = await _rep.CountAsync();
-
-            return new OPTResult<CountTypeView>
-            {
-                IsSucceeded = true,
-                Message = MessageApp.AcceptOpt,
-                Data = viewModels,
-                PageNumber = pagination.PageNumber,
-                PageSize = pagination.PageSize,
-                TotalRecords = totalRecords,
-                TotalPages = pagination.CalculateTotalPages(totalRecords)
-            };
+            return _ctx.Set<T>().Where(e => ids.Contains((TKey)(object)e.Id)).ToListAsync();
         }
-
-
-
-
-        // Ù…ØªØ¯ Ø¯Ø±ÛŒØ§ÙØª ÛŒÚ© ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø± Ø§Ø³Ø§Ø³ Ø´Ù†Ø§Ø³Ù‡
-        public async Task<OPTResult<CountTypeView>> GetById(int id)
+        public void DeleteRange(List<T> entities)
         {
-            var entity = await _rep.GetAsync(id);
-            if (entity == null)
-                return OPTResult<CountTypeView>.Failed(MessageApp.NotFound);
-
-            var viewModel = _mapper.Map<CountTypeView>(entity);
-            return OPTResult<CountTypeView>.Success(viewModel,MessageApp.AcceptOpt);
-        }
-
-
-
-
-        // Ù…ØªØ¯ Ø§ÛŒØ¬Ø§Ø¯ ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¬Ø¯ÛŒØ¯
-        public async Task<OPTResult<CountTypeView>> Create(CountTypeCreate countTypeCreate)
-        {
-            var entity = _mapper.Map<CountType>(countTypeCreate);
-            await _rep.CreateAsync(entity);
-            await _rep.SaveChangesAsync();
-
-            var viewModel = _mapper.Map<CountTypeView>(entity);
-            return OPTResult<CountTypeView>.Success(viewModel, MessageApp.AcceptOpt);
-        }
-
-
-
-
-
-        // Ù…ØªØ¯ Ø­Ø°Ù ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø± Ø§Ø³Ø§Ø³ Ù„ÛŒØ³Øª Ø´Ù†Ø§Ø³Ù‡â€ŒÙ‡Ø§
-
-        public async Task<OPTResult<CountTypeView>> DeleteBy(List<int> ids)
-        {
-            var entities = await _rep.GetByIdsAsync(ids);
-            if (entities == null || entities.Count == 0)
-                return OPTResult<CountTypeView>.Failed(MessageApp.NotFound);
-
-            var deletableEntities = new List<CountType>();
-            var usedEntities = new List<CountType>();
-
             foreach (var entity in entities)
             {
-                var isUsed = await _rep.HasRelationsAsync(entity); // âœ… Ø¨Ø±Ø±Ø³ÛŒ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø¯Ø± Ø¬Ø¯Ø§ÙˆÙ„ Ø±Ø§Ø¨Ø·Ù‡â€ŒØ§ÛŒ
-                if (!isUsed)
-                    deletableEntities.Add(entity);
-                else
-                    usedEntities.Add(entity);
+                entity.UpdateDate = DateTime.Now;
+                entity.IsDeleted = true;
             }
-
-            if (deletableEntities.Any())
-            {
-                _rep.DeleteRange(deletableEntities);
-                await _rep.SaveChangesAsync();
-            }
-
-            string message = "";
-            if (deletableEntities.Count > 0)
-                message += $"{deletableEntities.Count} ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø­Ø°Ù Ø´Ø¯. ";
-            if (usedEntities.Count > 0)
-                message += $"{usedEntities.Count} Ù…ÙˆØ±Ø¯ Ø¨Ù‡ Ø¯Ù„ÛŒÙ„ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø¯Ø± Ø¨Ø®Ø´â€ŒÙ‡Ø§ÛŒ Ø¯ÛŒÚ¯Ø± Ø­Ø°Ù Ù†Ø´Ø¯.";
-
-            return OPTResult<CountTypeView>.Success(message.Trim());
+            _ctx.UpdateRange(entities);
         }
 
-
-
-
-        // Ù…ØªØ¯ Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ (Ø¯Ø± ØµÙˆØ±Øª Ù†ÛŒØ§Ø²)
-        public async Task<OPTResult<CountTypeView>> Update(CountTypeView countTypeView)
+        public Task<bool> UpdateAsync(T entity)
         {
-            var validateAllProperties = ModelValidator.ValidateToOptResult<CountTypeView>(countTypeView);
-            if (!validateAllProperties.IsSucceeded) return validateAllProperties;
+            entity.UpdateDate = DateTime.Now;
+            _ctx.Update(entity);
+            return Task.FromResult(true);
 
-
-            var entity = await _rep.GetAsync(countTypeView.Id);
-            if (entity == null)
-                return OPTResult<CountTypeView>.Failed(MessageApp.NotFound);
-            _mapper.Map(countTypeView, entity);
-            await _rep.UpdateAsync(entity);
-            await _rep.SaveChangesAsync();
-            var viewModel = _mapper.Map<CountTypeView>(entity);
-            return OPTResult<CountTypeView>.Success(viewModel, MessageApp.AcceptOpt);
         }
     }
-
-    // Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ Ø±ÛŒÙ¾ÙˆØ²ÛŒØªÙˆØ±ÛŒ ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ú©Ù‡ Ø§Ø² Ø±ÛŒÙ¾ÙˆØ²ÛŒØªÙˆØ±ÛŒ Ù¾Ø§ÛŒÙ‡ Ø§Ø±Ø«â€ŒØ¨Ø±ÛŒ Ù…ÛŒâ€ŒÚ©Ù†Ø¯
-    public interface ICountTypeRep : IBaseRep<CountType, int> { }
-
-
-
-}
-
-===== FILE: App\Object\Shop\invApp\InvApp.cs =====
-using App.Contracts.Object.Shop.InvCon;
-using App.utility;
-using AutoMapper;
-using Domain.Objects.Shop;
-using MyFrameWork.AppTool;
-
-namespace App.Object.Shop.invApp
-{
-    public class InvApp : IInvApp
-    {
-
-        private readonly IInvRep _rep;
-        private readonly IMapper _mapper;
-        public InvApp(IInvRep rep, IMapper mapper)
-        {
-            _rep = rep;
-            _mapper = mapper;
-        }
-        
-
-
-
-        public async Task<OPTResult<InvCreate>> Create(InvCreate createData)
-        {
-            var validateAllProperties =  ModelValidator.ValidateToOptResult<InvCreate>(createData);
-            if (!validateAllProperties.IsSucceeded) return validateAllProperties;
-
-            var entity = _mapper.Map<Inv>(createData);
-            await _rep.CreateAsync(entity);
-            await _rep.SaveChangesAsync();
-
-            var viewModel = _mapper.Map<InvCreate>(entity);
-            return OPTResult<InvCreate>.Success(viewModel, MessageApp.AcceptOpt);
-
-        }
-
-
-
-
-        public async Task<OPTResult<InvView>> DeleteBy(List<int> ids)
-        {
-            var entities = await _rep.GetByIdsAsync(ids);
-            if (entities == null || entities.Count == 0)
-                return OPTResult<InvView>.Failed(MessageApp.NotFound);
-
-            var deletableEntities = new List<Inv>();
-            var usedEntities = new List<Inv>();
-
-            foreach (var entity in entities)
-            {
-                var isUsed = await _rep.HasRelationsAsync(entity); 
-                if (!isUsed)
-                    deletableEntities.Add(entity);
-                else
-                    usedEntities.Add(entity);
-            }
-
-            if (deletableEntities.Any())
-            {
-                _rep.DeleteRange(deletableEntities);
-                await _rep.SaveChangesAsync();
-            }
-
-            string message = "";
-            if (deletableEntities.Count > 0)
-                message += $"{deletableEntities.Count} Ø±Ú©ÙˆØ±Ø¯ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø­Ø°Ù Ø´Ø¯. ";
-            if (usedEntities.Count > 0)
-                message += $"{usedEntities.Count} Ù…ÙˆØ±Ø¯ Ø¨Ù‡ Ø¯Ù„ÛŒÙ„ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø¯Ø± Ø¨Ø®Ø´â€ŒÙ‡Ø§ÛŒ Ø¯ÛŒÚ¯Ø± Ø­Ø°Ù Ù†Ø´Ø¯.";
-
-            return OPTResult<InvView>.Success(message.Trim());
-        }
-
-
-
-
-
-
-        public async Task<OPTResult<InvView>> GetAll(Pagination pagination)
-        {
-            var entities = await _rep.GetAsync(pagination);
-            var viewModels = _mapper.Map<List<InvView>>(entities);
-            var totalRecords = await _rep.CountAsync();
-            return new OPTResult<InvView>
-            {
-                IsSucceeded = true,
-                Message = MessageApp.AcceptOpt,
-                Data = viewModels,
-                PageNumber = pagination.PageNumber,
-                PageSize = pagination.PageSize,
-                TotalRecords = totalRecords,
-                TotalPages = pagination.CalculateTotalPages(totalRecords)
-            };
-
-        }
-
-
-
-
-
-
-        public async Task<OPTResult<InvUpdate>> GetById(int id)
-        {
-            var entity = await _rep.GetAsync(id);
-            if (entity == null)
-                return OPTResult<InvUpdate>.Failed(MessageApp.FailOpt);
-
-            var viewModel = _mapper.Map<InvUpdate>(entity);
-            return OPTResult<InvUpdate>.Success(viewModel, MessageApp.AcceptOpt);
-        }
-
-
-
-
-
-
-
-        public async Task<OPTResult<InvUpdate>> Update(InvUpdate updateData)
-        {
-            var entity = await _rep.GetAsync(updateData.Id);
-            if (entity == null)
-                return OPTResult<InvUpdate>.Failed(MessageApp.NotFound);
-            _mapper.Map(updateData, entity);
-            await _rep.UpdateAsync(entity);
-            await _rep.SaveChangesAsync();
-            var viewModel = _mapper.Map<InvUpdate>(entity);
-            return OPTResult<InvUpdate>.Success(viewModel,MessageApp.AcceptOpt);
-        }
-    }
-
-
- 
-
-
-
-    public interface IInvRep : IBaseRep<Inv, int> { }
-
-
-
-}
-
-===== FILE: App\Object\Shop\ProductApp\ProductApp.cs =====
-using App.Contracts.Object.Base.auth;
-using App.Contracts.Object.Base.auth.UserContext;
-using App.Contracts.Object.Shop.ProductCon;
-using App.utility;
-using AutoMapper;
-using Domain.Objects.Shop;
-using MyFrameWork.AppTool;
-using System.Linq.Expressions;
-
-
-
-namespace App.Object.Shop.ProductApp
-{
-    public class ProductApp : IProductApp
-    {
-        #region constructor
-        private readonly IProductRep _productRep;
-        private readonly IMapper _mapper;
-        private readonly IPermissionService _PermissionService;
-        private readonly IUserContext _userContext;
-
-        public ProductApp(IProductRep productRep, IMapper mapper , IPermissionService permissionService , IUserContext userContext)
-        {
-            _productRep = productRep;
-            this._mapper = mapper;
-            _PermissionService = permissionService ;
-            _userContext = userContext;
-        }
-        #endregion
-
-
-
-        //Create method 
-        public async Task<OPT> Create(ProductCreate productCreate)
-        {
-
-
-                var validationOpt = ModelValidator.ValidateToOpt(productCreate);
-                if (!validationOpt.IsSucceeded) return validationOpt;
-
-
-            var opt = new OPT();
-
-
-            // اعتبارسنجی تکراری بودن کد محصول
-            var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<Product, int>(
-                _productRep,
-                c => c.ProductCode == productCreate.ProductCode,
-                
-                MessageApp.DuplicateField(productCreate.ProductCode)
-            );
-            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
-
-            // عملیات ایجاد محصول
-            var product = _mapper.Map<Product>(productCreate);
-            await _productRep.CreateAsync(product);
-            await _productRep.SaveChangesAsync();
-
-            return opt.Succeeded(MessageApp.CustomAddsuccses(productCreate.Name));
-        }
-
-
-
-
-
-        public async Task<OPT> DeleteBy(List<int> productids)
-        {
-            var opt = new OPT();
-            try
-            {
-                if (productids == null || !productids.Any())
-                {
-                    opt.Failed(MessageApp.NotFound);
-                    return opt;
-                }
-                foreach (var productid in productids)
-                    _productRep.DeleteById(productid);
-
-                await _productRep.SaveChangesAsync();
-                 opt.Succeeded(MessageApp.CustomSuccess("حذف"));
-            }
-            catch (Exception ex)
-            {
-                 opt.Failed(MessageApp.CustomDeleteFail(ex.Message));
-            }
-
-            return opt ;
-        }
-
-
-
-
-        public async Task<OPTResult<ProductView>> GetAll(Pagination pagination)
-        {  
-
-        
-            
-              // دریافت تمام محصولات  
-            var products = await _productRep.GetAsync(pagination);
-
-            // تبدیل داده‌ها به نوع ViewModel  
-            var data = _mapper.Map<List<ProductView>>(products);
-
-            // تعداد کل رکوردها  
-            var totalRecords = await _productRep.CountAsync();
-
-
-
-            // تعداد کل صفحات  
-            var totalPages = pagination.CalculateTotalPages(totalRecords);
-
-            // آماده‌سازی و بازگشت نتیجه  
-            return new OPTResult<ProductView>
-            {
-                IsSucceeded = true,
-                Message = MessageApp.AcceptOpt,
-                Data = data,
-                TotalRecords = totalRecords,
-                TotalPages = totalPages,
-                PageNumber = pagination.PageNumber,
-                PageSize = pagination.PageSize
-            };
-
-        }
-
-
-
-
-
-        public async Task<OPTResult<ProductView>> SearchProducts(ProductSearchCriteria criteria)
-        {
-            // تعریف اولیه فیلتر جستجو
-            Expression<Func<Product, bool>> filter = product => true;
-
-            if (!string.IsNullOrEmpty(criteria.Name))
-            {
-                filter = filter.And(product => product.Name.Contains(criteria.Name));
-            }
-
-            if (criteria.MinPrice.HasValue && criteria.MinPrice > 0)
-            {
-                filter = filter.And(product => product.Price >= criteria.MinPrice.Value);
-            }
-
-            if (criteria.MaxPrice.HasValue && criteria.MaxPrice > 0)
-            {
-                filter = filter.And(product => product.Price <= criteria.MaxPrice.Value);
-            }
-
-            // گرفتن داده‌ها از ریپازیتوری بر اساس فیلتر و اطلاعات صفحه‌بندی
-            var products = await _productRep.GetFilteredAsync(filter, criteria);
-
-            // نگاشت به لیست ViewModel
-            var data = _mapper.Map<List<ProductView>>(products);
-
-            // گرفتن تعداد کل رکوردها برای صفحه‌بندی
-            var totalRecords = await _productRep.CountAsync(filter);
-            var totalPages = criteria.CalculateTotalPages(totalRecords);
-
-            return new OPTResult<ProductView>
-            {
-                IsSucceeded = true,
-                Message = MessageApp.AcceptOpt,
-                Data = data,
-                TotalRecords = totalRecords,
-                TotalPages = totalPages,
-                PageNumber = criteria.PageNumber,
-                PageSize = criteria.PageSize
-            };
-        }
-
-
-
-
-
-
-
-
-
-
-
-        public async Task<OPTResult<ProductUpdate>> GetById(int id)
-        {
-            var product = await _productRep.GetAsync(id);
-            if (product == null) { return new OPTResult<ProductUpdate> { IsSucceeded = false, Message =MessageApp.NotFound}; }
-            var productupdate = _mapper.Map<ProductUpdate>(product);
-            return OPTResult<ProductUpdate>.Success(productupdate, MessageApp.AcceptOpt);
-        }
-
-
-
-
-
-        public async Task<OPTResult<ProductView>> Update(ProductView productView)
-        {
-
-            var validationOpt = ModelValidator.ValidateToOptResult(productView);
-            if (!validationOpt.IsSucceeded) return validationOpt;
-
-            var product = await _productRep.GetAsync(productView.Id);
-            if (product == null) { return new OPTResult<ProductView> { IsSucceeded = false, Message = MessageApp.FailOpt }; }
-            var codeExist = await _productRep.ExistAsync(c => c.ProductCode == productView.ProductCode && c.Id != productView.Id);
-            if (codeExist) { return new OPTResult<ProductView> { IsSucceeded = false, Message = MessageApp.DuplicateField(productView.ProductCode) }; }
-            else
-            {
-                product.Name = productView.Name;
-                product.Price = productView.Price;
-                product.ProductCode = productView.ProductCode;
-                await _productRep.UpdateAsync(product);
-                await _productRep.SaveChangesAsync();
-                return OPTResult<ProductView>.Success(_mapper.Map<ProductView>(product));
-            }
-        }
-
-
-    }
-
-
-
-
-
-    public interface IProductRep : IBaseRep<Product, int> { }
 }
 
 
-===== FILE: App\utility\ClassMapping.cs =====
-// فایل: App/ClassMapping.cs
-using App.Contracts.Object.Base.Users;
-using App.Contracts.Object.Shop.CountTypeCon;
-using App.Contracts.Object.Shop.InvCon;
-using App.Contracts.Object.Shop.ProductCon;
-using AutoMapper;
+===== FILE: ConfApp\MyContext.cs =====
+using ConfApp.Mapping;
 using Domain.Objects.Base;
 using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
 
-namespace App.utility
+
+namespace ConfApp
 {
-    // این کلاس برای نگاشت (Map) بین مدل‌های دامنه (Entity) و مدل‌های انتقال داده (DTO) استفاده می‌شود
-    public class ClassMapping : Profile
+    public class MyContext : DbContext
     {
-        public ClassMapping()
+        #region DbSet 
+        public DbSet<Person> Persons { get; set; }
+        public DbSet<Product> Products { get; set; }
+        public DbSet<CountType> CountTypes { get; set; }
+        public DbSet<Inv> Inventories { get; set; }
+        public DbSet<User> Users {get; set;}
+        public DbSet<Role> Roles {get; set;}
+        public DbSet<Permission> Permissions {get; set;}
+        public DbSet<UserRole> UserRoles {get; set;}
+        public DbSet<RolePermission> RolePermissions {get; set;}
+
+        #endregion
+        public MyContext(DbContextOptions<MyContext> options) : base(options)
         {
-            // نگاشت از مدل دامنه Product به مدل نمایشی ProductView
-            CreateMap<Product, ProductView>();
 
-            // نگاشت از مدل ساخت ProductCreate به مدل دامنه Product
-            CreateMap<ProductCreate, Product>()
-                // ویژگی Id را نادیده می‌گیریم چون در زمان ایجاد توسط دیتابیس مقداردهی می‌شود
-                .ForMember(p => p.Id, o => o.Ignore());
-            CreateMap<Product, ProductUpdate>();
-
-            // نگاشت از مدل دامنه CountType به مدل نمایشی CountTypeViw
-            CreateMap<CountType, CountTypeView>();
+        }
 
 
-            // نگاشت از مدل دامنه CountType به مدل ساخت CountTypeView
-            CreateMap<CountTypeView, CountType>();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
 
-
-            // نگاشت از مدل ساخت CountTypeCreate به مدل دامنه CountType
-            CreateMap<CountTypeCreate, CountType>()
-                // ویژگی Id باید در ساخت جدید مقدار نداشته باشد چون توسط دیتابیس مقداردهی می‌شود
-                .ForMember(p => p.Id, o => o.Ignore());
-
-
-        // مپینگ برای UsersView (برای GetAll) - بدون RoleIds
-            CreateMap<User, UsersView>(); // نادیده گرفتن RoleIds
-
-            // مپینگ برای UsersUpdate (برای GetById) - شامل RoleIds
-            CreateMap<User, UsersUpdate>()
-                .ForMember(dest => dest.RoleIds, opt => opt.MapFrom(src => src.UserRoles.Select(ur => ur.RoleId).ToList()))
-                .ForMember(dest => dest.Password, opt => opt.Ignore()); // رمز عبور در پاسخ ارسال نشود
-
-            // مپینگ برای UsersCreat به User
-            CreateMap<UsersCreat, User>()
-                .ForMember(dest => dest.Id, opt => opt.Ignore())
-                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src =>
-                    string.IsNullOrEmpty(src.Password) ? null : BCrypt.Net.BCrypt.HashPassword(src.Password)))
-                .ForMember(dest => dest.UserRoles, opt => opt.MapFrom(src => src.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList()));
-
-            // مپینگ برای UsersUpdate به User
-            CreateMap<UsersUpdate, User>()
-                .ForMember(dest => dest.Id, opt => opt.Ignore())
-                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src =>
-                    string.IsNullOrEmpty(src.Password) ? null : BCrypt.Net.BCrypt.HashPassword(src.Password)))
-                .ForMember(dest => dest.UserRoles, opt => opt.MapFrom(src => src.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList()));
-
-            // مپینگ معکوس (اختیاری، در صورت نیاز)
-            CreateMap<User, UsersCreat>()
-                .ForMember(dest => dest.RoleIds, opt => opt.MapFrom(src => src.UserRoles.Select(ur => ur.RoleId).ToList()));
-
-
-
-            CreateMap<Inv , InvView>();
-
-
+            var assembly = typeof(PersonMapping).Assembly;
+            modelBuilder.ApplyConfigurationsFromAssembly(assembly);
+            base.OnModelCreating(modelBuilder);
         }
     }
 }
 
 
-===== FILE: App\utility\ModelValidator.cs =====
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Threading.Tasks;
-using MyFrameWork.AppTool;
-
-namespace App.utility
-{
- public static class ModelValidator
-    {
-        public static OPT ValidateToOpt<T>(T model)
-        {
-            var context = new ValidationContext(model, serviceProvider: null, items: null);
-            var results = new List<ValidationResult>();
-
-            Validator.TryValidateObject(model, context, results, validateAllProperties: true);
-
-            if (results.Any())
-            {
-                return new OPT
-                {
-                    IsSucceeded = false,
-                    Message = string.Join(" | ", results.Select(r => r.ErrorMessage))
-                };
-            }
-
-            return new OPT { IsSucceeded = true }; // Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ø¯ÙˆÙ† Ø®Ø·Ø§
-        }
-
-        public static OPTResult<T> ValidateToOptResult<T>(T model) where T : class
-        {
-            var context = new ValidationContext(model, serviceProvider: null, items: null);
-            var results = new List<ValidationResult>();
-
-            Validator.TryValidateObject(model, context, results, validateAllProperties: true);
-
-            if (results.Any())
-            {
-                return new OPTResult<T>
-                {
-                    IsSucceeded = false,
-                    Message = string.Join(" | ", results.Select(r => r.ErrorMessage)),
-                    Data = default
-                };
-            }
-
-            return new OPTResult<T>
-            {
-                IsSucceeded = true,
-               
-               
-            };
-        }
-    }
-}
-
-===== FILE: App\utility\ValidationUtility.cs =====
+===== FILE: Domain\Objects\Base\Person.cs =====
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Threading.Tasks;
-using MyFrameWork.AppTool;
-
-namespace App.utility
-{
-    public static class ValidationUtility
-{
-
-     private static readonly OPT opt = new OPT();
-
-
-    public static OPT ValidateNotEmpty(string value, string fieldName)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return opt.Failed($"{fieldName} Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø®Ø§Ù„ÛŒ Ø¨Ø§Ø´Ø¯.");
-        return opt.Succeeded();
-    }
-
-    public static OPT ValidateLength(string value, string fieldName, int minLength, int maxLength)
-    {
-        if (value.Length < minLength || value.Length > maxLength)
-            return opt.Failed($"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minLength} ØªØ§ {maxLength} Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.");
-        return opt.Succeeded();
-    }
-
-    public static OPT ValidateRange(decimal value, string fieldName, decimal minValue, decimal maxValue)
-    {
-        if (value < minValue || value > maxValue)
-            return opt.Failed($"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minValue} ØªØ§ {maxValue} Ø¨Ø§Ø´Ø¯.");
-        return opt.Succeeded();
-    }
-
-   public static async Task<OPT> ValidateUniqueAsync<T, TKey>(
-    IBaseRep<T, TKey> repository, 
-    Expression<Func<T, bool>> predicate, 
-    string errorMessage)
-    where T : Domain.Objects.BaseDomain
-{
-    var exists = await repository.ExistAsync(predicate);
-    if (exists)
-        return opt.Failed(errorMessage);
-    return opt.Succeeded();
-}
-}
-}
-
-===== FILE: App\IBaseRep.cs =====
-using App.Contracts.Object.Shop.ProductCon;
-using Domain.Objects;
-using MyFrameWork.AppTool;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace App
+namespace Domain.Objects.Base
 {
-    public interface IBaseRep<T, TKey> : IDisposable where T : BaseDomain
+    public class Person :BaseDomain
     {
-        Task<T> GetAsync(TKey id);
-        T Get(TKey id);
-        Task<List<T>>  GetFilteredAsync(Expression<Func<T, bool>> filter = null , ProductSearchCriteria criteria = null);
-        Task<List<T>> GetAsync();
-        Task<List<T>> GetAsync(Pagination pagination );
-        Task CreateAsync(T entity);
-        void Delete(T entity);
-        void DeleteById(TKey id);
-        Task<int> CountAsync();
-        Task<int> CountAsync(Expression<Func<T , bool>> filter);
-        Task<bool> ExistAsync(Expression<Func<T, bool>> expression  );
-        Task<bool> UpdateAsync(T entity);
-        Task SaveChangesAsync();
-        Task<List<T>> GetByIdsAsync(List<TKey> ids);
-        public void DeleteRange(List<T> entities);
-        public Task<bool> HasRelationsAsync(T entity);
+       
+        public string Name { get; set; }
+        public string Family { get; set; }
+        public int Age { get; set; }
+    }
+}
+
+
+===== FILE: Domain\Objects\Base\User.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace Domain.Objects.Base
+{
+    public class User : BaseDomain
+    {
+
+        public string FullName { get; set; } = default!;
+        public string Username { get; set; }= default!   ;
+        public string Email { get; set; } = default!;
+        public string PasswordHash { get; set; } = default!;
+        public List<UserRole> UserRoles { get; set; }
+
+    }
+
+
+    public class Role : BaseDomain
+{
+    public int Id { get; set; }
+    public string Name { get; set; } 
+    public List<UserRole> UserRoles { get; set; }
+    public List<RolePermission> RolePermissions { get; set; }
+}
+
+public class Permission : BaseDomain
+{
+    public int Id { get; set; }
+    public int Category {get; set;}
+    public string Name { get; set; } // Ù…Ø«Ù„ ViewProduct, EditProduct
+    public List<RolePermission> RolePermissions { get; set; }
+}
+
+public class UserRole : BaseDomain
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public User User { get; set; }
+    public int RoleId { get; set; }
+    public Role Role { get; set; }
+}
+
+public class RolePermission : BaseDomain
+{
+    public int Id { get; set; }
+    public Role Role { get; set; }
+    public int PermissionId { get; set; }
+    public Permission Permission { get; set; }
+}
+}
+
+
+
+
+===== FILE: Domain\Objects\Shop\CountType.cs =====
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Domain.Objects.Shop
+{
+    public class CountType : BaseDomain
+    {
+       
+        public string Name { get; set; } = default!;
+
+        public ICollection<Product> products { get; set; } 
+    }
+}
+
+
+===== FILE: Domain\Objects\Shop\Inv.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Domain.Objects.Shop
+{
+    public class Inv : BaseDomain
+    {
+        
+        public string Name { get; set; }
+        public Boolean Active  { get; set; }=true;
+
+    }
+}
+
+
+===== FILE: Domain\Objects\Shop\InvTran.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Domain.Objects.Shop
+{
+    public class InvTran : BaseDomain
+    {
+        
+        public DateTime CreateTime { get; set; }
+        public DateTime AcceptTime{ get; set; }
+        public Inv Inv { get; set; }
+
+    }
+}
+
+
+===== FILE: Domain\Objects\Shop\InvTranDetail.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Domain.Objects.Shop
+{
+    public class InvTranDetail : BaseDomain
+    {
+        public InvTran InvTran { get; set; }
+
+    }
+}
+
+
+===== FILE: Domain\Objects\Shop\Product.cs =====
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
+using System.Numerics;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Domain.Objects.Shop
+{
+    public class Product : BaseDomain
+    {
+        public string? ProductCode { get; set; }
+        public string Name { get; set; } = default!;
+        public int Price { get; set; }
+        public int CountTypeId { get; set; }
+        public CountType CountType { get; set; }
+    }
+}
+
+
+===== FILE: Domain\Objects\BaseDomain.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Domain.Objects
+{
+    public class BaseDomain
+    {
+        public int Id { get; set; }
+        public DateTime CreateDate { get; set; }
+        public DateTime? UpdateDate { get; set; }
+        public bool IsDeleted { get; set; }=false;
+
+    }
+}
+
+
+===== FILE: Infrastructure\data\seed\UserSeeder.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using ConfApp;
+using Domain.Objects.Base;
+
+namespace Infrastructure.data.seed
+{
+    // UserSeeder.cs
+public class UserSeeder
+{
+    private readonly MyContext _context;
+
+    public UserSeeder(MyContext context)
+    {
+        _context = context;
+    }
+
+    public void Seed()
+    {
+        if (!_context.Users.Any(u => u.Email == "test@example.com"))
+        {
+            var user = new User
+            {
+                FullName = "Test User",
+                Email = "test@example.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("1234")
+            };
+            _context.Users.Add(user);
+            _context.SaveChanges();
+        }
+    }
+}
+
+// // RoleSeeder.cs (Ù…Ø«Ø§Ù„ Ø¯ÛŒÚ¯Ù‡)
+// public class RoleSeeder
+// {
+//     private readonly MyContext _context;
+
+//     public RoleSeeder(MyContext context)
+//     {
+//         _context = context;
+//     }
+
+//     public void Seed()
+//     {
+//         if (!_context.Roles.Any())
+//         {
+//             _context.Roles.AddRange(new List<Role>
+//             {
+//                 new Role { Name = "Admin" },
+//                 new Role { Name = "User" }
+//             });
+//             _context.SaveChanges();
+//         }
+//     }
+// }
+
+// DatabaseSeeder.cs
+public class DatabaseSeeder
+{
+    private readonly MyContext _context;
+
+    public DatabaseSeeder(MyContext context)
+    {
+        _context = context;
+    }
+
+    public void SeedAll()
+    {
+        new UserSeeder(_context).Seed();
+        // new RoleSeeder(_context).Seed();
+        // Ø§ÛŒÙ†Ø¬Ø§ Ù…ÛŒØªÙˆÙ†ÛŒ Seeder Ù‡Ø§ÛŒ Ø¯ÛŒÚ¯Ù‡ Ù‡Ù… Ø§Ø¶Ø§ÙÙ‡ Ú©Ù†ÛŒ
+    }
+}
+
+}
+
+===== FILE: Infrastructure\Migrations\20250529121411_InitialCreate.cs =====
+using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Infrastructure.Migrations
+{
+    /// <inheritdoc />
+    public partial class InitialCreate : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "CountTypes",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CountTypes", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Persons",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
+                    Family = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
+                    age = table.Column<int>(type: "int", nullable: false),
+                    CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Persons", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Products",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ProductCode = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Name = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
+                    Price = table.Column<int>(type: "int", nullable: false),
+                    CountTypeId = table.Column<int>(type: "int", nullable: false),
+                    CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Products", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Products_CountTypes_CountTypeId",
+                        column: x => x.CountTypeId,
+                        principalTable: "CountTypes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CountTypes_Id",
+                table: "CountTypes",
+                column: "Id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Persons_Id",
+                table: "Persons",
+                column: "Id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Products_CountTypeId",
+                table: "Products",
+                column: "CountTypeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Products_Id",
+                table: "Products",
+                column: "Id");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "Persons");
+
+            migrationBuilder.DropTable(
+                name: "Products");
+
+            migrationBuilder.DropTable(
+                name: "CountTypes");
+        }
+    }
+}
+
+
+===== FILE: Infrastructure\Migrations\20250529121411_InitialCreate.Designer.cs =====
+// <auto-generated />
+using System;
+using ConfApp;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace Infrastructure.Migrations
+{
+    [DbContext(typeof(MyContext))]
+    [Migration("20250529121411_InitialCreate")]
+    partial class InitialCreate
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("Domain.Objects.Base.Person", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Family")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("age")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Id");
+
+                    b.ToTable("Persons", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Id");
+
+                    b.ToTable("CountTypes", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CountTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("Price")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CountTypeId");
+
+                    b.HasIndex("Id");
+
+                    b.ToTable("Products", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
+                {
+                    b.HasOne("Domain.Objects.Shop.CountType", "CountType")
+                        .WithMany("products")
+                        .HasForeignKey("CountTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CountType");
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
+                {
+                    b.Navigation("products");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+
+===== FILE: Infrastructure\Migrations\20250607132727_add-inventory.cs =====
+using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Infrastructure.Migrations
+{
+    /// <inheritdoc />
+    public partial class addinventory : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "inventories",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Active = table.Column<bool>(type: "bit", nullable: false),
+                    CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_inventories", x => x.Id);
+                });
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "inventories");
+        }
+    }
+}
+
+
+===== FILE: Infrastructure\Migrations\20250607132727_add-inventory.Designer.cs =====
+// <auto-generated />
+using System;
+using ConfApp;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace Infrastructure.Migrations
+{
+    [DbContext(typeof(MyContext))]
+    [Migration("20250607132727_add-inventory")]
+    partial class addinventory
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("Domain.Objects.Base.Person", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Family")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("age")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Id");
+
+                    b.ToTable("Persons", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Id");
+
+                    b.ToTable("CountTypes", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.Inv", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("inventories");
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CountTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("Price")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CountTypeId");
+
+                    b.HasIndex("Id");
+
+                    b.ToTable("Products", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
+                {
+                    b.HasOne("Domain.Objects.Shop.CountType", "CountType")
+                        .WithMany("products")
+                        .HasForeignKey("CountTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CountType");
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
+                {
+                    b.Navigation("products");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+
+===== FILE: Infrastructure\Migrations\20250609143134_add-auth.cs =====
+using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Infrastructure.Migrations
+{
+    /// <inheritdoc />
+    public partial class addauth : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "Users",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    FullName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Users", x => x.Id);
+                });
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "Users");
+        }
+    }
+}
+
+
+===== FILE: Infrastructure\Migrations\20250609143134_add-auth.Designer.cs =====
+// <auto-generated />
+using System;
+using ConfApp;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace Infrastructure.Migrations
+{
+    [DbContext(typeof(MyContext))]
+    [Migration("20250609143134_add-auth")]
+    partial class addauth
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("Domain.Objects.Base.Person", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Family")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("age")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Id");
+
+                    b.ToTable("Persons", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Objects.Base.User", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Id");
+
+                    b.ToTable("CountTypes", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.Inv", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("inventories");
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CountTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("Price")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CountTypeId");
+
+                    b.HasIndex("Id");
+
+                    b.ToTable("Products", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
+                {
+                    b.HasOne("Domain.Objects.Shop.CountType", "CountType")
+                        .WithMany("products")
+                        .HasForeignKey("CountTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CountType");
+                });
+
+            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
+                {
+                    b.Navigation("products");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+
+===== FILE: Infrastructure\Migrations\20250910100522_permisins.cs =====
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Infrastructure.Migrations
+{
+    /// <inheritdoc />
+    public partial class permisins : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<string>(
+                name: "Username",
+                table: "Users",
+                type: "nvarchar(max)",
+                nullable: false,
+                defaultValue: "");
+
+            migrationBuilder.CreateTable(
+                name: "permissions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_permissions", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "roles",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_roles", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "rolePermissions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    RoleId = table.Column<int>(type: "int", nullable: false),
+                    PermissionId = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_rolePermissions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_rolePermissions_permissions_PermissionId",
+                        column: x => x.PermissionId,
+                        principalTable: "permissions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_rolePermissions_roles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "roles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "userRoles",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    RoleId = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_userRoles", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_userRoles_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_userRoles_roles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "roles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_rolePermissions_PermissionId",
+                table: "rolePermissions",
+                column: "PermissionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_rolePermissions_RoleId",
+                table: "rolePermissions",
+                column: "RoleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_userRoles_RoleId",
+                table: "userRoles",
+                column: "RoleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_userRoles_UserId",
+                table: "userRoles",
+                column: "UserId");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "rolePermissions");
+
+            migrationBuilder.DropTable(
+                name: "userRoles");
+
+            migrationBuilder.DropTable(
+                name: "permissions");
+
+            migrationBuilder.DropTable(
+                name: "roles");
+
+            migrationBuilder.DropColumn(
+                name: "Username",
+                table: "Users");
+        }
     }
 }
 

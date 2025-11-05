@@ -1,31 +1,31 @@
-using ConfApp;
 using Infrastructure;
 using Infrastructure.data.seed;
-using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Authentication.JwtBearer; // اضافه شده
-using Microsoft.IdentityModel.Tokens; // اضافه شده
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using API.Middleware; // اضافه شده
+using API.Middleware;
+using App.Object.Base.Users;
+using ConfApp;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// === CORS ===
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder.AllowAnyOrigin()
-                   .AllowAnyMethod()
-                   .AllowAnyHeader();
-        });
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
 });
 
+// === سرویس‌های اصلی ===
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// تنظیم احراز هویت JWT
+// === احراز هویت JWT ===
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -39,24 +39,25 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = "yourapp", // باید با "iss" توکن مطابقت داشته باشد
-        ValidAudience = "yourapp", // باید با "aud" توکن مطابقت داشته باشد
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars")) // کلید امضا
+        ValidIssuer = "yourapp",
+        ValidAudience = "yourapp",
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars"))
     };
 });
 
-if (false)
-{
-    CRMBootstraper.AddCRMManagement(builder.Services, "Data Source=dev.db", DbProvider.Sqlite);
-}
-else
-{
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    CRMBootstraper.AddCRMManagement(builder.Services, connectionString, DbProvider.SqlServer);
-}
+// === ثبت تمام سرویس‌های CRM (شامل FileService, UserStatusService, DbContext و ...) ===
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+                       ?? "Data Source=dev.db";
 
+CRMBootstraper.AddCRMManagement(
+    builder.Services,
+    connectionString,
+    connectionString.Contains("Data Source=dev.db") ? DbProvider.Sqlite : DbProvider.SqlServer
+);
+builder.Services.AddScoped<App.utility.IFileService, API.utility.FileService>();
 var app = builder.Build();
 
+// === Middleware Pipeline ===
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -65,16 +66,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseRouting();
 
-// Middleware برای لاگ کردن درخواست‌ها
+// لاگ درخواست
 app.Use(async (context, next) =>
 {
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation("Received {Method} request at {Url}", context.Request.Method, context.Request.Path);
+    logger.LogInformation("Received {Method} {Path}", context.Request.Method, context.Request.Path);
     await next();
-    logger.LogInformation("Response Status Code: {StatusCode}", context.Response.StatusCode);
+    logger.LogInformation("Response: {StatusCode}", context.Response.StatusCode);
 });
 
-// Middleware برای هندل کردن درخواست‌های Preflight (OPTIONS)
+// Preflight
 app.Use(async (context, next) =>
 {
     if (context.Request.Method == "OPTIONS")
@@ -87,16 +88,25 @@ app.Use(async (context, next) =>
 });
 
 app.UseCors("AllowAll");
-
-app.UseAuthentication(); 
+app.UseAuthentication();
 app.UseTokenValidation();
 app.UseAuthorization();
 
-builder.Services.AddHttpContextAccessor();
-//app.UseHttpsRedirection();
+// === ایجاد فولدر uploads ===
+var uploadsPath = Path.Combine(app.Environment.WebRootPath, "uploads");
+if (!Directory.Exists(uploadsPath))
+    Directory.CreateDirectory(uploadsPath);
+
+// === تایمر چک وضعیت کاربران (هر 1 دقیقه) ===
+var timer = new Timer(_ =>
+{
+    var statusService = app.Services.GetRequiredService<UserStatusService>();
+    statusService.CheckInactive();
+}, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
 
 app.MapControllers();
 
+// === Seed دیتابیس ===
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MyContext>();
