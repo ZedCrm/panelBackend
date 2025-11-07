@@ -1,3 +1,4 @@
+using System.Runtime.Intrinsics.Arm;
 using App.Contracts.Object.Base.Users;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
@@ -54,8 +55,15 @@ namespace API.Controllers.bases
         [HttpPost("/api/User/keepalive")]
         public async Task<ActionResult<ApiResult<object>>> KeepAlive()
         {
-            var userId = GetCurrentUserId();  
+            var userId = GetCurrentUserId();
             var result = await _usersApp.KeepAlive(userId);
+            return Ok(result);
+        }
+
+        [HttpGet("/api/user/getcreateform")]
+        public async Task<ActionResult<ApiResult<object>>> Getcreateform()
+        {
+            var result = await _usersApp.CreateForm();
             return Ok(result);
         }
     }

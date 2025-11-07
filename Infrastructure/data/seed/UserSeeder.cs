@@ -25,7 +25,9 @@ public class UserSeeder
             {
                 FullName = "Test User",
                 Email = "test@example.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("1234")
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("123"),
+                Status = UserStatus.Offline,
+                Username = "test"
             };
             _context.Users.Add(user);
             _context.SaveChanges();
