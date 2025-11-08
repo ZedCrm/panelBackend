@@ -1,4 +1,361 @@
-﻿===== FILE: ConfApp\Rep\bases\RoleRepo.cs =====
+﻿===== FILE: App.Contracts\Object\Shop\CountTypeCon\ICountTypeApp.cs =====
+using MyFrameWork.AppTool;
+
+
+namespace App.Contracts.Object.Shop.CountTypeCon
+{
+    public interface ICountTypeApp
+    {
+        public Task<OPTResult<CountTypeView>> GetAll(Pagination pagination);
+        public Task<OPTResult<CountTypeView>> GetById(int id);
+        public Task<OPTResult<CountTypeView>> Create(CountTypeCreate countTypeCreate);
+        public Task<OPTResult<CountTypeView>> Update(CountTypeView countTypeView);
+        public Task<OPTResult<CountTypeView>> DeleteBy(List<int> ids);
+    }
+
+}
+
+
+===== FILE: App.Contracts\Object\Shop\InvCon\IInvApp.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using MyFrameWork.AppTool;
+
+namespace App.Contracts.Object.Shop.InvCon
+{
+    public interface IInvApp
+    {
+        public Task<ApiResult> GetAll(Pagination pagination);
+        public Task<OPTResult<InvUpdate>> GetById(int id);
+        public Task<OPTResult<InvCreate>> Create(InvCreate createData);
+        public Task<OPTResult<InvUpdate>> Update(InvUpdate updateData);
+        public Task<OPTResult<InvView>> DeleteBy(List<int> ids);
+    }
+}
+
+===== FILE: App.Contracts\Object\Shop\InvCon\invView.cs =====
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Threading.Tasks;
+using MyFrameWork.AppTool;
+
+namespace App.Contracts.Object.Shop.InvCon
+{
+    public class InvView
+    {
+        public int Id { get; set; }
+        [Display(Name = "Ù†Ø§Ù…")]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+        [Display(Name = "ÙØ¹Ø§Ù„")]
+        public Boolean Active  { get; set; }=true;
+    }
+
+
+    public class InvCreate
+    {
+        
+        [Display(Name = "Ù†Ø§Ù…")]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+        [Display(Name = "ÙØ¹Ø§Ù„")]
+        public Boolean Active  { get; set; }=true;
+    }
+    
+
+        public class InvUpdate
+    {
+        public int Id { get; set; }
+        [Display(Name = "Ù†Ø§Ù…")]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+        [Display(Name = "ÙØ¹Ø§Ù„")]
+        public Boolean Active  { get; set; }=true;
+    
+    }
+
+}
+
+===== FILE: App.Contracts\Object\Shop\ProductCon\IProductApp.cs =====
+using MyFrameWork.AppTool;
+
+
+namespace App.Contracts.Object.Shop.ProductCon
+{
+    public interface IProductApp
+    {
+        /// <summary>
+    /// جستجوی محصولات بر اساس معیارهای مشخص (نام، حداقل و حداکثر قیمت).
+    /// </summary>
+    /// <param name="criteria">معیارهای جستجو شامل نام، قیمت و اطلاعات صفحه‌بندی.</param>
+    /// <returns>لیست محصولات به همراه اطلاعات صفحه‌بندی.</returns>
+    /// 
+
+    
+        public Task<OPTResult<ProductView>> SearchProducts(ProductSearchCriteria criteria);
+        Task<OPTResult<ProductView>> GetAll(Pagination pagination);
+        Task<OPT> Create(ProductCreate productCreate);
+        Task<OPT> DeleteBy(List<int> productids);
+        Task<OPTResult<ProductUpdate>> GetById(int id);
+        Task<OPTResult<ProductView>> Update(ProductView productView);
+        
+        //public void Dispose();
+    }
+
+}
+
+
+===== FILE: App.Contracts\Object\Shop\ProductCon\ProductView.cs =====
+using MyFrameWork.AppTool;
+using System.ComponentModel.DataAnnotations;
+
+
+
+
+namespace App.Contracts.Object.Shop.ProductCon
+{
+    public class ProductView
+    {
+       
+        public int Id { get; set; }
+        [Display(Name = " کد محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string ProductCode { get; set; }
+
+        [Display(Name = " نام محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+
+        [Display(Name = " قیمت")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
+        
+        public int Price { get; set; }
+        
+
+    }
+    public class ProductCreate 
+    {
+
+        [Display(Name = " کد محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string ProductCode { get; set; }
+
+        [Display(Name = " نام محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+
+        [Display(Name = " قیمت")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
+        
+        public int Price { get; set; }
+
+        [Display(Name = " واحد شمارش")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]  
+        [SelectSource("/api/counttype/CountTypelist")]
+        public int CountTypeId { get; set; }
+       
+       
+
+    }
+
+       public class ProductUpdate 
+    {
+
+        public int Id { get; set; }
+
+        [Display(Name = " کد محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string ProductCode { get; set; }
+
+        [Display(Name = " نام محصول")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
+        public string Name { get; set; }
+
+        [Display(Name = " قیمت")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
+        
+        public int Price { get; set; }
+
+        [Display(Name = " واحد شمارش")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]  
+        [SelectSource("/api/counttype/CountTypelist")]
+        public int CountTypeId { get; set; }
+       
+       
+
+    }
+    public class ProductSearchCriteria : Pagination
+    {
+        public string? Name { get; set; }
+        public int? MinPrice { get; set; }
+        public int? MaxPrice { get; set; }
+    }
+
+}
+
+
+===== FILE: ConfApp\Mapping\Inv\CountTypeMapping.cs =====
+using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ConfApp.Mapping.Inv
+{
+    public class CountTypeMapping : IEntityTypeConfiguration<CountType>         
+    {           
+
+                public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<CountType> builder)
+                {
+                    builder.ToTable("CountTypes");
+                
+                    builder.HasKey(x => x.Id);
+                    builder.HasIndex(x => x.Id);
+                    builder.Property(x => x.Name).IsRequired().HasMaxLength(50);
+                
+                }
+    }           
+                
+}
+
+===== FILE: ConfApp\Mapping\Inv\ProductMapping.cs =====
+using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ConfApp.Mapping.Inv
+{
+    public class ProductMapping : IEntityTypeConfiguration<Product>
+    {
+        public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<Product> builder)
+        {
+            builder.ToTable("Products");
+
+            builder.HasKey(x => x.Id);
+            builder.HasIndex(x => x.Id);
+            builder.Property(x => x.Name).IsRequired().HasMaxLength(250);
+            
+
+        }
+    }
+}
+
+
+===== FILE: ConfApp\Mapping\PersonMapping.cs =====
+using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace ConfApp.Mapping
+{
+    public class PersonMapping : IEntityTypeConfiguration<Person>
+    {
+        public void Configure(EntityTypeBuilder<Person> builder)
+        {
+            builder.ToTable("Persons");
+
+            builder.HasKey(x => x.Id);
+            builder.HasIndex(x => x.Id);
+            builder.Property(x => x.Name).IsRequired().HasMaxLength(250);
+            builder.Property(x => x.Family).IsRequired().HasMaxLength(250);
+
+        }
+    }
+}
+
+
+===== FILE: ConfApp\Rep\bases\MyuserRepo.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using App.Object.Base.Users;
+using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
+
+namespace ConfApp.Rep.bases
+{
+    public class MyuserRepo :  BaseRep<User , int> , IMyUserRepository 
+    {
+        
+        private readonly MyContext _context;
+
+        public MyuserRepo(MyContext context) : base(context) 
+        {
+            _context = context;
+        }
+
+
+
+       public async Task<User> GetAsync(int userId)
+        {
+            return await _context.Users
+                .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
+        }
+    }
+}
+
+===== FILE: ConfApp\Rep\bases\PermissionRepository.cs =====
+using App.Object.Base.auth;
+using Microsoft.EntityFrameworkCore;
+
+namespace ConfApp.Rep.bases
+{
+    public class PermissionRepository : IPermissionRep
+    {
+        private readonly MyContext _context;
+
+        public PermissionRepository(MyContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<bool> HasPermissionAsync(int userId, string permission)
+        {
+            // Ú†Ú© Ø§Ú¯Ø± Ú©Ø§Ø±Ø¨Ø± Admin Ø¨Ø§Ø´Ù‡ØŒ Ù‡Ù…Ù‡ Ø¯Ø³ØªØ±Ø³ÛŒâ€ŒÙ‡Ø§ Ø±Ùˆ Ø¨Ø¯Ù‡
+            var isAdmin = await _context.UserRoles
+                .Where(ur => ur.UserId == userId && !ur.IsDeleted)
+                .Include(ur => ur.Role)
+                .AnyAsync(ur => ur.Role.Name == "Admin");
+
+            if (isAdmin) return true;  // Admin Ù‡Ù…Ù‡ Ù¾Ø±Ù…ÛŒØ´Ù†â€ŒÙ‡Ø§ Ø±Ùˆ Ø¯Ø§Ø±Ù‡
+
+            // Ú†Ú© Ù¾Ø±Ù…ÛŒØ´Ù† Ø®Ø§Øµ
+            return await _context.UserRoles
+                .Where(ur => ur.UserId == userId && !ur.IsDeleted)
+                .Include(ur => ur.Role)
+                .ThenInclude(r => r.RolePermissions)
+                .ThenInclude(rp => rp.Permission)
+                .AnyAsync(ur => ur.Role.RolePermissions.Any(rp => rp.Permission.Name == permission));
+        }
+    }
+}
+
+===== FILE: ConfApp\Rep\bases\RoleRepo.cs =====
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -491,46 +848,55 @@ namespace Domain.Objects.Base
     {
 
         public string FullName { get; set; } = default!;
-        public string Username { get; set; }= default!   ;
+        public string Username { get; set; } = default!;
         public string Email { get; set; } = default!;
         public string PasswordHash { get; set; } = default!;
+        public string? ProfilePictureUrl { get; set; }  // Ø¬Ø¯ÛŒØ¯: Ù…Ø³ÛŒØ± Ø¹Ú©Ø³ Ù¾Ø±ÙˆÙØ§ÛŒÙ„
+        public UserStatus Status { get; set; } = UserStatus.Offline;  // Ø¬Ø¯ÛŒØ¯: ÙˆØ¶Ø¹ÛŒØª
+        public DateTime? LastSeen { get; set; }  // Ø¬Ø¯ÛŒØ¯: Ø¢Ø®Ø±ÛŒÙ† Ø¨Ø§Ø²Ø¯ÛŒØ¯
         public List<UserRole> UserRoles { get; set; }
 
     }
 
+    public enum UserStatus  // Ø¬Ø¯ÛŒØ¯: enum Ø¨Ø±Ø§ÛŒ ÙˆØ¶Ø¹ÛŒØª
+    {
+        Offline = 1,  // Ù„Ø§Ú¯ Ø§ÙˆØª Ú©Ø§Ù…Ù„
+        Inactive = 2,  // Ù„Ø§Ú¯ÛŒÙ† ÙˆÙ„ÛŒ ØµÙØ­Ù‡ Ø§Ú©ØªÛŒÙˆ Ù†ÛŒØ³Øª
+        Online = 3    // Ø¢Ù†Ù„Ø§ÛŒÙ† Ùˆ Ø¯Ø± ØµÙØ­Ù‡
+    }
 
     public class Role : BaseDomain
-{
-    public int Id { get; set; }
-    public string Name { get; set; } 
-    public List<UserRole> UserRoles { get; set; }
-    public List<RolePermission> RolePermissions { get; set; }
-}
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public List<UserRole> UserRoles { get; set; }
+        public List<RolePermission> RolePermissions { get; set; }
+    }
 
-public class Permission : BaseDomain
-{
-    public int Id { get; set; }
-    public int Category {get; set;}
-    public string Name { get; set; } // Ù…Ø«Ù„ ViewProduct, EditProduct
-    public List<RolePermission> RolePermissions { get; set; }
-}
+    public class Permission : BaseDomain
+    {
+        public int Id { get; set; }
+        public int Category { get; set; }
+        public string Name { get; set; } // Ù…Ø«Ù„ ViewProduct, EditProduct
+        public List<RolePermission> RolePermissions { get; set; }
+    }
 
-public class UserRole : BaseDomain
-{
-    public int Id { get; set; }
-    public int UserId { get; set; }
-    public User User { get; set; }
-    public int RoleId { get; set; }
-    public Role Role { get; set; }
-}
+    public class UserRole : BaseDomain
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public User User { get; set; }
+        public int RoleId { get; set; }
+        public Role Role { get; set; }
+    }
 
-public class RolePermission : BaseDomain
-{
-    public int Id { get; set; }
-    public Role Role { get; set; }
-    public int PermissionId { get; set; }
-    public Permission Permission { get; set; }
-}
+    public class RolePermission : BaseDomain
+    {
+        public int Id { get; set; }
+        public Role Role { get; set; }
+        public int PermissionId { get; set; }
+        public Permission Permission { get; set; }
+    }
 }
 
 
@@ -552,1078 +918,6 @@ namespace Domain.Objects.Shop
         public string Name { get; set; } = default!;
 
         public ICollection<Product> products { get; set; } 
-    }
-}
-
-
-===== FILE: Domain\Objects\Shop\Inv.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Objects.Shop
-{
-    public class Inv : BaseDomain
-    {
-        
-        public string Name { get; set; }
-        public Boolean Active  { get; set; }=true;
-
-    }
-}
-
-
-===== FILE: Domain\Objects\Shop\InvTran.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Objects.Shop
-{
-    public class InvTran : BaseDomain
-    {
-        
-        public DateTime CreateTime { get; set; }
-        public DateTime AcceptTime{ get; set; }
-        public Inv Inv { get; set; }
-
-    }
-}
-
-
-===== FILE: Domain\Objects\Shop\InvTranDetail.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Objects.Shop
-{
-    public class InvTranDetail : BaseDomain
-    {
-        public InvTran InvTran { get; set; }
-
-    }
-}
-
-
-===== FILE: Domain\Objects\Shop\Product.cs =====
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Objects.Shop
-{
-    public class Product : BaseDomain
-    {
-        public string? ProductCode { get; set; }
-        public string Name { get; set; } = default!;
-        public int Price { get; set; }
-        public int CountTypeId { get; set; }
-        public CountType CountType { get; set; }
-    }
-}
-
-
-===== FILE: Domain\Objects\BaseDomain.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Objects
-{
-    public class BaseDomain
-    {
-        public int Id { get; set; }
-        public DateTime CreateDate { get; set; }
-        public DateTime? UpdateDate { get; set; }
-        public bool IsDeleted { get; set; }=false;
-
-    }
-}
-
-
-===== FILE: Infrastructure\data\seed\UserSeeder.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using ConfApp;
-using Domain.Objects.Base;
-
-namespace Infrastructure.data.seed
-{
-    // UserSeeder.cs
-public class UserSeeder
-{
-    private readonly MyContext _context;
-
-    public UserSeeder(MyContext context)
-    {
-        _context = context;
-    }
-
-    public void Seed()
-    {
-        if (!_context.Users.Any(u => u.Email == "test@example.com"))
-        {
-            var user = new User
-            {
-                FullName = "Test User",
-                Email = "test@example.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("1234")
-            };
-            _context.Users.Add(user);
-            _context.SaveChanges();
-        }
-    }
-}
-
-// // RoleSeeder.cs (Ù…Ø«Ø§Ù„ Ø¯ÛŒÚ¯Ù‡)
-// public class RoleSeeder
-// {
-//     private readonly MyContext _context;
-
-//     public RoleSeeder(MyContext context)
-//     {
-//         _context = context;
-//     }
-
-//     public void Seed()
-//     {
-//         if (!_context.Roles.Any())
-//         {
-//             _context.Roles.AddRange(new List<Role>
-//             {
-//                 new Role { Name = "Admin" },
-//                 new Role { Name = "User" }
-//             });
-//             _context.SaveChanges();
-//         }
-//     }
-// }
-
-// DatabaseSeeder.cs
-public class DatabaseSeeder
-{
-    private readonly MyContext _context;
-
-    public DatabaseSeeder(MyContext context)
-    {
-        _context = context;
-    }
-
-    public void SeedAll()
-    {
-        new UserSeeder(_context).Seed();
-        // new RoleSeeder(_context).Seed();
-        // Ø§ÛŒÙ†Ø¬Ø§ Ù…ÛŒØªÙˆÙ†ÛŒ Seeder Ù‡Ø§ÛŒ Ø¯ÛŒÚ¯Ù‡ Ù‡Ù… Ø§Ø¶Ø§ÙÙ‡ Ú©Ù†ÛŒ
-    }
-}
-
-}
-
-===== FILE: Infrastructure\Migrations\20250529121411_InitialCreate.cs =====
-using System;
-using Microsoft.EntityFrameworkCore.Migrations;
-
-#nullable disable
-
-namespace Infrastructure.Migrations
-{
-    /// <inheritdoc />
-    public partial class InitialCreate : Migration
-    {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.CreateTable(
-                name: "CountTypes",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_CountTypes", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Persons",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
-                    Family = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
-                    age = table.Column<int>(type: "int", nullable: false),
-                    CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Persons", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Products",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    ProductCode = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Name = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
-                    Price = table.Column<int>(type: "int", nullable: false),
-                    CountTypeId = table.Column<int>(type: "int", nullable: false),
-                    CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Products", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Products_CountTypes_CountTypeId",
-                        column: x => x.CountTypeId,
-                        principalTable: "CountTypes",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_CountTypes_Id",
-                table: "CountTypes",
-                column: "Id");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Persons_Id",
-                table: "Persons",
-                column: "Id");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Products_CountTypeId",
-                table: "Products",
-                column: "CountTypeId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Products_Id",
-                table: "Products",
-                column: "Id");
-        }
-
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropTable(
-                name: "Persons");
-
-            migrationBuilder.DropTable(
-                name: "Products");
-
-            migrationBuilder.DropTable(
-                name: "CountTypes");
-        }
-    }
-}
-
-
-===== FILE: Infrastructure\Migrations\20250529121411_InitialCreate.Designer.cs =====
-// <auto-generated />
-using System;
-using ConfApp;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-
-#nullable disable
-
-namespace Infrastructure.Migrations
-{
-    [DbContext(typeof(MyContext))]
-    [Migration("20250529121411_InitialCreate")]
-    partial class InitialCreate
-    {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
-        {
-#pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.10")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
-
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("Domain.Objects.Base.Person", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Family")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("age")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Id");
-
-                    b.ToTable("Persons", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Id");
-
-                    b.ToTable("CountTypes", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("CountTypeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<int>("Price")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ProductCode")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CountTypeId");
-
-                    b.HasIndex("Id");
-
-                    b.ToTable("Products", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
-                {
-                    b.HasOne("Domain.Objects.Shop.CountType", "CountType")
-                        .WithMany("products")
-                        .HasForeignKey("CountTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CountType");
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
-                {
-                    b.Navigation("products");
-                });
-#pragma warning restore 612, 618
-        }
-    }
-}
-
-
-===== FILE: Infrastructure\Migrations\20250607132727_add-inventory.cs =====
-using System;
-using Microsoft.EntityFrameworkCore.Migrations;
-
-#nullable disable
-
-namespace Infrastructure.Migrations
-{
-    /// <inheritdoc />
-    public partial class addinventory : Migration
-    {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.CreateTable(
-                name: "inventories",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Active = table.Column<bool>(type: "bit", nullable: false),
-                    CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_inventories", x => x.Id);
-                });
-        }
-
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropTable(
-                name: "inventories");
-        }
-    }
-}
-
-
-===== FILE: Infrastructure\Migrations\20250607132727_add-inventory.Designer.cs =====
-// <auto-generated />
-using System;
-using ConfApp;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-
-#nullable disable
-
-namespace Infrastructure.Migrations
-{
-    [DbContext(typeof(MyContext))]
-    [Migration("20250607132727_add-inventory")]
-    partial class addinventory
-    {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
-        {
-#pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.10")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
-
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("Domain.Objects.Base.Person", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Family")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("age")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Id");
-
-                    b.ToTable("Persons", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Id");
-
-                    b.ToTable("CountTypes", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.Inv", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Active")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("inventories");
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("CountTypeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<int>("Price")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ProductCode")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CountTypeId");
-
-                    b.HasIndex("Id");
-
-                    b.ToTable("Products", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
-                {
-                    b.HasOne("Domain.Objects.Shop.CountType", "CountType")
-                        .WithMany("products")
-                        .HasForeignKey("CountTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CountType");
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
-                {
-                    b.Navigation("products");
-                });
-#pragma warning restore 612, 618
-        }
-    }
-}
-
-
-===== FILE: Infrastructure\Migrations\20250609143134_add-auth.cs =====
-using System;
-using Microsoft.EntityFrameworkCore.Migrations;
-
-#nullable disable
-
-namespace Infrastructure.Migrations
-{
-    /// <inheritdoc />
-    public partial class addauth : Migration
-    {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.CreateTable(
-                name: "Users",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    FullName = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Users", x => x.Id);
-                });
-        }
-
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropTable(
-                name: "Users");
-        }
-    }
-}
-
-
-===== FILE: Infrastructure\Migrations\20250609143134_add-auth.Designer.cs =====
-// <auto-generated />
-using System;
-using ConfApp;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-
-#nullable disable
-
-namespace Infrastructure.Migrations
-{
-    [DbContext(typeof(MyContext))]
-    [Migration("20250609143134_add-auth")]
-    partial class addauth
-    {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
-        {
-#pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.10")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
-
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("Domain.Objects.Base.Person", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Family")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("age")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Id");
-
-                    b.ToTable("Persons", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Objects.Base.User", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Id");
-
-                    b.ToTable("CountTypes", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.Inv", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Active")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("inventories");
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("CountTypeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<int>("Price")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ProductCode")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CountTypeId");
-
-                    b.HasIndex("Id");
-
-                    b.ToTable("Products", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.Product", b =>
-                {
-                    b.HasOne("Domain.Objects.Shop.CountType", "CountType")
-                        .WithMany("products")
-                        .HasForeignKey("CountTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CountType");
-                });
-
-            modelBuilder.Entity("Domain.Objects.Shop.CountType", b =>
-                {
-                    b.Navigation("products");
-                });
-#pragma warning restore 612, 618
-        }
-    }
-}
-
-
-===== FILE: Infrastructure\Migrations\20250910100522_permisins.cs =====
-using Microsoft.EntityFrameworkCore.Migrations;
-
-#nullable disable
-
-namespace Infrastructure.Migrations
-{
-    /// <inheritdoc />
-    public partial class permisins : Migration
-    {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.AddColumn<string>(
-                name: "Username",
-                table: "Users",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.CreateTable(
-                name: "permissions",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_permissions", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "roles",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_roles", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "rolePermissions",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    RoleId = table.Column<int>(type: "int", nullable: false),
-                    PermissionId = table.Column<int>(type: "int", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_rolePermissions", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_rolePermissions_permissions_PermissionId",
-                        column: x => x.PermissionId,
-                        principalTable: "permissions",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_rolePermissions_roles_RoleId",
-                        column: x => x.RoleId,
-                        principalTable: "roles",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "userRoles",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UserId = table.Column<int>(type: "int", nullable: false),
-                    RoleId = table.Column<int>(type: "int", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_userRoles", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_userRoles_Users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "Users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_userRoles_roles_RoleId",
-                        column: x => x.RoleId,
-                        principalTable: "roles",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_rolePermissions_PermissionId",
-                table: "rolePermissions",
-                column: "PermissionId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_rolePermissions_RoleId",
-                table: "rolePermissions",
-                column: "RoleId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_userRoles_RoleId",
-                table: "userRoles",
-                column: "RoleId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_userRoles_UserId",
-                table: "userRoles",
-                column: "UserId");
-        }
-
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropTable(
-                name: "rolePermissions");
-
-            migrationBuilder.DropTable(
-                name: "userRoles");
-
-            migrationBuilder.DropTable(
-                name: "permissions");
-
-            migrationBuilder.DropTable(
-                name: "roles");
-
-            migrationBuilder.DropColumn(
-                name: "Username",
-                table: "Users");
-        }
     }
 }
 

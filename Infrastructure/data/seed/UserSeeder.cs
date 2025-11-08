@@ -35,29 +35,29 @@ public class UserSeeder
     }
 }
 
-// // RoleSeeder.cs (مثال دیگه)
-// public class RoleSeeder
-// {
-//     private readonly MyContext _context;
+// RoleSeeder.cs (مثال دیگه)
+public class RoleSeeder
+{
+    private readonly MyContext _context;
 
-//     public RoleSeeder(MyContext context)
-//     {
-//         _context = context;
-//     }
+    public RoleSeeder(MyContext context)
+    {
+        _context = context;
+    }
 
-//     public void Seed()
-//     {
-//         if (!_context.Roles.Any())
-//         {
-//             _context.Roles.AddRange(new List<Role>
-//             {
-//                 new Role { Name = "Admin" },
-//                 new Role { Name = "User" }
-//             });
-//             _context.SaveChanges();
-//         }
-//     }
-// }
+    public void Seed()
+    {
+        if (!_context.Roles.Any())
+        {
+            _context.Roles.AddRange(new List<Role>
+            {
+                new Role { Name = "Admin" },
+                new Role { Name = "User" }
+            });
+            _context.SaveChanges();
+        }
+    }
+ }
 
 // DatabaseSeeder.cs
 public class DatabaseSeeder
@@ -72,7 +72,7 @@ public class DatabaseSeeder
     public void SeedAll()
     {
         new UserSeeder(_context).Seed();
-        // new RoleSeeder(_context).Seed();
+         new RoleSeeder(_context).Seed();
         // اینجا میتونی Seeder های دیگه هم اضافه کنی
     }
 }

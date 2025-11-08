@@ -32,7 +32,7 @@ namespace API.Controllers.Shop
         [HttpPost]
         [Route("/api/inv/GetAll")]
         [RequirePermission("ViewProducs")]
-        public async Task<ActionResult<ApiResult<InvView>>> Index([FromBody] Pagination pagination)
+        public async Task<ActionResult<ApiResult>> Index([FromBody] Pagination pagination)
         {
             return await invApp.GetAll(pagination);
         }

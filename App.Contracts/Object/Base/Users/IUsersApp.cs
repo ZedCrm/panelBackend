@@ -6,16 +6,14 @@ using MyFrameWork.AppTool;
 
 namespace App.Contracts.Object.Base.Users
 {
-    public interface IUsersApp
+public interface IUsersApp
     {
-        
-       // public Task<OPTResult<UsersView>> SearchProducts(ProductSearchCriteria criteria);
-        Task<ApiResult<UsersView>> GetAll(Pagination pagination);
-        Task<ApiResult<object>> Create(UsersCreat objectCreate);
-        Task<ApiResult<object>> DeleteBy(List<int> objectids);
-        Task<ApiResult<UsersUpdate>> GetById(int id);
-        Task<ApiResult<object>> Update(UsersUpdate objectView);
-        Task<ApiResult<UserCreateFormData>> CreateForm();
-        Task<ApiResult<object>> KeepAlive(int userId);
+        Task<ApiResult> GetAll(Pagination pagination);
+        Task<ApiResult> Create(UsersCreat objectCreate);
+        Task<ApiResult> DeleteBy(List<int> objectids);
+        Task<ApiResult> GetById(int id);
+        Task<ApiResult> Update(UsersUpdate objectView);
+        Task<ApiResult> CreateForm();
+        Task<ApiResult> KeepAlive(int userId);
     }
 }

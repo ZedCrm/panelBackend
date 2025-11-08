@@ -1,5 +1,4 @@
-
-using App.Contracts.Object.Base.auth;
+// App\Object\Base\Users\UsersApp.cs
 using App.Contracts.Object.Base.Users;
 using App.utility;
 using AutoMapper;
@@ -10,10 +9,8 @@ namespace App.Object.Base.Users
 {
     public class UsersApp : IUsersApp
     {
-        #region Dependencies
         private readonly IMyUserRepository _userRepository;
         private readonly IMapper _mapper;
-        private readonly IPermissionService _permissionService;
         private readonly IFileService _fileService;
         private readonly UserStatusService _statusService;
         private readonly IRoleRep _roleRep;
@@ -21,49 +18,31 @@ namespace App.Object.Base.Users
         public UsersApp(
             IMyUserRepository userRepository,
             IMapper mapper,
-            IPermissionService permissionService,
             IFileService fileService,
             UserStatusService statusService,
             IRoleRep roleRep)
         {
             _userRepository = userRepository;
             _mapper = mapper;
-            _permissionService = permissionService;
             _fileService = fileService;
             _statusService = statusService;
             _roleRep = roleRep;
         }
-        #endregion
 
         #region Create
-        public async Task<ApiResult<object>> Create(UsersCreat objectCreate)
+        public async Task<ApiResult> Create(UsersCreat objectCreate)
         {
-            // اعتبارسنجی مدل
-            var validationResult = ModelValidator.ValidateToOptResult<UsersCreat>(objectCreate);
-            if (!validationResult.IsSucceeded)
-                return ApiResult<object>.Failed(400, validationResult.Message!);
+            // فقط Business Rules: یونیک بودن ایمیل و نام کاربری
+            if (await _userRepository.ExistAsync(u => u.Email == objectCreate.Email))
+                return ApiResult.Failed("ایمیل قبلاً استفاده شده است.", 400);
 
-            // چک یکتا بودن ایمیل و نام کاربری
-            var uniqueEmail = await ValidationUtility.ValidateUniqueAsync<User, int>(
-                _userRepository,
-                u => u.Email == objectCreate.Email,
-                MessageApp.DuplicateField("ایمیل")
-            );
-            if (!uniqueEmail.IsSucceeded) return ApiResult<object>.Failed(400, uniqueEmail.Message!);
+            if (await _userRepository.ExistAsync(u => u.Username == objectCreate.Username))
+                return ApiResult.Failed("نام کاربری قبلاً استفاده شده است.", 400);
 
-            var uniqueUsername = await ValidationUtility.ValidateUniqueAsync<User, int>(
-                _userRepository,
-                u => u.Username == objectCreate.Username,
-                MessageApp.DuplicateField("نام کاربری")
-            );
-            if (!uniqueUsername.IsSucceeded) return ApiResult<object>.Failed(400, uniqueUsername.Message!);
-
-            // مپینگ و ایجاد کاربر
             var user = _mapper.Map<User>(objectCreate);
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(objectCreate.Password);
             user.UserRoles = objectCreate.RoleIds.Select(rid => new UserRole { RoleId = rid }).ToList();
 
-            // آپلود عکس پروفایل (اگر وجود داشت)
             if (objectCreate.ProfilePicture != null)
             {
                 try
@@ -72,67 +51,71 @@ namespace App.Object.Base.Users
                 }
                 catch (Exception ex)
                 {
-                    return ApiResult<object>.Failed(400, ex.Message);
+                    return ApiResult.Failed($"خطا در آپلود تصویر: {ex.Message}", 400);
                 }
             }
 
             await _userRepository.CreateAsync(user);
             await _userRepository.SaveChangesAsync();
 
-            // وضعیت اولیه: آفلاین
             _statusService.UpdateStatus(user.Id, UserStatus.Offline);
 
-            return ApiResult<object>.Success(message: MessageApp.CustomAddsuccses(objectCreate.FullName));
+            return ApiResult.Success(message: $"کاربر {objectCreate.FullName} با موفقیت ایجاد شد.");
         }
         #endregion
 
-        #region CreateForm
-        public async Task<ApiResult<UserCreateFormData>> CreateForm()
+        #region Update
+        public async Task<ApiResult> Update(UsersUpdate objectView)
         {
-            var roles = await _roleRep.GetAsync();
-            var formData = new UserCreateFormData
+            // Business Rule: یونیک بودن (به جز خودش)
+            if (await _userRepository.ExistAsync(u => u.Email == objectView.Email && u.Id != objectView.Id))
+                return ApiResult.Failed("ایمیل قبلاً استفاده شده است.", 400);
+
+            if (await _userRepository.ExistAsync(u => u.Username == objectView.Username && u.Id != objectView.Id))
+                return ApiResult.Failed("نام کاربری قبلاً استفاده شده است.", 400);
+
+            var user = await _userRepository.GetAsync(objectView.Id);
+            if (user == null)
+                return ApiResult.Failed(MessageApp.NotFound, 404);
+
+            user.Username = objectView.Username;
+            user.Email = objectView.Email;
+            user.FullName = objectView.FullName;
+
+            if (!string.IsNullOrEmpty(objectView.Password))
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(objectView.Password);
+
+            user.UserRoles = objectView.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = objectView.Id }).ToList();
+
+            if (objectView.ProfilePicture != null)
             {
-                Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
-            };
-
-            return ApiResult<UserCreateFormData>.Success(formData, 200,MessageApp.AcceptOpt);
-        }
-        #endregion
-
-        #region DeleteBy
-        public async Task<ApiResult<object>> DeleteBy(List<int> objectIds)
-        {
-            if (objectIds == null || !objectIds.Any())
-                return ApiResult<object>.Failed(400, MessageApp.NotFound);
-
-            try
-            {
-                foreach (var id in objectIds)
+                try
                 {
-                    _userRepository.DeleteById(id);
-                    _statusService.UpdateStatus(id, UserStatus.Offline); // آفلاین کردن
+                    user.ProfilePictureUrl = await _fileService.UploadProfilePictureAsync(
+                        objectView.ProfilePicture,
+                        user.ProfilePictureUrl
+                    );
                 }
+                catch (Exception ex)
+                {
+                    return ApiResult.Failed($"خطا در آپلود تصویر: {ex.Message}", 400);
+                }
+            }
 
-                await _userRepository.SaveChangesAsync();
-                return ApiResult<object>.Success(message: MessageApp.CustomSuccess("حذف"));
-            }
-            catch (Exception ex)
-            {
-                return ApiResult<object>.Failed(500, MessageApp.CustomDeleteFail(ex.Message));
-            }
+            await _userRepository.UpdateAsync(user);
+            await _userRepository.SaveChangesAsync();
+
+            return ApiResult.Success(message: "کاربر با موفقیت به‌روزرسانی شد.");
         }
         #endregion
 
         #region GetAll
-        public async Task<ApiResult<UsersView>> GetAll(Pagination pagination)
+        public async Task<ApiResult> GetAll(Pagination pagination)
         {
             var users = await _userRepository.GetAsync(pagination);
             var viewModels = _mapper.Map<List<UsersView>>(users);
-
             var totalRecords = await _userRepository.CountAsync();
-            var totalPages = pagination.CalculateTotalPages(totalRecords);
 
-            // اضافه کردن وضعیت آنلاین و آخرین بازدید
             foreach (var view in viewModels)
             {
                 var (status, lastSeen) = _statusService.GetStatus(view.Id);
@@ -140,103 +123,73 @@ namespace App.Object.Base.Users
                 view.LastSeen = lastSeen;
             }
 
-            return ApiResult<UsersView>.SuccessPaged(
+            return ApiResult<List<UsersView>>.PagedSuccess(
                 data: viewModels,
                 totalRecords: totalRecords,
                 pageNumber: pagination.PageNumber,
-                pageSize: pagination.PageSize,
-                message: MessageApp.AcceptOpt
+                pageSize: pagination.PageSize
             );
         }
         #endregion
 
         #region GetById
-        public async Task<ApiResult<UsersUpdate>> GetById(int id)
+        public async Task<ApiResult> GetById(int id)
         {
             var user = await _userRepository.GetAsync(id);
             if (user == null)
-                return ApiResult<UsersUpdate>.Failed(404, MessageApp.NotFound);
+                return ApiResult.Failed(MessageApp.NotFound, 404);
 
             var updateDto = _mapper.Map<UsersUpdate>(user);
-
-            // اضافه کردن وضعیت فعلی
-            var (status, lastSeen) = _statusService.GetStatus(id);
-            // اگر DTO فیلد نداشته باشه، می‌تونی در ViewModel جدا نشون بدی
-
-            return ApiResult<UsersUpdate>.Success(updateDto, 200,MessageApp.AcceptOpt);
+            return ApiResult<UsersUpdate>.Success(updateDto);
         }
         #endregion
 
-        #region Update
-        public async Task<ApiResult<object>> Update(UsersUpdate objectView)
+        #region DeleteBy
+        public async Task<ApiResult> DeleteBy(List<int> objectIds)
         {
-            var validationResult = ModelValidator.ValidateToOptResult<UsersUpdate>(objectView);
-            if (!validationResult.IsSucceeded)
-                return ApiResult<object>.Failed(400, validationResult.Message!);
+            if (objectIds == null || !objectIds.Any())
+                return ApiResult.Failed("هیچ کاربری انتخاب نشده است.", 400);
 
-            // چک یکتا بودن ایمیل و نام کاربری (به جز خودش)
-            var uniqueEmail = await ValidationUtility.ValidateUniqueAsync<User, int>(
-                _userRepository,
-                u => u.Email == objectView.Email && u.Id != objectView.Id,
-                MessageApp.DuplicateField("ایمیل")
-            );
-            if (!uniqueEmail.IsSucceeded) return ApiResult<object>.Failed(400, uniqueEmail.Message!);
-
-            var uniqueUsername = await ValidationUtility.ValidateUniqueAsync<User, int>(
-                _userRepository,
-                u => u.Username == objectView.Username && u.Id != objectView.Id,
-                MessageApp.DuplicateField("نام کاربری")
-            );
-            if (!uniqueUsername.IsSucceeded) return ApiResult<object>.Failed(400, uniqueUsername.Message!);
-
-            var user = await _userRepository.GetAsync(objectView.Id);
-            if (user == null)
-                return ApiResult<object>.Failed(404, MessageApp.NotFound);
-
-            // بروزرسانی فیلدها
-            user.Username = objectView.Username;
-            user.Email = objectView.Email;
-            user.FullName = objectView.FullName;
-
-            if (!string.IsNullOrEmpty(objectView.Password))
+            try
             {
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(objectView.Password);
+                foreach (var id in objectIds)
+                {
+                    _userRepository.DeleteById(id);
+                    _statusService.UpdateStatus(id, UserStatus.Offline);
+                }
+                await _userRepository.SaveChangesAsync();
+                return ApiResult.Success(message: "کاربران با موفقیت حذف شدند.");
             }
-
-            user.UserRoles = objectView.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = objectView.Id }).ToList();
-
-            // آپلود عکس جدید (اگر آپلود شده)
-            if (objectView.ProfilePicture != null)
+            catch (Exception ex)
             {
-                try
-                {
-                    user.ProfilePictureUrl = await _fileService.UploadProfilePictureAsync(
-                        objectView.ProfilePicture,
-                        user.ProfilePictureUrl // فایل قدیمی حذف میشه
-                    );
-                }
-                catch (Exception ex)
-                {
-                    return ApiResult<object>.Failed(400, ex.Message);
-                }
+                return ApiResult.Failed($"خطا در حذف: {ex.Message}", 500);
             }
-
-            await _userRepository.UpdateAsync(user);
-            await _userRepository.SaveChangesAsync();
-
-            return ApiResult<object>.Success(message: MessageApp.AcceptOpt);
         }
         #endregion
 
-        #region KeepAlive (برای بروزرسانی وضعیت آنلاین)
-        public async Task<ApiResult<object>> KeepAlive(int userId)
+        #region CreateForm
+        public async Task<ApiResult> CreateForm()
+        {
+            var roles = await _roleRep.GetAsync();
+            var formData = new UserCreateFormData
+            {
+                Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
+            };
+
+            return ApiResult<UserCreateFormData>.Success( formData);
+        }
+        #endregion
+
+        #region KeepAlive
+        public async Task<ApiResult> KeepAlive(int userId)
         {
             _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
-            return ApiResult<object>.Success(message: "وضعیت بروز شد");
+            return ApiResult.Success(message: "وضعیت آنلاین شد.");
         }
         #endregion
     }
 
-    // --- رابط‌ها ---
+
+
     public interface IMyUserRepository : IBaseRep<User, int> { }
 }

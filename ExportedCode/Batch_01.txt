@@ -61,11 +61,11 @@ namespace API.Controllers.bases
 }
 
 ===== FILE: API\Controllers\bases\UserController.cs =====
+// API\Controllers\bases\UserController.cs
+using API.Attributes;
 using App.Contracts.Object.Base.Users;
-using App.Object.Base.Users;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
-using System.Security.Claims;
 
 namespace API.Controllers.bases
 {
@@ -80,55 +80,81 @@ namespace API.Controllers.bases
             _usersApp = usersApp;
         }
 
-        [HttpPost]
-        [Route("/api/User/GetAll")]
-        public async Task<ActionResult<OPTResult<UsersView>>> GetAll([FromBody] Pagination pagination)
+        private List<string> GetModelStateErrors()
         {
-
-            
-            
-            var result = await _usersApp.GetAll(pagination);
-            return Ok(result);
+            return ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList();
         }
 
-        [HttpGet]
-        [Route("/api/User/GetById")]
-        public async Task<ActionResult<OPTResult<UsersUpdate>>> GetById([FromQuery] int id)
+        [RequirePermission("User.View")]
+        [HttpPost("/api/User/GetAll")]
+        public async Task<ActionResult<ApiResult>> GetAll([FromBody] Pagination pagination)
+        {
+            var result = await _usersApp.GetAll(pagination);
+            return result.IsSucceeded ? Ok(result) : BadRequest(result);
+        }
+
+        [RequirePermission("User.View")]
+        [HttpGet("/api/User/GetById")]
+        public async Task<ActionResult<ApiResult>> GetById([FromQuery] int id)
         {
             var result = await _usersApp.GetById(id);
-            return Ok(result);
+            return result.IsSucceeded ? Ok(result) : BadRequest(result);
         }
 
-        [HttpPost]
-        [Route("/api/User/create")]
-        public async Task<ActionResult<OPT>> Create([FromBody] UsersCreat userCreate)
+        [RequirePermission("User.Create")]
+        [HttpPost("/api/User/create")]
+        public async Task<ActionResult<ApiResult>> Create([FromForm] UsersCreat userCreate)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResult.Failed(GetModelStateErrors(), 400));
+
             var result = await _usersApp.Create(userCreate);
-            return Ok(result);
+            return result.IsSucceeded ? Ok(result) : BadRequest(result);
         }
 
-        [HttpPost]
-        [Route("/api/User/update")]
-        public async Task<ActionResult<OPT>> Update([FromBody] UsersUpdate userUpdate)
+        [RequirePermission("User.Edit")]
+        [HttpPost("/api/User/update")]
+        public async Task<ActionResult<ApiResult>> Update([FromForm] UsersUpdate userUpdate)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResult.Failed(GetModelStateErrors(), 400));
+
             var result = await _usersApp.Update(userUpdate);
-            return Ok(result);
+            return result.IsSucceeded ? Ok(result) : BadRequest(result);
         }
 
-        [HttpPost]
-        [Route("/api/User/delete")]
-        public async Task<ActionResult<OPT>> Delete([FromBody] List<int> ids)
+        [RequirePermission("User.Delete")]
+        [HttpPost("/api/User/delete")]
+        public async Task<ActionResult<ApiResult>> Delete([FromBody] List<int> ids)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResult.Failed(GetModelStateErrors(), 400));
+
             var result = await _usersApp.DeleteBy(ids);
-            return Ok(result);
+            return result.IsSucceeded ? Ok(result) : BadRequest(result);
         }
 
-        [HttpGet]
-        [Route("/api/User/getcreateform")]
-        public async Task<ActionResult<OPTResult<UserCreateFormData>>> GetCreateForm()
+        // KeepAlive: Ù…Ø¹Ù…ÙˆÙ„Ø§Ù‹ Ù†ÛŒØ§Ø²ÛŒ Ø¨Ù‡ permission Ù†ÛŒØ³Øª (Ú©Ø§Ø±Ø¨Ø± Ø®ÙˆØ¯Ø´ Ø±Ùˆ Ø¢Ù†Ù„Ø§ÛŒÙ† Ù…ÛŒâ€ŒÚ©Ù†Ù‡)
+        [HttpPost("/api/User/keepalive")]
+        public async Task<ActionResult<ApiResult>> KeepAlive()
+        {
+            var userId = GetCurrentUserId();
+            if (userId <= 0)
+                return Unauthorized(ApiResult.Failed("Ú©Ø§Ø±Ø¨Ø± Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", 401));
+
+            var result = await _usersApp.KeepAlive(userId);
+            return result.IsSucceeded ? Ok(result) : BadRequest(result);
+        }
+
+        [RequirePermission("User.Create")]
+        [HttpGet("/api/user/getcreateform")]
+        public async Task<ActionResult<ApiResult>> GetCreateForm()
         {
             var result = await _usersApp.CreateForm();
-            return Ok(result);
+            return result.IsSucceeded ? Ok(result) : BadRequest(result);
         }
     }
 }
@@ -266,7 +292,7 @@ namespace API.Controllers.Shop
         [HttpPost]
         [Route("/api/inv/GetAll")]
         [RequirePermission("ViewProducs")]
-        public async Task<ActionResult<ApiResult<InvView>>> Index([FromBody] Pagination pagination)
+        public async Task<ActionResult<ApiResult>> Index([FromBody] Pagination pagination)
         {
             return await invApp.GetAll(pagination);
         }
@@ -442,6 +468,7 @@ namespace API.Controllers.Shop
 }
 
 ===== FILE: API\Controllers\BaseController.cs =====
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
@@ -450,6 +477,15 @@ namespace API.Controllers
     [ApiController]
     public class BaseController : ControllerBase
     {
+        protected int GetCurrentUserId()
+        {
+            var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            {
+                throw new UnauthorizedAccessException("User ID not found in token.");
+            }
+            return userId;
+        }
     }
 }
 
@@ -662,6 +698,61 @@ namespace API.Middleware
 }
 
 
+===== FILE: API\utility\FileService.cs =====
+using App.utility;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+namespace API.utility
+{
+    public class FileService : IFileService
+    {
+        private readonly IWebHostEnvironment _env;
+        private const int MaxFileSize = 2 * 1024 * 1024; // 2MB
+        private const int ImageSize = 200;
+
+        public FileService(IWebHostEnvironment env)
+        {
+            _env = env;
+        }
+
+        public async Task<string?> UploadProfilePictureAsync(IFormFile? file, string? oldPath = null)
+        {
+            if (file == null || file.Length == 0) return null;
+
+            if (file.Length > MaxFileSize)
+                throw new InvalidOperationException("Ø­Ø¬Ù… ÙØ§ÛŒÙ„ Ø¨ÛŒØ´ Ø§Ø² 2 Ù…Ú¯Ø§Ø¨Ø§ÛŒØª Ø§Ø³Øª.");
+
+            if (!file.ContentType.StartsWith("image/"))
+                throw new InvalidOperationException("ÙÙ‚Ø· ÙØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ ØªØµÙˆÛŒØ±ÛŒ Ù…Ø¬Ø§Ø² Ù‡Ø³ØªÙ†Ø¯.");
+
+            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
+            Directory.CreateDirectory(uploadsFolder);
+
+            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+            var filePath = Path.Combine(uploadsFolder, fileName);
+
+            using var image = await Image.LoadAsync(file.OpenReadStream());
+            image.Mutate(x => x.Resize(ImageSize, ImageSize));
+            await image.SaveAsync(filePath);
+
+            if (!string.IsNullOrEmpty(oldPath))
+            {
+                var oldFilePath = Path.Combine(_env.WebRootPath, oldPath.TrimStart('/'));
+                if (File.Exists(oldFilePath))
+                    File.Delete(oldFilePath);
+            }
+
+            return $"/uploads/{fileName}";
+        }
+    }
+}
+
 ===== FILE: API\appsettings.Development.json =====
 {
   
@@ -699,34 +790,34 @@ namespace API.Middleware
 
 
 ===== FILE: API\Program.cs =====
-using ConfApp;
 using Infrastructure;
 using Infrastructure.data.seed;
-using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Authentication.JwtBearer; // Ø§Ø¶Ø§ÙÙ‡ Ø´Ø¯Ù‡
-using Microsoft.IdentityModel.Tokens; // Ø§Ø¶Ø§ÙÙ‡ Ø´Ø¯Ù‡
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using API.Middleware; // Ø§Ø¶Ø§ÙÙ‡ Ø´Ø¯Ù‡
+using API.Middleware;
+using App.Object.Base.Users;
+using ConfApp;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// === CORS ===
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder.AllowAnyOrigin()
-                   .AllowAnyMethod()
-                   .AllowAnyHeader();
-        });
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
 });
 
+// === Ø³Ø±ÙˆÛŒØ³â€ŒÙ‡Ø§ÛŒ Ø§ØµÙ„ÛŒ ===
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ØªÙ†Ø¸ÛŒÙ… Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª JWT
+// === Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª JWT ===
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -740,24 +831,25 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = "yourapp", // Ø¨Ø§ÛŒØ¯ Ø¨Ø§ "iss" ØªÙˆÚ©Ù† Ù…Ø·Ø§Ø¨Ù‚Øª Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯
-        ValidAudience = "yourapp", // Ø¨Ø§ÛŒØ¯ Ø¨Ø§ "aud" ØªÙˆÚ©Ù† Ù…Ø·Ø§Ø¨Ù‚Øª Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars")) // Ú©Ù„ÛŒØ¯ Ø§Ù…Ø¶Ø§
+        ValidIssuer = "yourapp",
+        ValidAudience = "yourapp",
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars"))
     };
 });
 
-if (false)
-{
-    CRMBootstraper.AddCRMManagement(builder.Services, "Data Source=dev.db", DbProvider.Sqlite);
-}
-else
-{
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    CRMBootstraper.AddCRMManagement(builder.Services, connectionString, DbProvider.SqlServer);
-}
+// === Ø«Ø¨Øª ØªÙ…Ø§Ù… Ø³Ø±ÙˆÛŒØ³â€ŒÙ‡Ø§ÛŒ CRM (Ø´Ø§Ù…Ù„ FileService, UserStatusService, DbContext Ùˆ ...) ===
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+                       ?? "Data Source=dev.db";
 
+CRMBootstraper.AddCRMManagement(
+    builder.Services,
+    connectionString,
+    connectionString.Contains("Data Source=dev.db") ? DbProvider.Sqlite : DbProvider.SqlServer
+);
+builder.Services.AddScoped<App.utility.IFileService, API.utility.FileService>();
 var app = builder.Build();
 
+// === Middleware Pipeline ===
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -766,16 +858,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseRouting();
 
-// Middleware Ø¨Ø±Ø§ÛŒ Ù„Ø§Ú¯ Ú©Ø±Ø¯Ù† Ø¯Ø±Ø®ÙˆØ§Ø³Øªâ€ŒÙ‡Ø§
+// Ù„Ø§Ú¯ Ø¯Ø±Ø®ÙˆØ§Ø³Øª
 app.Use(async (context, next) =>
 {
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation("Received {Method} request at {Url}", context.Request.Method, context.Request.Path);
+    logger.LogInformation("Received {Method} {Path}", context.Request.Method, context.Request.Path);
     await next();
-    logger.LogInformation("Response Status Code: {StatusCode}", context.Response.StatusCode);
+    logger.LogInformation("Response: {StatusCode}", context.Response.StatusCode);
 });
 
-// Middleware Ø¨Ø±Ø§ÛŒ Ù‡Ù†Ø¯Ù„ Ú©Ø±Ø¯Ù† Ø¯Ø±Ø®ÙˆØ§Ø³Øªâ€ŒÙ‡Ø§ÛŒ Preflight (OPTIONS)
+// Preflight
 app.Use(async (context, next) =>
 {
     if (context.Request.Method == "OPTIONS")
@@ -788,16 +880,25 @@ app.Use(async (context, next) =>
 });
 
 app.UseCors("AllowAll");
-
-app.UseAuthentication(); 
+app.UseAuthentication();
 app.UseTokenValidation();
 app.UseAuthorization();
 
-builder.Services.AddHttpContextAccessor();
-//app.UseHttpsRedirection();
+// === Ø§ÛŒØ¬Ø§Ø¯ ÙÙˆÙ„Ø¯Ø± uploads ===
+var uploadsPath = Path.Combine(app.Environment.WebRootPath, "uploads");
+if (!Directory.Exists(uploadsPath))
+    Directory.CreateDirectory(uploadsPath);
+
+// === ØªØ§ÛŒÙ…Ø± Ú†Ú© ÙˆØ¶Ø¹ÛŒØª Ú©Ø§Ø±Ø¨Ø±Ø§Ù† (Ù‡Ø± 1 Ø¯Ù‚ÛŒÙ‚Ù‡) ===
+var timer = new Timer(_ =>
+{
+    var statusService = app.Services.GetRequiredService<UserStatusService>();
+    statusService.CheckInactive();
+}, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
 
 app.MapControllers();
 
+// === Seed Ø¯ÛŒØªØ§Ø¨ÛŒØ³ ===
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MyContext>();
@@ -1002,416 +1103,6 @@ using App;
 using Domain.Objects.Base;
 
 public interface IRoleRep :  IBaseRep<Role, int> {
-
-
-}
-
-===== FILE: App\Object\Base\Users\UsersApp.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using App.Contracts.Object.Base.auth;
-using App.Contracts.Object.Base.Users;
-using App.Object.Base.Auth;
-using App.utility;
-using AutoMapper;
-using Domain.Objects.Base;
-using MyFrameWork.AppTool;
-
-namespace App.Object.Base.Users
-{
-    public class UsersApp : IUsersApp
-    {
-
-
-        #region constructor
-        private readonly IMyUserRepository _userRepository;
-        private readonly IMapper _mapper;
-        private readonly IPermissionService _PermissionService;
-        private readonly IRoleRep _roleRep;
-
-        public UsersApp(IMyUserRepository userRepository, IMapper mapper, IPermissionService permissionService, IRoleRep roleRep)
-        {
-            _roleRep = roleRep;
-            _userRepository = userRepository;
-            _mapper = mapper;
-            _PermissionService = permissionService;
-        }
-        #endregion
-
-
-
-
-
-
-        public async Task<OPT> Create(UsersCreat objectCreate)
-        {
-            var validateAllProperties = ModelValidator.ValidateToOpt<UsersCreat>(objectCreate);
-            if (!validateAllProperties.IsSucceeded) return validateAllProperties;
-
-            // Ú†Ú© Ú©Ø±Ø¯Ù† Ø§ÛŒÙ…ÛŒÙ„ Ùˆ Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ ÛŒÚ©ØªØ§
-            var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
-                _userRepository,
-                c => c.Email == objectCreate.Email,
-                MessageApp.DuplicateField(objectCreate.Email)
-            );
-            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
-
-            uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
-                _userRepository,
-                c => c.Username == objectCreate.Username,
-                MessageApp.DuplicateField(objectCreate.Username)
-            );
-            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
-
-            var user = _mapper.Map<User>(objectCreate);
-            user.UserRoles = objectCreate.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList();
-            await _userRepository.CreateAsync(user);
-            await _userRepository.SaveChangesAsync();
-
-            var opt = new OPT();
-            return opt.Succeeded(MessageApp.CustomAddsuccses(objectCreate.Username));
-        }
-
-
-
-
-        public async Task<OPTResult<UserCreateFormData>> CreateForm()
-        {
-            var roles = await _roleRep.GetAsync();
-            var createForm = new UserCreateFormData
-            {
-                Roles = roles.Select(role => new RoleView
-                {
-                    Id = role.Id,
-                    Name = role.Name
-                }).ToList()
-            };
-
-
-
-            return OPTResult<UserCreateFormData>.Success(createForm, MessageApp.AcceptOpt);
-        }
-
-        public async Task<OPT> DeleteBy(List<int> objectids)
-        {
-
-
-            var opt = new OPT();
-            try
-            {
-                if (objectids == null || !objectids.Any())
-                {
-                    opt.Failed(MessageApp.NotFound);
-                    return opt;
-                }
-                foreach (var productid in objectids)
-                    _userRepository.DeleteById(productid);
-
-                await _userRepository.SaveChangesAsync();
-                opt.Succeeded(MessageApp.CustomSuccess("Ø­Ø°Ù"));
-            }
-            catch (Exception ex)
-            {
-                opt.Failed(MessageApp.CustomDeleteFail(ex.Message));
-            }
-
-            return opt;
-        }
-
-
-
-
-
-        public async Task<OPTResult<UsersView>> GetAll(Pagination pagination)
-        {
-
-
-
-            var data = await _userRepository.GetAsync();
-
-            var users = _mapper.Map<List<UsersView>>(data);
-
-
-
-            // ØªØ¹Ø¯Ø§Ø¯ Ú©Ù„ Ø±Ú©ÙˆØ±Ø¯Ù‡Ø§  
-            var totalRecords = await _userRepository.CountAsync();
-
-
-
-            // ØªØ¹Ø¯Ø§Ø¯ Ú©Ù„ ØµÙØ­Ø§Øª  
-            var totalPages = pagination.CalculateTotalPages(totalRecords);
-
-            // Ø¢Ù…Ø§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ùˆ Ø¨Ø§Ø²Ú¯Ø´Øª Ù†ØªÛŒØ¬Ù‡  
-            return new OPTResult<UsersView>
-            {
-                IsSucceeded = true,
-                Message = MessageApp.AcceptOpt,
-                Data = users,
-                TotalRecords = totalRecords,
-                TotalPages = totalPages,
-                PageNumber = pagination.PageNumber,
-                PageSize = pagination.PageSize
-            };
-
-
-
-        }
-
-        public async Task<OPTResult<UsersUpdate>> GetById(int id)
-        {
-            var user = await _userRepository.GetAsync(id);
-            if (user == null) { return new OPTResult<UsersUpdate> { IsSucceeded = false, Message = MessageApp.NotFound }; }
-            var userCreat = _mapper.Map<UsersUpdate>(user);
-            
-            return OPTResult<UsersUpdate>.Success(userCreat, MessageApp.AcceptOpt);
-        }
-
-
-
-
-   public async Task<OPT> Update(UsersUpdate objectView)
-{
-    var validateAllProperties = ModelValidator.ValidateToOpt<UsersUpdate>(objectView);
-    if (!validateAllProperties.IsSucceeded) return validateAllProperties;
-
-    var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
-        _userRepository,
-        c => c.Email == objectView.Email && c.Id != objectView.Id,
-        MessageApp.DuplicateField(objectView.Email)
-    );
-    if (!uniqueOpt.IsSucceeded) return uniqueOpt;
-
-    uniqueOpt = await ValidationUtility.ValidateUniqueAsync<User, int>(
-        _userRepository,
-        c => c.Username == objectView.Username && c.Id != objectView.Id,
-        MessageApp.DuplicateField(objectView.Username)
-    );
-    if (!uniqueOpt.IsSucceeded) return uniqueOpt;
-
-    var user = await _userRepository.GetAsync(objectView.Id);
-    if (user == null) return new OPT().Failed(MessageApp.NotFound);
-
-    user.Username = objectView.Username;
-    user.Email = objectView.Email;
-    user.FullName = objectView.FullName;
-    // ÙÙ‚Ø· Ø¯Ø± ØµÙˆØ±ØªÛŒ Ú©Ù‡ Password Ø®Ø§Ù„ÛŒ Ù†Ø¨Ø§Ø´Ø¯ØŒ PasswordHash Ø±Ø§ Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ú©Ù†
-    if (!string.IsNullOrEmpty(objectView.Password))
-    {
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(objectView.Password);
-    }
-    user.UserRoles = objectView.RoleIds.Select(roleId => new UserRole { RoleId = roleId, UserId = objectView.Id }).ToList();
-
-    await _userRepository.UpdateAsync(user);
-    await _userRepository.SaveChangesAsync();
-    return new OPT().Succeeded(MessageApp.AcceptOpt);
-}
-
-
-    }
-
-
-    public interface IMyUserRepository : IBaseRep<User, int>
-    {
-
-    }
-}
-
-
-
-===== FILE: App\Object\Base\IPersonRep.cs =====
-using Domain.Objects.Base;
-
-namespace App.Object.Base
-{
-    public interface IPersonRep : IBaseRep<Person, int>
-    {
-
-    }
-}
-
-
-===== FILE: App\Object\Base\PersonApp.cs =====
-using App.Contracts.Object.Base;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace App.Object.Base
-{
-    public class PersonApp : IPersonApp
-    {
-        private readonly IPersonRep _ctx;
-        public PersonApp(IPersonRep personRep)
-        {
-            _ctx = personRep;
-        }
-        public async Task<List<PersonView>> personViews()
-        {
-            var persons = await _ctx.GetAsync();
-
-            return  persons.Select(c => new PersonView
-            {
-                Id = c.Id,
-                Name = c.Name,
-                Family = c.Family,
-                age = c.Age,
-
-            }).ToList();
-
-        }
-
-        public Task<List<PersonView>> PersonViews()
-        {
-            throw new NotImplementedException();
-        }
-    }
-}
-
-
-===== FILE: App\Object\Shop\CountTypeApp\ContTypeApp.cs =====
-// ÙØ§ÛŒÙ„: App/Object/Shop/CountTypeApp/CountTypeApp.cs
-using App.Contracts.Object.Shop.CountTypeCon;
-using App.utility;
-using AutoMapper;
-using Domain.Objects.Shop;
-using MyFrameWork.AppTool;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-namespace App.Object.Shop.CountTypeApp
-{
-    public class CountTypeApp : ICountTypeApp
-    {
-        private readonly ICountTypeRep _rep;
-        private readonly IMapper _mapper;
-
-        public CountTypeApp(ICountTypeRep rep, IMapper mapper)
-        {
-            _rep = rep;
-            _mapper = mapper;
-        }
-
-
-
-
-
-
-        // Ù…ØªØ¯ Ø¯Ø±ÛŒØ§ÙØª Ù‡Ù…Ù‡ ÙˆØ§Ø­Ø¯Ù‡Ø§ÛŒ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø§ ØµÙØ­Ù‡â€ŒØ¨Ù†Ø¯ÛŒ
-        public async Task<OPTResult<CountTypeView>> GetAll(Pagination pagination)
-        {
-            
-            var entities = await _rep.GetAsync(pagination);
-            var viewModels = _mapper.Map<List<CountTypeView>>(entities);
-            var totalRecords = await _rep.CountAsync();
-
-            return new OPTResult<CountTypeView>
-            {
-                IsSucceeded = true,
-                Message = MessageApp.AcceptOpt,
-                Data = viewModels,
-                PageNumber = pagination.PageNumber,
-                PageSize = pagination.PageSize,
-                TotalRecords = totalRecords,
-                TotalPages = pagination.CalculateTotalPages(totalRecords)
-            };
-        }
-
-
-
-
-        // Ù…ØªØ¯ Ø¯Ø±ÛŒØ§ÙØª ÛŒÚ© ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø± Ø§Ø³Ø§Ø³ Ø´Ù†Ø§Ø³Ù‡
-        public async Task<OPTResult<CountTypeView>> GetById(int id)
-        {
-            var entity = await _rep.GetAsync(id);
-            if (entity == null)
-                return OPTResult<CountTypeView>.Failed(MessageApp.NotFound);
-
-            var viewModel = _mapper.Map<CountTypeView>(entity);
-            return OPTResult<CountTypeView>.Success(viewModel,MessageApp.AcceptOpt);
-        }
-
-
-
-
-        // Ù…ØªØ¯ Ø§ÛŒØ¬Ø§Ø¯ ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¬Ø¯ÛŒØ¯
-        public async Task<OPTResult<CountTypeView>> Create(CountTypeCreate countTypeCreate)
-        {
-            var entity = _mapper.Map<CountType>(countTypeCreate);
-            await _rep.CreateAsync(entity);
-            await _rep.SaveChangesAsync();
-
-            var viewModel = _mapper.Map<CountTypeView>(entity);
-            return OPTResult<CountTypeView>.Success(viewModel, MessageApp.AcceptOpt);
-        }
-
-
-
-
-
-        // Ù…ØªØ¯ Ø­Ø°Ù ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø± Ø§Ø³Ø§Ø³ Ù„ÛŒØ³Øª Ø´Ù†Ø§Ø³Ù‡â€ŒÙ‡Ø§
-
-        public async Task<OPTResult<CountTypeView>> DeleteBy(List<int> ids)
-        {
-            var entities = await _rep.GetByIdsAsync(ids);
-            if (entities == null || entities.Count == 0)
-                return OPTResult<CountTypeView>.Failed(MessageApp.NotFound);
-
-            var deletableEntities = new List<CountType>();
-            var usedEntities = new List<CountType>();
-
-            foreach (var entity in entities)
-            {
-                var isUsed = await _rep.HasRelationsAsync(entity); // âœ… Ø¨Ø±Ø±Ø³ÛŒ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø¯Ø± Ø¬Ø¯Ø§ÙˆÙ„ Ø±Ø§Ø¨Ø·Ù‡â€ŒØ§ÛŒ
-                if (!isUsed)
-                    deletableEntities.Add(entity);
-                else
-                    usedEntities.Add(entity);
-            }
-
-            if (deletableEntities.Any())
-            {
-                _rep.DeleteRange(deletableEntities);
-                await _rep.SaveChangesAsync();
-            }
-
-            string message = "";
-            if (deletableEntities.Count > 0)
-                message += $"{deletableEntities.Count} ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø­Ø°Ù Ø´Ø¯. ";
-            if (usedEntities.Count > 0)
-                message += $"{usedEntities.Count} Ù…ÙˆØ±Ø¯ Ø¨Ù‡ Ø¯Ù„ÛŒÙ„ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø¯Ø± Ø¨Ø®Ø´â€ŒÙ‡Ø§ÛŒ Ø¯ÛŒÚ¯Ø± Ø­Ø°Ù Ù†Ø´Ø¯.";
-
-            return OPTResult<CountTypeView>.Success(message.Trim());
-        }
-
-
-
-
-        // Ù…ØªØ¯ Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ (Ø¯Ø± ØµÙˆØ±Øª Ù†ÛŒØ§Ø²)
-        public async Task<OPTResult<CountTypeView>> Update(CountTypeView countTypeView)
-        {
-            var validateAllProperties = ModelValidator.ValidateToOptResult<CountTypeView>(countTypeView);
-            if (!validateAllProperties.IsSucceeded) return validateAllProperties;
-
-
-            var entity = await _rep.GetAsync(countTypeView.Id);
-            if (entity == null)
-                return OPTResult<CountTypeView>.Failed(MessageApp.NotFound);
-            _mapper.Map(countTypeView, entity);
-            await _rep.UpdateAsync(entity);
-            await _rep.SaveChangesAsync();
-            var viewModel = _mapper.Map<CountTypeView>(entity);
-            return OPTResult<CountTypeView>.Success(viewModel, MessageApp.AcceptOpt);
-        }
-    }
-
-    // Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ Ø±ÛŒÙ¾ÙˆØ²ÛŒØªÙˆØ±ÛŒ ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ú©Ù‡ Ø§Ø² Ø±ÛŒÙ¾ÙˆØ²ÛŒØªÙˆØ±ÛŒ Ù¾Ø§ÛŒÙ‡ Ø§Ø±Ø«â€ŒØ¨Ø±ÛŒ Ù…ÛŒâ€ŒÚ©Ù†Ø¯
-    public interface ICountTypeRep : IBaseRep<CountType, int> { }
-
 
 
 }

@@ -1,4 +1,458 @@
-﻿===== FILE: App\Object\Shop\invApp\InvApp.cs =====
+﻿===== FILE: App\Object\Base\Users\UsersApp.cs =====
+// App\Object\Base\Users\UsersApp.cs
+using App.Contracts.Object.Base.Users;
+using App.utility;
+using AutoMapper;
+using Domain.Objects.Base;
+using MyFrameWork.AppTool;
+
+namespace App.Object.Base.Users
+{
+    public class UsersApp : IUsersApp
+    {
+        private readonly IMyUserRepository _userRepository;
+        private readonly IMapper _mapper;
+        private readonly IFileService _fileService;
+        private readonly UserStatusService _statusService;
+        private readonly IRoleRep _roleRep;
+
+        public UsersApp(
+            IMyUserRepository userRepository,
+            IMapper mapper,
+            IFileService fileService,
+            UserStatusService statusService,
+            IRoleRep roleRep)
+        {
+            _userRepository = userRepository;
+            _mapper = mapper;
+            _fileService = fileService;
+            _statusService = statusService;
+            _roleRep = roleRep;
+        }
+
+        #region Create
+        public async Task<ApiResult> Create(UsersCreat objectCreate)
+        {
+            // ÙÙ‚Ø· Business Rules: ÛŒÙˆÙ†ÛŒÚ© Ø¨ÙˆØ¯Ù† Ø§ÛŒÙ…ÛŒÙ„ Ùˆ Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ
+            if (await _userRepository.ExistAsync(u => u.Email == objectCreate.Email))
+                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            if (await _userRepository.ExistAsync(u => u.Username == objectCreate.Username))
+                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            var user = _mapper.Map<User>(objectCreate);
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(objectCreate.Password);
+            user.UserRoles = objectCreate.RoleIds.Select(rid => new UserRole { RoleId = rid }).ToList();
+
+            if (objectCreate.ProfilePicture != null)
+            {
+                try
+                {
+                    user.ProfilePictureUrl = await _fileService.UploadProfilePictureAsync(objectCreate.ProfilePicture);
+                }
+                catch (Exception ex)
+                {
+                    return ApiResult.Failed($"Ø®Ø·Ø§ Ø¯Ø± Ø¢Ù¾Ù„ÙˆØ¯ ØªØµÙˆÛŒØ±: {ex.Message}", 400);
+                }
+            }
+
+            await _userRepository.CreateAsync(user);
+            await _userRepository.SaveChangesAsync();
+
+            _statusService.UpdateStatus(user.Id, UserStatus.Offline);
+
+            return ApiResult.Success(message: $"Ú©Ø§Ø±Ø¨Ø± {objectCreate.FullName} Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
+        }
+        #endregion
+
+        #region Update
+        public async Task<ApiResult> Update(UsersUpdate objectView)
+        {
+            // Business Rule: ÛŒÙˆÙ†ÛŒÚ© Ø¨ÙˆØ¯Ù† (Ø¨Ù‡ Ø¬Ø² Ø®ÙˆØ¯Ø´)
+            if (await _userRepository.ExistAsync(u => u.Email == objectView.Email && u.Id != objectView.Id))
+                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            if (await _userRepository.ExistAsync(u => u.Username == objectView.Username && u.Id != objectView.Id))
+                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            var user = await _userRepository.GetAsync(objectView.Id);
+            if (user == null)
+                return ApiResult.Failed(MessageApp.NotFound, 404);
+
+            user.Username = objectView.Username;
+            user.Email = objectView.Email;
+            user.FullName = objectView.FullName;
+
+            if (!string.IsNullOrEmpty(objectView.Password))
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(objectView.Password);
+
+            user.UserRoles = objectView.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = objectView.Id }).ToList();
+
+            if (objectView.ProfilePicture != null)
+            {
+                try
+                {
+                    user.ProfilePictureUrl = await _fileService.UploadProfilePictureAsync(
+                        objectView.ProfilePicture,
+                        user.ProfilePictureUrl
+                    );
+                }
+                catch (Exception ex)
+                {
+                    return ApiResult.Failed($"Ø®Ø·Ø§ Ø¯Ø± Ø¢Ù¾Ù„ÙˆØ¯ ØªØµÙˆÛŒØ±: {ex.Message}", 400);
+                }
+            }
+
+            await _userRepository.UpdateAsync(user);
+            await _userRepository.SaveChangesAsync();
+
+            return ApiResult.Success(message: "Ú©Ø§Ø±Ø¨Ø± Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
+        }
+        #endregion
+
+        #region GetAll
+        public async Task<ApiResult> GetAll(Pagination pagination)
+        {
+            var users = await _userRepository.GetAsync(pagination);
+            var viewModels = _mapper.Map<List<UsersView>>(users);
+            var totalRecords = await _userRepository.CountAsync();
+
+            foreach (var view in viewModels)
+            {
+                var (status, lastSeen) = _statusService.GetStatus(view.Id);
+                view.Status = status;
+                view.LastSeen = lastSeen;
+            }
+
+            return ApiResult.PagedSuccess(
+                data: viewModels,
+                totalRecords: totalRecords,
+                pageNumber: pagination.PageNumber,
+                pageSize: pagination.PageSize
+            );
+        }
+        #endregion
+
+        #region GetById
+        public async Task<ApiResult> GetById(int id)
+        {
+            var user = await _userRepository.GetAsync(id);
+            if (user == null)
+                return ApiResult.Failed(MessageApp.NotFound, 404);
+
+            var updateDto = _mapper.Map<UsersUpdate>(user);
+            return ApiResult.Success(data: updateDto);
+        }
+        #endregion
+
+        #region DeleteBy
+        public async Task<ApiResult> DeleteBy(List<int> objectIds)
+        {
+            if (objectIds == null || !objectIds.Any())
+                return ApiResult.Failed("Ù‡ÛŒÚ† Ú©Ø§Ø±Ø¨Ø±ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            try
+            {
+                foreach (var id in objectIds)
+                {
+                    _userRepository.DeleteById(id);
+                    _statusService.UpdateStatus(id, UserStatus.Offline);
+                }
+                await _userRepository.SaveChangesAsync();
+                return ApiResult.Success(message: "Ú©Ø§Ø±Ø¨Ø±Ø§Ù† Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø­Ø°Ù Ø´Ø¯Ù†Ø¯.");
+            }
+            catch (Exception ex)
+            {
+                return ApiResult.Failed($"Ø®Ø·Ø§ Ø¯Ø± Ø­Ø°Ù: {ex.Message}", 500);
+            }
+        }
+        #endregion
+
+        #region CreateForm
+        public async Task<ApiResult> CreateForm()
+        {
+            var roles = await _roleRep.GetAsync();
+            var formData = new UserCreateFormData
+            {
+                Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
+            };
+
+            return ApiResult.Success(data: formData);
+        }
+        #endregion
+
+        #region KeepAlive
+        public async Task<ApiResult> KeepAlive(int userId)
+        {
+            _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
+            return ApiResult.Success(message: "ÙˆØ¶Ø¹ÛŒØª Ø¢Ù†Ù„Ø§ÛŒÙ† Ø´Ø¯.");
+        }
+        #endregion
+    }
+
+
+
+    public interface IMyUserRepository : IBaseRep<User, int> { }
+}
+
+===== FILE: App\Object\Base\Users\UserStatusService.cs =====
+using System.Collections.Concurrent;
+using System.IO;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Domain.Objects.Base;
+
+namespace App.Object.Base.Users
+{
+    public class UserStatusService
+    {
+        private readonly ConcurrentDictionary<int, (UserStatus Status, DateTime? LastSeen)> _userStatuses = new();
+        private readonly string _statusFilePath = Path.Combine(Directory.GetCurrentDirectory(), "user-status.json");
+
+        public UserStatusService()
+        {
+            LoadFromFile();  // Ù„ÙˆØ¯ Ù…ÙˆÙ‚Ø¹ startup
+        }
+
+        public void UpdateStatus(int userId, UserStatus status, DateTime? lastSeen = null)
+        {
+            _userStatuses[userId] = (status, lastSeen ?? DateTime.Now);
+            SaveToFile();  // Ù‡Ø± Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø³ÛŒÙˆ Ú©Ù† (Ø¨Ø±Ø§ÛŒ ØªØºÛŒÛŒØ±Ø§Øª Ø²ÛŒØ§Ø¯, Ø´Ø§ÛŒØ¯ debounce Ú©Ù† Ø§Ù…Ø§ Ø³Ø§Ø¯Ù‡)
+        }
+
+        public (UserStatus, DateTime?) GetStatus(int userId)
+        {
+            return _userStatuses.TryGetValue(userId, out var status) ? status : (UserStatus.Offline, null);
+        }
+
+        public void CheckInactive()  // periodical call Ù…Ø«Ù„Ø§Ù‹ Ø¨Ø§ timer
+        {
+            var now = DateTime.Now;
+            foreach (var kvp in _userStatuses)
+            {
+                if (kvp.Value.LastSeen.HasValue && (now - kvp.Value.LastSeen.Value).TotalMinutes > 5 && kvp.Value.Status == UserStatus.Online)
+                {
+                    UpdateStatus(kvp.Key, UserStatus.Inactive, kvp.Value.LastSeen);
+                }
+            }
+        }
+
+        private void LoadFromFile()
+        {
+            if (File.Exists(_statusFilePath))
+            {
+                var json = File.ReadAllText(_statusFilePath);
+                var data = JsonSerializer.Deserialize<Dictionary<int, (UserStatus, DateTime?)>>(json);
+                if (data != null)
+                    foreach (var kvp in data) _userStatuses[kvp.Key] = kvp.Value;
+            }
+        }
+
+        private void SaveToFile()
+        {
+            var json = JsonSerializer.Serialize(_userStatuses.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
+            File.WriteAllText(_statusFilePath, json);
+        }
+    }
+}
+
+===== FILE: App\Object\Base\IPersonRep.cs =====
+using Domain.Objects.Base;
+
+namespace App.Object.Base
+{
+    public interface IPersonRep : IBaseRep<Person, int>
+    {
+
+    }
+}
+
+
+===== FILE: App\Object\Base\PersonApp.cs =====
+using App.Contracts.Object.Base;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace App.Object.Base
+{
+    public class PersonApp : IPersonApp
+    {
+        private readonly IPersonRep _ctx;
+        public PersonApp(IPersonRep personRep)
+        {
+            _ctx = personRep;
+        }
+        public async Task<List<PersonView>> personViews()
+        {
+            var persons = await _ctx.GetAsync();
+
+            return  persons.Select(c => new PersonView
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Family = c.Family,
+                age = c.Age,
+
+            }).ToList();
+
+        }
+
+        public Task<List<PersonView>> PersonViews()
+        {
+            throw new NotImplementedException();
+        }
+    }
+}
+
+
+===== FILE: App\Object\Shop\CountTypeApp\ContTypeApp.cs =====
+// ÙØ§ÛŒÙ„: App/Object/Shop/CountTypeApp/CountTypeApp.cs
+using App.Contracts.Object.Shop.CountTypeCon;
+using App.utility;
+using AutoMapper;
+using Domain.Objects.Shop;
+using MyFrameWork.AppTool;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace App.Object.Shop.CountTypeApp
+{
+    public class CountTypeApp : ICountTypeApp
+    {
+        private readonly ICountTypeRep _rep;
+        private readonly IMapper _mapper;
+
+        public CountTypeApp(ICountTypeRep rep, IMapper mapper)
+        {
+            _rep = rep;
+            _mapper = mapper;
+        }
+
+
+
+
+
+
+        // Ù…ØªØ¯ Ø¯Ø±ÛŒØ§ÙØª Ù‡Ù…Ù‡ ÙˆØ§Ø­Ø¯Ù‡Ø§ÛŒ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø§ ØµÙØ­Ù‡â€ŒØ¨Ù†Ø¯ÛŒ
+        public async Task<OPTResult<CountTypeView>> GetAll(Pagination pagination)
+        {
+            
+            var entities = await _rep.GetAsync(pagination);
+            var viewModels = _mapper.Map<List<CountTypeView>>(entities);
+            var totalRecords = await _rep.CountAsync();
+
+            return new OPTResult<CountTypeView>
+            {
+                IsSucceeded = true,
+                Message = MessageApp.AcceptOpt,
+                Data = viewModels,
+                PageNumber = pagination.PageNumber,
+                PageSize = pagination.PageSize,
+                TotalRecords = totalRecords,
+                TotalPages = pagination.CalculateTotalPages(totalRecords)
+            };
+        }
+
+
+
+
+        // Ù…ØªØ¯ Ø¯Ø±ÛŒØ§ÙØª ÛŒÚ© ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø± Ø§Ø³Ø§Ø³ Ø´Ù†Ø§Ø³Ù‡
+        public async Task<OPTResult<CountTypeView>> GetById(int id)
+        {
+            var entity = await _rep.GetAsync(id);
+            if (entity == null)
+                return OPTResult<CountTypeView>.Failed(MessageApp.NotFound);
+
+            var viewModel = _mapper.Map<CountTypeView>(entity);
+            return OPTResult<CountTypeView>.Success(viewModel,MessageApp.AcceptOpt);
+        }
+
+
+
+
+        // Ù…ØªØ¯ Ø§ÛŒØ¬Ø§Ø¯ ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¬Ø¯ÛŒØ¯
+        public async Task<OPTResult<CountTypeView>> Create(CountTypeCreate countTypeCreate)
+        {
+            var entity = _mapper.Map<CountType>(countTypeCreate);
+            await _rep.CreateAsync(entity);
+            await _rep.SaveChangesAsync();
+
+            var viewModel = _mapper.Map<CountTypeView>(entity);
+            return OPTResult<CountTypeView>.Success(viewModel, MessageApp.AcceptOpt);
+        }
+
+
+
+
+
+        // Ù…ØªØ¯ Ø­Ø°Ù ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø± Ø§Ø³Ø§Ø³ Ù„ÛŒØ³Øª Ø´Ù†Ø§Ø³Ù‡â€ŒÙ‡Ø§
+
+        public async Task<OPTResult<CountTypeView>> DeleteBy(List<int> ids)
+        {
+            var entities = await _rep.GetByIdsAsync(ids);
+            if (entities == null || entities.Count == 0)
+                return OPTResult<CountTypeView>.Failed(MessageApp.NotFound);
+
+            var deletableEntities = new List<CountType>();
+            var usedEntities = new List<CountType>();
+
+            foreach (var entity in entities)
+            {
+                var isUsed = await _rep.HasRelationsAsync(entity); // âœ… Ø¨Ø±Ø±Ø³ÛŒ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø¯Ø± Ø¬Ø¯Ø§ÙˆÙ„ Ø±Ø§Ø¨Ø·Ù‡â€ŒØ§ÛŒ
+                if (!isUsed)
+                    deletableEntities.Add(entity);
+                else
+                    usedEntities.Add(entity);
+            }
+
+            if (deletableEntities.Any())
+            {
+                _rep.DeleteRange(deletableEntities);
+                await _rep.SaveChangesAsync();
+            }
+
+            string message = "";
+            if (deletableEntities.Count > 0)
+                message += $"{deletableEntities.Count} ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø­Ø°Ù Ø´Ø¯. ";
+            if (usedEntities.Count > 0)
+                message += $"{usedEntities.Count} Ù…ÙˆØ±Ø¯ Ø¨Ù‡ Ø¯Ù„ÛŒÙ„ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø¯Ø± Ø¨Ø®Ø´â€ŒÙ‡Ø§ÛŒ Ø¯ÛŒÚ¯Ø± Ø­Ø°Ù Ù†Ø´Ø¯.";
+
+            return OPTResult<CountTypeView>.Success(message.Trim());
+        }
+
+
+
+
+        // Ù…ØªØ¯ Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ (Ø¯Ø± ØµÙˆØ±Øª Ù†ÛŒØ§Ø²)
+        public async Task<OPTResult<CountTypeView>> Update(CountTypeView countTypeView)
+        {
+            var validateAllProperties = ModelValidator.ValidateToOptResult<CountTypeView>(countTypeView);
+            if (!validateAllProperties.IsSucceeded) return validateAllProperties;
+
+
+            var entity = await _rep.GetAsync(countTypeView.Id);
+            if (entity == null)
+                return OPTResult<CountTypeView>.Failed(MessageApp.NotFound);
+            _mapper.Map(countTypeView, entity);
+            await _rep.UpdateAsync(entity);
+            await _rep.SaveChangesAsync();
+            var viewModel = _mapper.Map<CountTypeView>(entity);
+            return OPTResult<CountTypeView>.Success(viewModel, MessageApp.AcceptOpt);
+        }
+    }
+
+    // Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ Ø±ÛŒÙ¾ÙˆØ²ÛŒØªÙˆØ±ÛŒ ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´ Ú©Ù‡ Ø§Ø² Ø±ÛŒÙ¾ÙˆØ²ÛŒØªÙˆØ±ÛŒ Ù¾Ø§ÛŒÙ‡ Ø§Ø±Ø«â€ŒØ¨Ø±ÛŒ Ù…ÛŒâ€ŒÚ©Ù†Ø¯
+    public interface ICountTypeRep : IBaseRep<CountType, int> { }
+
+
+
+}
+
+===== FILE: App\Object\Shop\invApp\InvApp.cs =====
 using App.Contracts.Object.Shop.InvCon;
 using App.utility;
 using AutoMapper;
@@ -76,18 +530,14 @@ namespace App.Object.Shop.invApp
 
 
 
-        public async Task<ApiResult<InvView>> GetAll(Pagination pagination)
+        public async Task<ApiResult> GetAll(Pagination pagination)
         {
             var entities = await _rep.GetAsync(pagination);
             var viewModels = _mapper.Map<List<InvView>>(entities);
             var totalRecords = await _rep.CountAsync();
+/// need change
+            return ApiResult.Success(
 
-            return ApiResult<InvView>.SuccessPaged(
-                data: viewModels,
-        totalRecords: totalRecords,
-        pageNumber: pagination.PageNumber,
-        pageSize: pagination.PageSize,
-        message: MessageApp.AcceptOpt
     );
         }
 
@@ -438,6 +888,21 @@ namespace App.utility
 }
 
 
+===== FILE: App\utility\IFileService.cs =====
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+
+namespace App.utility
+{
+    public interface IFileService
+    {
+        Task<string?> UploadProfilePictureAsync(IFormFile? file, string? oldPath = null);
+    }
+}
+
 ===== FILE: App\utility\ModelValidator.cs =====
 using System;
 using System.Collections.Generic;
@@ -582,6 +1047,50 @@ namespace App
 }
 
 
+===== FILE: App.Contracts\Attributes\MinCountAttribute.cs =====
+// App.Contracts/Attributes/MinCountAttribute.cs
+using System;
+using System.Collections;
+using System.ComponentModel.DataAnnotations;
+
+namespace App.Contracts.Attributes
+{
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    public class MinCountAttribute : ValidationAttribute
+    {
+        private readonly int _minCount;
+
+        public MinCountAttribute(int minCount)
+        {
+            _minCount = minCount;
+            ErrorMessage = $"Ø­Ø¯Ø§Ù‚Ù„ {{0}} Ù…ÙˆØ±Ø¯ Ø¨Ø§ÛŒØ¯ Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆØ¯.";
+        }
+
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            if (value == null)
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+
+            if (value is IList list)
+            {
+                if (list.Count < _minCount)
+                    return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+            }
+            else
+            {
+                return new ValidationResult("Ø§ÛŒÙ† ÙÛŒÙ„Ø¯ Ø¨Ø§ÛŒØ¯ ÛŒÚ© Ù„ÛŒØ³Øª Ø¨Ø§Ø´Ø¯.");
+            }
+
+            return ValidationResult.Success;
+        }
+
+        public override string FormatErrorMessage(string name)
+        {
+            return string.Format(ErrorMessageString, _minCount);
+        }
+    }
+}
+
 ===== FILE: App.Contracts\Object\Base\auth\UserContext\IUserContext.cs =====
 using System;
 using System.Collections.Generic;
@@ -666,62 +1175,94 @@ using MyFrameWork.AppTool;
 
 namespace App.Contracts.Object.Base.Users
 {
-    public interface IUsersApp
+public interface IUsersApp
     {
-        
-       // public Task<OPTResult<UsersView>> SearchProducts(ProductSearchCriteria criteria);
-        Task<OPTResult<UsersView>> GetAll(Pagination pagination);
-        Task<OPT> Create(UsersCreat objectCreate);
-        Task<OPT> DeleteBy(List<int> objectids);
-        Task<OPTResult<UsersUpdate>> GetById(int id);
-        Task<OPT> Update(UsersUpdate objectView);
-        Task<OPTResult<UserCreateFormData>> CreateForm();
+        Task<ApiResult> GetAll(Pagination pagination);
+        Task<ApiResult> Create(UsersCreat objectCreate);
+        Task<ApiResult> DeleteBy(List<int> objectids);
+        Task<ApiResult> GetById(int id);
+        Task<ApiResult> Update(UsersUpdate objectView);
+        Task<ApiResult> CreateForm();
+        Task<ApiResult> KeepAlive(int userId);
     }
 }
 
 ===== FILE: App.Contracts\Object\Base\Users\UsersDto.cs =====
+// App.Contracts/Object/Base/Users/UsersDto.cs
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
+using Domain.Objects.Base;
+using App.Contracts.Attributes; // Ø¨Ø±Ø§ÛŒ MinCount
 
 namespace App.Contracts.Object.Base.Users
 {
     public class UsersView
     {
-        public int Id { get; set; } = default!;
+        public int Id { get; set; }
         public string FullName { get; set; } = default!;
+        public string? ProfilePictureUrl { get; set; }
+        public UserStatus Status { get; set; }
+        public DateTime? LastSeen { get; set; }
         public string Username { get; set; } = default!;
         public string Email { get; set; } = default!;
-
     }
+
     public class UsersCreat
     {
-
+        [Required(ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ù…Ù„ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
+        [MaxLength(100, ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ù…Ù„ Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø¨ÛŒØ´ Ø§Ø² 100 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.")]
         public string FullName { get; set; } = default!;
-        public string Username { get; set; } = default!;
-        public string Email { get; set; } = default!;
-        public string Password { get; set; } = default!;
-        // Ø´Ù†Ø§Ø³Ù‡â€Œ Ø±ÙˆÙ„â€ŒÙ‡Ø§ÛŒÛŒ Ú©Ù‡ Ú©Ø§Ø±Ø¨Ø± Ø¨Ø§ÛŒØ¯ Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ù‡
-        public List<int> RoleIds { get; set; } = new List<int>();
 
+        [Required(ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
+        [MaxLength(50, ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø¨ÛŒØ´ Ø§Ø² 50 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.")]
+        public string Username { get; set; } = default!;
+
+        [Required(ErrorMessage = "Ø§ÛŒÙ…ÛŒÙ„ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
+        [EmailAddress(ErrorMessage = "Ø§ÛŒÙ…ÛŒÙ„ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.")]
+        public string Email { get; set; } = default!;
+
+        [Required(ErrorMessage = "Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
+        [MinLength(6, ErrorMessage = "Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø¨Ø§ÛŒØ¯ Ø­Ø¯Ø§Ù‚Ù„ 6 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.")]
+        public string Password { get; set; } = default!;
+
+        public IFormFile? ProfilePicture { get; set; }
+
+        [Required(ErrorMessage = "Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù†Ù‚Ø´ Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†ÛŒØ¯.")]
+        [MinCount(1, ErrorMessage = "Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù†Ù‚Ø´ Ø¨Ø§ÛŒØ¯ Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆØ¯.")]
+        public List<int> RoleIds { get; set; } = new();
     }
 
     public class UsersUpdate
     {
-        public int Id { get; set; } = default!;
-        public string FullName { get; set; } = default!;
-        public string Username { get; set; } = default!;
-        public string Email { get; set; } = default!;
-        public string? Password { get; set; } = default!;
-        public List<int> RoleIds { get; set; } = new List<int>();
-    }
+        [Required]
+        public int Id { get; set; }
 
+        [Required(ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ù…Ù„ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
+        [MaxLength(100)]
+        public string FullName { get; set; } = default!;
+
+        [Required(ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
+        [MaxLength(50)]
+        public string Username { get; set; } = default!;
+
+        [Required(ErrorMessage = "Ø§ÛŒÙ…ÛŒÙ„ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
+        [EmailAddress]
+        public string Email { get; set; } = default!;
+
+        [MinLength(6, ErrorMessage = "Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø¨Ø§ÛŒØ¯ Ø­Ø¯Ø§Ù‚Ù„ 6 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.")]
+        public string? Password { get; set; }
+
+        public IFormFile? ProfilePicture { get; set; }
+
+        [MinCount(1, ErrorMessage = "Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù†Ù‚Ø´ Ø¨Ø§ÛŒØ¯ Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆØ¯.")]
+        public List<int> RoleIds { get; set; } = new();
+    }
 
     public class UserCreateFormData
     {
         public List<RoleView> Roles { get; set; } = new();
-        
     }
 
     public class RoleView
@@ -729,7 +1270,6 @@ namespace App.Contracts.Object.Base.Users
         public int Id { get; set; }
         public string Name { get; set; } = default!;
     }
-
 }
 
 ===== FILE: App.Contracts\Object\Base\IPersonApp.cs =====
@@ -813,353 +1353,4 @@ namespace App.Contracts.Object.Shop.CountTypeCon
 
 }
 
-
-===== FILE: App.Contracts\Object\Shop\CountTypeCon\ICountTypeApp.cs =====
-using MyFrameWork.AppTool;
-
-
-namespace App.Contracts.Object.Shop.CountTypeCon
-{
-    public interface ICountTypeApp
-    {
-        public Task<OPTResult<CountTypeView>> GetAll(Pagination pagination);
-        public Task<OPTResult<CountTypeView>> GetById(int id);
-        public Task<OPTResult<CountTypeView>> Create(CountTypeCreate countTypeCreate);
-        public Task<OPTResult<CountTypeView>> Update(CountTypeView countTypeView);
-        public Task<OPTResult<CountTypeView>> DeleteBy(List<int> ids);
-    }
-
-}
-
-
-===== FILE: App.Contracts\Object\Shop\InvCon\IInvApp.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using MyFrameWork.AppTool;
-
-namespace App.Contracts.Object.Shop.InvCon
-{
-    public interface IInvApp
-    {
-        public Task<ApiResult<InvView>> GetAll(Pagination pagination);
-        public Task<OPTResult<InvUpdate>> GetById(int id);
-        public Task<OPTResult<InvCreate>> Create(InvCreate createData);
-        public Task<OPTResult<InvUpdate>> Update(InvUpdate updateData);
-        public Task<OPTResult<InvView>> DeleteBy(List<int> ids);
-    }
-}
-
-===== FILE: App.Contracts\Object\Shop\InvCon\invView.cs =====
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Threading.Tasks;
-using MyFrameWork.AppTool;
-
-namespace App.Contracts.Object.Shop.InvCon
-{
-    public class InvView
-    {
-        public int Id { get; set; }
-        [Display(Name = "Ù†Ø§Ù…")]
-        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
-        public string Name { get; set; }
-        [Display(Name = "ÙØ¹Ø§Ù„")]
-        public Boolean Active  { get; set; }=true;
-    }
-
-
-    public class InvCreate
-    {
-        
-        [Display(Name = "Ù†Ø§Ù…")]
-        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
-        public string Name { get; set; }
-        [Display(Name = "ÙØ¹Ø§Ù„")]
-        public Boolean Active  { get; set; }=true;
-    }
-    
-
-        public class InvUpdate
-    {
-        public int Id { get; set; }
-        [Display(Name = "Ù†Ø§Ù…")]
-        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
-        public string Name { get; set; }
-        [Display(Name = "ÙØ¹Ø§Ù„")]
-        public Boolean Active  { get; set; }=true;
-    
-    }
-
-}
-
-===== FILE: App.Contracts\Object\Shop\ProductCon\IProductApp.cs =====
-using MyFrameWork.AppTool;
-
-
-namespace App.Contracts.Object.Shop.ProductCon
-{
-    public interface IProductApp
-    {
-        /// <summary>
-    /// جستجوی محصولات بر اساس معیارهای مشخص (نام، حداقل و حداکثر قیمت).
-    /// </summary>
-    /// <param name="criteria">معیارهای جستجو شامل نام، قیمت و اطلاعات صفحه‌بندی.</param>
-    /// <returns>لیست محصولات به همراه اطلاعات صفحه‌بندی.</returns>
-    /// 
-
-    
-        public Task<OPTResult<ProductView>> SearchProducts(ProductSearchCriteria criteria);
-        Task<OPTResult<ProductView>> GetAll(Pagination pagination);
-        Task<OPT> Create(ProductCreate productCreate);
-        Task<OPT> DeleteBy(List<int> productids);
-        Task<OPTResult<ProductUpdate>> GetById(int id);
-        Task<OPTResult<ProductView>> Update(ProductView productView);
-        
-        //public void Dispose();
-    }
-
-}
-
-
-===== FILE: App.Contracts\Object\Shop\ProductCon\ProductView.cs =====
-using MyFrameWork.AppTool;
-using System.ComponentModel.DataAnnotations;
-
-
-
-
-namespace App.Contracts.Object.Shop.ProductCon
-{
-    public class ProductView
-    {
-       
-        public int Id { get; set; }
-        [Display(Name = " کد محصول")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
-        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
-        public string ProductCode { get; set; }
-
-        [Display(Name = " نام محصول")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
-        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
-        public string Name { get; set; }
-
-        [Display(Name = " قیمت")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
-        
-        public int Price { get; set; }
-        
-
-    }
-    public class ProductCreate 
-    {
-
-        [Display(Name = " کد محصول")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
-        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
-        public string ProductCode { get; set; }
-
-        [Display(Name = " نام محصول")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
-        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
-        public string Name { get; set; }
-
-        [Display(Name = " قیمت")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
-        
-        public int Price { get; set; }
-
-        [Display(Name = " واحد شمارش")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]  
-        [SelectSource("/api/counttype/CountTypelist")]
-        public int CountTypeId { get; set; }
-       
-       
-
-    }
-
-       public class ProductUpdate 
-    {
-
-        public int Id { get; set; }
-
-        [Display(Name = " کد محصول")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
-        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
-        public string ProductCode { get; set; }
-
-        [Display(Name = " نام محصول")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
-        [MaxLength(20, ErrorMessage = MessageApp.MaxLengthcustom)]
-        public string Name { get; set; }
-
-        [Display(Name = " قیمت")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]    
-        
-        public int Price { get; set; }
-
-        [Display(Name = " واحد شمارش")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]  
-        [SelectSource("/api/counttype/CountTypelist")]
-        public int CountTypeId { get; set; }
-       
-       
-
-    }
-    public class ProductSearchCriteria : Pagination
-    {
-        public string? Name { get; set; }
-        public int? MinPrice { get; set; }
-        public int? MaxPrice { get; set; }
-    }
-
-}
-
-
-===== FILE: ConfApp\Mapping\Inv\CountTypeMapping.cs =====
-using Domain.Objects.Shop;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ConfApp.Mapping.Inv
-{
-    public class CountTypeMapping : IEntityTypeConfiguration<CountType>         
-    {           
-
-                public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<CountType> builder)
-                {
-                    builder.ToTable("CountTypes");
-                
-                    builder.HasKey(x => x.Id);
-                    builder.HasIndex(x => x.Id);
-                    builder.Property(x => x.Name).IsRequired().HasMaxLength(50);
-                
-                }
-    }           
-                
-}
-
-===== FILE: ConfApp\Mapping\Inv\ProductMapping.cs =====
-using Domain.Objects.Shop;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ConfApp.Mapping.Inv
-{
-    public class ProductMapping : IEntityTypeConfiguration<Product>
-    {
-        public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<Product> builder)
-        {
-            builder.ToTable("Products");
-
-            builder.HasKey(x => x.Id);
-            builder.HasIndex(x => x.Id);
-            builder.Property(x => x.Name).IsRequired().HasMaxLength(250);
-            
-
-        }
-    }
-}
-
-
-===== FILE: ConfApp\Mapping\PersonMapping.cs =====
-using Domain.Objects.Base;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ConfApp.Mapping
-{
-    public class PersonMapping : IEntityTypeConfiguration<Person>
-    {
-        public void Configure(EntityTypeBuilder<Person> builder)
-        {
-            builder.ToTable("Persons");
-
-            builder.HasKey(x => x.Id);
-            builder.HasIndex(x => x.Id);
-            builder.Property(x => x.Name).IsRequired().HasMaxLength(250);
-            builder.Property(x => x.Family).IsRequired().HasMaxLength(250);
-
-        }
-    }
-}
-
-
-===== FILE: ConfApp\Rep\bases\MyuserRepo.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using App.Object.Base.Users;
-using Domain.Objects.Base;
-using Microsoft.EntityFrameworkCore;
-
-namespace ConfApp.Rep.bases
-{
-    public class MyuserRepo :  BaseRep<User , int> , IMyUserRepository 
-    {
-        
-        private readonly MyContext _context;
-
-        public MyuserRepo(MyContext context) : base(context) 
-        {
-            _context = context;
-        }
-
-
-
-       public async Task<User> GetAsync(int userId)
-        {
-            return await _context.Users
-                .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-                .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted);
-        }
-    }
-}
-
-===== FILE: ConfApp\Rep\bases\PermissionRepository.cs =====
-
-using App.Object.Base.auth;
-using Microsoft.EntityFrameworkCore;
-
-namespace ConfApp.Rep.bases
-{
-    public class PermissionRepository : IPermissionRep
-    {
-        private readonly MyContext _context;
-
-        public PermissionRepository(MyContext context)
-        {
-            _context = context;
-        }
-
-                    public async Task<bool> HasPermissionAsync(int userId, string permission)
-{
-            return await _context.UserRoles
-                .Where(ur => ur.UserId == userId && !ur.IsDeleted) 
-        .Include(ur => ur.Role) // Ù„ÙˆØ¯ Role
-        .ThenInclude(r => r.RolePermissions) // Ù„ÙˆØ¯ RolePermissions
-        .ThenInclude(rp => rp.Permission) // Ù„ÙˆØ¯ Permission
-        .AnyAsync(ur => ur.Role.RolePermissions.Any(rp => rp.Permission.Name == permission));
-        }
-    }
-}
 

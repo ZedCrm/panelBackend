@@ -75,18 +75,14 @@ namespace App.Object.Shop.invApp
 
 
 
-        public async Task<ApiResult<InvView>> GetAll(Pagination pagination)
+        public async Task<ApiResult> GetAll(Pagination pagination)
         {
             var entities = await _rep.GetAsync(pagination);
             var viewModels = _mapper.Map<List<InvView>>(entities);
             var totalRecords = await _rep.CountAsync();
+/// need change
+            return ApiResult.Success(
 
-            return ApiResult<InvView>.SuccessPaged(
-                data: viewModels,
-        totalRecords: totalRecords,
-        pageNumber: pagination.PageNumber,
-        pageSize: pagination.PageSize,
-        message: MessageApp.AcceptOpt
     );
         }
 
