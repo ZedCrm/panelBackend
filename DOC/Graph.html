@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>معماری توسعه ویژگی جدید</title>
+  <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      height: 100%;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: 'Vazirmatn', sans-serif;
+      overflow: hidden;
+    }
+
+    .container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #3b82f6, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 1.1rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    svg {
+      width: 100%;
+      height: 80vh;
+      max-height: 800px;
+    }
+
+    .node {
+      cursor: pointer;
+      transition: all 0.3s ease;
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5));
+    }
+
+    .node:hover {
+      transform: scale(1.05);
+    }
+
+    .node text {
+      pointer-events: none;
+      font-weight: 600;
+    }
+
+    .flow-line {
+      stroke: #334155;
+      stroke-width: 3;
+      fill: none;
+      stroke-dasharray: 8 6;
+    }
+
+    .flow-arrow {
+      fill: #60a5fa;
+      stroke: #60a5fa;
+    }
+
+    .particle {
+      fill: #60a5fa;
+      opacity: 0;
+    }
+
+    .legend {
+      position: absolute;
+      bottom: 2rem;
+      left: 2rem;
+      background: rgba(30, 41, 59, 0.8);
+      padding: 1rem 1.5rem;
+      border-radius: 1rem;
+      backdrop-filter: blur(10px);
+      border: 1px solid #334155;
+      font-size: 0.9rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+    }
+
+    .footer {
+      position: absolute;
+      bottom: 1rem;
+      right: 2rem;
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 768px) {
+      h1 { font-size: 1.8rem; }
+      .subtitle { font-size: 1rem; }
+      .legend { left: 1rem; right: 1rem; bottom: 1rem; }
+      .footer { right: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>معماری توسعه ویژگی جدید</h1>
+    <p class="subtitle">از Domain تا API — گام به گام با Clean Architecture</p>
+
+    <svg id="diagram" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <!-- Gradients -->
+        <linearGradient id="grad-domain" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#3b82f6"/>
+          <stop offset="100%" stop-color="#1d4ed8"/>
+        </linearGradient>
+
+        <linearGradient id="grad-conf" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#10b981"/>
+          <stop offset="100%" stop-color="#059669"/>
+        </linearGradient>
+
+        <linearGradient id="grad-contracts" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f59e0b"/>
+          <stop offset="100%" stop-color="#d97706"/>
+        </linearGradient>
+
+        <linearGradient id="grad-object" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#8b5cf6"/>
+          <stop offset="100%" stop-color="#7c3aed"/>
+        </linearGradient>
+
+        <linearGradient id="grad-api" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#ec4899"/>
+          <stop offset="100%" stop-color="#db2777"/>
+        </linearGradient>
+
+        <!-- Arrow Marker -->
+        <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#60a5fa"/>
+        </marker>
+
+        <!-- Glow Filter -->
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="6" result="blur"/>
+          <feFlood flood-color="#60a5fa" flood-opacity="0.5"/>
+          <feComposite in2="blur" operator="in"/>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+
+      <!-- Background Grid -->
+      <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+        <path d="M60 0 L0 0 0 60" fill="none" stroke="#1e293b" stroke-width="1"/>
+      </pattern>
+      <rect width="1200" height="700" fill="#0f172a"/>
+      <rect width="1200" height="700" fill="url(#grid)" opacity="0.15"/>
+
+      <!-- Nodes -->
+      <g class="node" data-step="1" transform="translate(100, 150)">
+        <rect width="200" height="100" rx="20" fill="url(#grad-domain)" filter="url(#glow)"/>
+        <circle cx="100" cy="30" r="22" fill="#1e40af"/>
+        <text x="100" y="36" text-anchor="middle" fill="white" font-size="24" font-weight="bold">1</text>
+        <text x="100" y="70" text-anchor="middle" fill="white" font-size="16" font-weight="600">Domain</text>
+        <text x="100" y="90" text-anchor="middle" fill="#bfdbfe" font-size="13">BaseDomain + Entity</text>
+      </g>
+
+      <g class="node" data-step="2" transform="translate(100, 300)">
+        <rect width="200" height="100" rx="20" fill="url(#grad-conf)" filter="url(#glow)"/>
+        <circle cx="100" cy="30" r="22" fill="#047857"/>
+        <text x="100" y="36" text-anchor="middle" fill="white" font-size="24" font-weight="bold">2</text>
+        <text x="100" y="70" text-anchor="middle" fill="white" font-size="16" font-weight="600">ConfApp</text>
+        <text x="100" y="90" text-anchor="middle" fill="#bbf7d0" font-size="13">Context + Mapping</text>
+      </g>
+
+      <g class="node" data-step="3" transform="translate(100, 450)">
+        <rect width="200" height="100" rx="20" fill="url(#grad-contracts)" filter="url(#glow)"/>
+        <circle cx="100" cy="30" r="22" fill="#b45309"/>
+        <text x="100" y="36" text-anchor="middle" fill="white" font-size="24" font-weight="bold">3</text>
+        <text x="100" y="70" text-anchor="middle" fill="white" font-size="16" font-weight="600">Contracts</text>
+        <text x="100" y="90" text-anchor="middle" fill="#fed7aa" font-size="13">DTO + Interface</text>
+      </g>
+
+      <g class="node" data-step="4" transform="translate(400, 150)">
+        <rect width="200" height="100" rx="20" fill="url(#grad-object)" filter="url(#glow)"/>
+        <circle cx="100" cy="30" r="22" fill="#6d28d9"/>
+        <text x="100" y="36" text-anchor="middle" fill="white" font-size="24" font-weight="bold">4</text>
+        <text x="100" y="70" text-anchor="middle" fill="white" font-size="16" font-weight="600">Object</text>
+        <text x="100" y="90" text-anchor="middle" fill="#e9d5ff" font-size="13">CrudService</text>
+      </g>
+
+      <g class="node" data-step="5" transform="translate(700, 150)">
+        <rect width="200" height="100" rx="20" fill="url(#grad-api)" filter="url(#glow)"/>
+        <circle cx="100" cy="30" r="22" fill="#be185d"/>
+        <text x="100" y="36" text-anchor="middle" fill="white" font-size="24" font-weight="bold">5</text>
+        <text x="100" y="70" text-anchor="middle" fill="white" font-size="16" font-weight="600">API</text>
+        <text x="100" y="90" text-anchor="middle" fill="#fbcfe8" font-size="13">Controller</text>
+      </g>
+
+      <g class="node" data-step="6" transform="translate(400, 300)">
+        <rect width="200" height="100" rx="20" fill="#334155" filter="url(#glow)"/>
+        <circle cx="100" cy="30" r="22" fill="#1e293b"/>
+        <text x="100" y="36" text-anchor="middle" fill="white" font-size="24" font-weight="bold">6</text>
+        <text x="100" y="70" text-anchor="middle" fill="white" font-size="16" font-weight="600">DI</text>
+        <text x="100" y="90" text-anchor="middle" fill="#94a3b8" font-size="13">Program.cs</text>
+      </g>
+
+      <g class="node" data-step="7" transform="translate(700, 300)">
+        <rect width="200" height="100" rx="20" fill="#1e3a8a" filter="url(#glow)"/>
+        <circle cx="100" cy="30" r="22" fill="#1e40af"/>
+        <text x="100" y="36" text-anchor="middle" fill="white" font-size="24" font-weight="bold">7</text>
+        <text x="100" y="70" text-anchor="middle" fill="white" font-size="16" font-weight="600">Migration</text>
+        <text x="100" y="90" text-anchor="middle" fill="#93c5fd" font-size="13">EF Core</text>
+      </g>
+
+      <g class="node" data-step="8" transform="translate(550, 450)">
+        <rect width="200" height="100" rx="20" fill="#065f46" filter="url(#glow)"/>
+        <circle cx="100" cy="30" r="22" fill="#047857"/>
+        <text x="100" y="36" text-anchor="middle" fill="white" font-size="24" font-weight="bold">8</text>
+        <text x="100" y="70" text-anchor="middle" fill="white" font-size="16" font-weight="600">تست</text>
+        <text x="100" y="90" text-anchor="middle" fill="#86efac" font-size="13">Postman / Swagger</text>
+      </g>
+
+      <!-- Flow Lines with Animation -->
+      <g id="flows">
+        <!-- 1 → 2 -->
+        <path d="M300,200 Q350,250 300,300" class="flow-line" stroke-dasharray="1000" stroke-dashoffset="1000">
+          <animate attributeName="stroke-dashoffset" from="1000" to="0" dur="1.5s" fill="freeze" begin="0.5s"/>
+        </path>
+        <path d="M300,200 Q350,250 300,300" fill="none" stroke="#60a5fa" stroke-width="3" marker-end="url(#arrow)">
+          <animate attributeName="stroke-dashoffset" from="1000" to="0" dur="1.5s" fill="freeze" begin="0.5s"/>
+        </path>
+
+        <!-- 2 → 3 -->
+        <path d="M300,400 Q350,425 300,450" class="flow-line" stroke-dasharray="800" stroke-dashoffset="800">
+          <animate attributeName="stroke-dashoffset" from="800" to="0" dur="1.2s" fill="freeze" begin="0.8s"/>
+        </path>
+        <path d="M300,400 Q350,425 300,450" fill="none" stroke="#34d399" stroke-width="3" marker-end="url(#arrow)">
+          <animate attributeName="stroke-dashoffset" from="800" to="0" dur="1.2s" fill="freeze" begin="0.8s"/>
+        </path>
+
+        <!-- 1 → 4 -->
+        <path d="M300,200 Q500,175 600,175" class="flow-line" stroke-dasharray="1200" stroke-dashoffset="1200">
+          <animate attributeName="stroke-dashoffset" from="1200" to="0" dur="2s" fill="freeze" begin="1s"/>
+        </path>
+        <path d="M300,200 Q500,175 600,175" fill="none" stroke="#8b5cf6" stroke-width="3" marker-end="url(#arrow)">
+          <animate attributeName="stroke-dashoffset" from="1200" to="0" dur="2s" fill="freeze" begin="1s"/>
+        </path>
+
+        <!-- 4 → 5 -->
+        <path d="M600,200 Q650,175 700,175" class="flow-line" stroke-dasharray="600" stroke-dashoffset="600">
+          <animate attributeName="stroke-dashoffset" from="600" to="0" dur="1s" fill="freeze" begin="1.5s"/>
+        </path>
+        <path d="M600,200 Q650,175 700,175" fill="none" stroke="#ec4899" stroke-width="3" marker-end="url(#arrow)">
+          <animate attributeName="stroke-dashoffset" from="600" to="0" dur="1s" fill="freeze" begin="1.5s"/>
+        </path>
+
+        <!-- 3 → 4 -->
+        <path d="M300,500 Q500,475 600,225" class="flow-line" stroke-dasharray="1400" stroke-dashoffset="1400">
+          <animate attributeName="stroke-dashoffset" from="1400" to="0" dur="2.2s" fill="freeze" begin="1.2s"/>
+        </path>
+        <path d="M300,500 Q500,475 600,225" fill="none" stroke="#f59e0b" stroke-width="3" marker-end="url(#arrow)">
+          <animate attributeName="stroke-dashoffset" from="1400" to="0" dur="2.2s" fill="freeze" begin="1.2s"/>
+        </path>
+
+        <!-- 6 → 4 & 5 -->
+        <path d="M600,350 Q600,250 600,250" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="5,5"/>
+        <path d="M600,350 Q700,250 700,200" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="5,5"/>
+
+        <!-- 7 → 2 -->
+        <path d="M900,350 Q600,325 300,350" fill="none" stroke="#1e40af" stroke-width="2" stroke-dasharray="5,5"/>
+      </g>
+
+      <!-- Particles -->
+      <g id="particles"></g>
+    </svg>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-color" style="background: #3b82f6;"></div>
+        <span>Domain & Object</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #10b981;"></div>
+        <span>Configuration & API</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #f59e0b;"></div>
+        <span>Contracts & DI</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      Clean Architecture با <span style="color:#60a5fa">قابلیت نگهداری بالا</span>
+    </div>
+  </div>
+
+  <script>
+    // Particle System
+    const particleGroup = document.getElementById('particles');
+    const paths = [
+      "M100,200 Q300,150 500,200 Q700,250 900,200",
+      "M100,350 Q300,300 500,350 Q700,400 900,350",
+      "M100,500 Q300,475 500,500 Q700,475 900,500"
+    ];
+
+    paths.forEach((path, i) => {
+      const particle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      particle.setAttribute("class", "particle");
+      particle.setAttribute("r", "3");
+      particleGroup.appendChild(particle);
+
+      const anim = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+      anim.setAttribute("path", path);
+      anim.setAttribute("dur", `${4 + i}s`);
+      anim.setAttribute("repeatCount", "indefinite");
+      particle.appendChild(anim);
+
+      const opacityAnim = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+      opacityAnim.setAttribute("attributeName", "opacity");
+      opacityAnim.setAttribute("values", "0;1;0");
+      opacityAnim.setAttribute("dur", "2s");
+      opacityAnim.setAttribute("repeatCount", "indefinite");
+      opacityAnim.setAttribute("begin", `${i * 0.5}s`);
+      particle.appendChild(opacityAnim);
+    });
+
+    // Hover Highlight
+    document.querySelectorAll('.node').forEach(node => {
+      node.addEventListener('mouseenter', () => {
+        const step = node.getAttribute('data-step');
+        document.querySelectorAll(`[data-step]`).forEach(n => n.style.opacity = '0.5');
+        node.style.opacity = '1';
+      });
+      node.addEventListener('mouseleave', () => {
+        document.querySelectorAll(`[data-step]`).forEach(n => n.style.opacity = '1');
+      });
+    });
+  </script>
+</body>
+</html>

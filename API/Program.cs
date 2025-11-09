@@ -1,15 +1,25 @@
+using API.Middleware;
+using API.Services;
+using App.Contracts.Object.Base.auth;
+using App.Object.Base.Users;
+using App.utility;
+using ConfApp;
 using Infrastructure;
 using Infrastructure.data.seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using API.Middleware;
-using App.Object.Base.Users;
-using ConfApp;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// === CORS ===
+// === Add services to DI ===
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// === CORS: Allow all origins (dev only) ===
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -20,33 +30,24 @@ builder.Services.AddCors(options =>
     });
 });
 
-// === سرویس‌های اصلی ===
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// === احراز هویت JWT ===
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+// === JWT Authentication ===
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = "yourapp",
-        ValidAudience = "yourapp",
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars"))
-    };
-});
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = "yourapp",
+            ValidAudience = "yourapp",
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars"))
+        };
+    });
 
-// === ثبت تمام سرویس‌های CRM (شامل FileService, UserStatusService, DbContext و ...) ===
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+// === Register CRM Services (DbContext, Repos, Apps, etc.) ===
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? "Data Source=dev.db";
 
 CRMBootstraper.AddCRMManagement(
@@ -54,28 +55,39 @@ CRMBootstraper.AddCRMManagement(
     connectionString,
     connectionString.Contains("Data Source=dev.db") ? DbProvider.Sqlite : DbProvider.SqlServer
 );
-builder.Services.AddScoped<App.utility.IFileService, API.utility.FileService>();
+
+// === Custom Services ===
+builder.Services.AddScoped<IFileService, API.utility.FileService>();
+builder.Services.AddScoped<IPermissionDiscoveryService, PermissionDiscoveryService>();
+builder.Services.AddScoped<PermissionSeeder>(); // Register seeder
+
 var app = builder.Build();
 
-// === Middleware Pipeline ===
+// === Development-only middleware ===
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    // Seed permissions from controllers (only in dev)
+    using var scope = app.Services.CreateScope();
+    var permissionSeeder = scope.ServiceProvider.GetRequiredService<PermissionSeeder>();
+    await permissionSeeder.SeedAsync();
 }
 
+// === Global Middleware Pipeline ===
 app.UseRouting();
 
-// لاگ درخواست
+// Log incoming requests
 app.Use(async (context, next) =>
 {
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation("Received {Method} {Path}", context.Request.Method, context.Request.Path);
+    logger.LogInformation("Request: {Method} {Path}", context.Request.Method, context.Request.Path);
     await next();
     logger.LogInformation("Response: {StatusCode}", context.Response.StatusCode);
 });
 
-// Preflight
+// Handle preflight (OPTIONS) requests
 app.Use(async (context, next) =>
 {
     if (context.Request.Method == "OPTIONS")
@@ -89,24 +101,25 @@ app.Use(async (context, next) =>
 
 app.UseCors("AllowAll");
 app.UseAuthentication();
-app.UseTokenValidation();
+app.UseTokenValidation(); // Custom middleware
 app.UseAuthorization();
 
-// === ایجاد فولدر uploads ===
+// === Ensure uploads folder exists ===
 var uploadsPath = Path.Combine(app.Environment.WebRootPath, "uploads");
-if (!Directory.Exists(uploadsPath))
-    Directory.CreateDirectory(uploadsPath);
+Directory.CreateDirectory(uploadsPath);
 
-// === تایمر چک وضعیت کاربران (هر 1 دقیقه) ===
+// === Background timer: Check inactive users every minute ===
 var timer = new Timer(_ =>
 {
-    var statusService = app.Services.GetRequiredService<UserStatusService>();
+    using var scope = app.Services.CreateScope();
+    var statusService = scope.ServiceProvider.GetRequiredService<UserStatusService>();
     statusService.CheckInactive();
 }, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
 
+// === Map controllers ===
 app.MapControllers();
 
-// === Seed دیتابیس ===
+// === Seed initial data (Users, Roles, etc.) ===
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MyContext>();

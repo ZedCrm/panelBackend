@@ -12,7 +12,7 @@ namespace API.Attributes
             Permission = permission;
         }
     }
-}
+}dddd
 
 ===== FILE: API\Controllers\bases\AuthController.cs =====
 using System;
@@ -74,70 +74,39 @@ namespace API.Controllers.bases
     public class UserController : BaseController
     {
         private readonly IUsersApp _usersApp;
+        public UserController(IUsersApp usersApp) => _usersApp = usersApp;
 
-        public UserController(IUsersApp usersApp)
-        {
-            _usersApp = usersApp;
-        }
-
-        private List<string> GetModelStateErrors()
-        {
-            return ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList();
-        }
-
+        /*======================================================*/
+        /*                     Ù…ØªØ¯Ù‡Ø§ÛŒ CRUD                      */
+        /*======================================================*/
         [RequirePermission("User.View")]
         [HttpPost("/api/User/GetAll")]
-        public async Task<ActionResult<ApiResult>> GetAll([FromBody] Pagination pagination)
-        {
-            var result = await _usersApp.GetAll(pagination);
-            return result.IsSucceeded ? Ok(result) : BadRequest(result);
-        }
+        public async Task<ActionResult<ApiResult<List<UsersView>>>> GetAll([FromBody] Pagination pagination)
+            => await _usersApp.GetAll(pagination);
 
         [RequirePermission("User.View")]
         [HttpGet("/api/User/GetById")]
-        public async Task<ActionResult<ApiResult>> GetById([FromQuery] int id)
-        {
-            var result = await _usersApp.GetById(id);
-            return result.IsSucceeded ? Ok(result) : BadRequest(result);
-        }
+        public async Task<ActionResult<ApiResult<UsersUpdate>>> GetById([FromQuery] int id)
+            => await _usersApp.GetById(id);
 
         [RequirePermission("User.Create")]
         [HttpPost("/api/User/create")]
         public async Task<ActionResult<ApiResult>> Create([FromForm] UsersCreat userCreate)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ApiResult.Failed(GetModelStateErrors(), 400));
-
-            var result = await _usersApp.Create(userCreate);
-            return result.IsSucceeded ? Ok(result) : BadRequest(result);
-        }
+            => await _usersApp.Create(userCreate);
 
         [RequirePermission("User.Edit")]
         [HttpPost("/api/User/update")]
         public async Task<ActionResult<ApiResult>> Update([FromForm] UsersUpdate userUpdate)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ApiResult.Failed(GetModelStateErrors(), 400));
-
-            var result = await _usersApp.Update(userUpdate);
-            return result.IsSucceeded ? Ok(result) : BadRequest(result);
-        }
+            => await _usersApp.Update(userUpdate);
 
         [RequirePermission("User.Delete")]
         [HttpPost("/api/User/delete")]
         public async Task<ActionResult<ApiResult>> Delete([FromBody] List<int> ids)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ApiResult.Failed(GetModelStateErrors(), 400));
+            => await _usersApp.DeleteBy(ids);
 
-            var result = await _usersApp.DeleteBy(ids);
-            return result.IsSucceeded ? Ok(result) : BadRequest(result);
-        }
-
-        // KeepAlive: Ù…Ø¹Ù…ÙˆÙ„Ø§Ù‹ Ù†ÛŒØ§Ø²ÛŒ Ø¨Ù‡ permission Ù†ÛŒØ³Øª (Ú©Ø§Ø±Ø¨Ø± Ø®ÙˆØ¯Ø´ Ø±Ùˆ Ø¢Ù†Ù„Ø§ÛŒÙ† Ù…ÛŒâ€ŒÚ©Ù†Ù‡)
+        /*======================================================*/
+        /*                  Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ                      */
+        /*======================================================*/
         [HttpPost("/api/User/keepalive")]
         public async Task<ActionResult<ApiResult>> KeepAlive()
         {
@@ -145,129 +114,86 @@ namespace API.Controllers.bases
             if (userId <= 0)
                 return Unauthorized(ApiResult.Failed("Ú©Ø§Ø±Ø¨Ø± Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", 401));
 
-            var result = await _usersApp.KeepAlive(userId);
-            return result.IsSucceeded ? Ok(result) : BadRequest(result);
+            return await _usersApp.KeepAlive(userId);
         }
 
         [RequirePermission("User.Create")]
         [HttpGet("/api/user/getcreateform")]
-        public async Task<ActionResult<ApiResult>> GetCreateForm()
-        {
-            var result = await _usersApp.CreateForm();
-            return result.IsSucceeded ? Ok(result) : BadRequest(result);
-        }
+        public async Task<ActionResult<ApiResult<UserCreateFormData>>> GetCreateForm()
+            => await _usersApp.CreateForm();
     }
 }
 
 ===== FILE: API\Controllers\Shop\CountTypeController.cs =====
 using App.Contracts.Object.Shop.CountTypeCon;
-using App.Contracts.Object.Shop.ProductCon;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace API.Controllers.Shop
 {
-
     public class CountTypeController : BaseController
     {
-            private readonly ICountTypeApp countTypeApp;
+        private readonly ICountTypeApp _countTypeApp;
 
-           public CountTypeController(ICountTypeApp countTypeApp)
+        public CountTypeController(ICountTypeApp countTypeApp)
         {
-            this.countTypeApp = countTypeApp;
-        }
-       
-
-        [HttpPost]
-        [Route("/api/CountType/GetAll")]
-        public async Task<ActionResult<OPTResult<CountTypeView>>> Index([FromBody] Pagination pagination)
-        {
-             return await countTypeApp.GetAll(pagination);
-
-             
-
-            
-        }
-        [HttpGet]
-        [Route("/api/CountType/GetById")]
-        public async Task<ActionResult<OPTResult<CountTypeView>>> GetById([FromQuery] int id)
-        {
-            var result = await countTypeApp.GetById(id);
-            if (result.IsSucceeded == true) { return Ok(result); }
-            else { return Ok(result); }
-        }
-        
-
-
-      
-
-
-        [HttpPost]
-        [Route("/api/CountType/create")]
-        public async Task<ActionResult> create([FromBody] CountTypeCreate countTypeCreate)
-        {
-
-            var opt = await countTypeApp.Create(countTypeCreate);
-            if (opt.IsSucceeded==true) { return Ok(opt); }
-            else { return Ok ( opt); }
-            
-
-        }
-       
-
-        [HttpPost]
-        [Route("/api/CountType/delete")]
-        public async Task<ActionResult> delete([FromBody] List<int> ids)
-        {
-            var result = await countTypeApp.DeleteBy(ids); 
-            return Ok(result);
+            _countTypeApp = countTypeApp;
         }
 
-        [HttpDelete]
-        [Route("/api/CountType/deletebyid")]
-        public OkResult deletebyid([FromQuery] int id)
+        [HttpPost("/api/CountType/GetAll")]
+        public async Task<ActionResult<ApiResult<List<CountTypeView>>>> Index([FromBody] Pagination pagination)
         {
-            var ids = new List<int> { id };
-            countTypeApp.DeleteBy(ids); // ØªØºÛŒÛŒØ± Ù…ØªØ¯ DeleteBy Ø¨Ø±Ø§ÛŒ Ù¾Ø°ÛŒØ±Ø´ Ù„ÛŒØ³Øª Ø¢ÛŒâ€ŒØ¯ÛŒâ€ŒÙ‡Ø§
-            return Ok();
+            return await _countTypeApp.GetAll(pagination);
         }
 
-
-        [HttpPost]
-        [Route("/api/CountType/update")]
-        public async Task<ActionResult> update([FromBody] CountTypeView countTypeView)
+        [HttpGet("/api/CountType/GetById")]
+        public async Task<ActionResult<ApiResult<CountTypeView>>> GetById([FromQuery] int id)
         {
-            var opt = await countTypeApp.Update(countTypeView);
-            if (opt.IsSucceeded == true) { return Ok(opt); }
-            else { return Ok(opt); }  
-        }        
+            return await _countTypeApp.GetById(id);
+        }
+
+        [HttpPost("/api/CountType/create")]
+        public async Task<ActionResult<ApiResult>> Create([FromBody] CountTypeCreate dto)
+        {
+            return await _countTypeApp.Create(dto);
+        }
+
+        [HttpPost("/api/CountType/delete")]
+        public async Task<ActionResult<ApiResult>> Delete([FromBody] List<int> ids)
+        {
+            return await _countTypeApp.DeleteBy(ids);
+        }
+
+        [HttpDelete("/api/CountType/deletebyid")]
+        public async Task<ActionResult<ApiResult>> DeleteById([FromQuery] int id)
+        {
+            return await _countTypeApp.DeleteBy(new List<int> { id });
+        }
+
+        [HttpPost("/api/CountType/update")]
+        public async Task<ActionResult<ApiResult>> Update([FromBody] CountTypeView dto)
+        {
+            return await _countTypeApp.Update(dto);
+        }
+
         [HttpGet("/api/counttype/CountTypelist")]
-        public IActionResult CountTypeList()
+        public async Task<ActionResult<ApiResult<List<CountTypeView>>>> CountTypeList()
         {
-            var pagination = new Pagination
-            {
-                PageNumber = 1,
-                PageSize = 1000
-            };
-            var list = countTypeApp.GetAll(pagination);
-            return Ok(list);
+            var pagination = new Pagination { PageNumber = 1, PageSize = 1000 };
+            return await _countTypeApp.GetAll(pagination);
         }
-       
     }
 }
-
 
 ===== FILE: API\Controllers\Shop\InvController.cs =====
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
 using API.Attributes;
 using App.Contracts.Object.Shop.InvCon;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using MyFrameWork.AppTool;
 
 namespace API.Controllers.Shop
@@ -276,76 +202,50 @@ namespace API.Controllers.Shop
     [Authorize]
     public class InvController : BaseController
     {
-
-
-        private readonly IInvApp invApp;
-        private readonly ILogger<InvController> _logger;
-        public InvController(IInvApp invApp, ILogger<InvController> logger)
+        private readonly IInvApp _invApp;
+        public InvController(IInvApp invApp)
         {
-            this.invApp = invApp;
-            _logger = logger;
-
+            _invApp = invApp;
         }
 
-
-
-        [HttpPost]
-        [Route("/api/inv/GetAll")]
-        [RequirePermission("ViewProducs")]
-        public async Task<ActionResult<ApiResult>> Index([FromBody] Pagination pagination)
+        [HttpPost("/api/inv/GetAll")]
+        [RequirePermission("ViewProduct")]
+        public async Task<ActionResult<ApiResult<List<InvView>>>> Index([FromBody] Pagination pagination)
         {
-            return await invApp.GetAll(pagination);
+            return await _invApp.GetAll(pagination);
         }
 
-        [HttpGet]
-        [Route("/api/inv/GetById")]
-        public async Task<ActionResult<OPTResult<InvUpdate>>> GetById([FromQuery] int id)
+        [HttpGet("/api/inv/GetById")]
+        [RequirePermission("InvView")]
+        public async Task<ActionResult<ApiResult<InvUpdate>>> GetById([FromQuery] int id)
         {
-            var result = await invApp.GetById(id);
-            if (result.IsSucceeded == true) { return Ok(result); }
-            else { return Ok(result); }
+            return await _invApp.GetById(id);
         }
 
-        [HttpPost]
-        [Route("/api/inv/create")]
-        public async Task<ActionResult> create([FromBody] InvCreate invCreate)
+        [HttpPost("/api/inv/create")]
+        public async Task<ActionResult<ApiResult>> Create([FromBody] InvCreate invCreate)
         {
-
-            var opt = await invApp.Create(invCreate);
-            if (opt.IsSucceeded == true) { return Ok(opt); }
-            else { return Ok(opt); }
-
-
+            return await _invApp.Create(invCreate);
         }
 
-        [HttpPost]
-        [Route("/api/inv/delete")]
-        public async Task<ActionResult> delete([FromBody] List<int> ids)
+        [HttpPost("/api/inv/delete")]
+        public async Task<ActionResult<ApiResult>> Delete([FromBody] List<int> ids)
         {
-            var result = await invApp.DeleteBy(ids);
-            return Ok(result);
+            return await _invApp.DeleteBy(ids);
         }
 
-        [HttpDelete]
-        [Route("/api/inv/deletebyid")]
-        public OkResult deletebyid([FromQuery] int id)
+        [HttpDelete("/api/inv/deletebyid")]
+        public async Task<ActionResult<ApiResult>> DeleteById([FromQuery] int id)
         {
-            var ids = new List<int> { id };
-            invApp.DeleteBy(ids); // ØªØºÛŒÛŒØ± Ù…ØªØ¯ DeleteBy Ø¨Ø±Ø§ÛŒ Ù¾Ø°ÛŒØ±Ø´ Ù„ÛŒØ³Øª Ø¢ÛŒâ€ŒØ¯ÛŒâ€ŒÙ‡Ø§
-            return Ok();
+            // Ù…ØªØ¯ DeleteBy Ù„ÛŒØ³ØªÛŒ Ù…ÛŒâ€ŒÚ¯ÛŒØ±Ø¯Ø› ÛŒÚ© Ø¢ÛŒâ€ŒØ¯ÛŒ Ø±Ø§ Ù‡Ù… Ø¨Ù‡ ØµÙˆØ±Øª Ù„ÛŒØ³Øª Ø§Ø±Ø³Ø§Ù„ Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ…
+            return await _invApp.DeleteBy(new List<int> { id });
         }
 
-
-        [HttpPost]
-        [Route("/api/inv/update")]
-        public async Task<ActionResult> update([FromBody] InvUpdate invUpdate)
+        [HttpPost("/api/inv/update")]
+        public async Task<ActionResult<ApiResult>> Update([FromBody] InvUpdate invUpdate)
         {
-            var opt = await invApp.Update(invUpdate);
-            if (opt.IsSucceeded == true) { return Ok(opt); }
-            else { return Ok(opt); }  
-        }  
-
-
+            return await _invApp.Update(invUpdate);
+        }
     }
 }
 
@@ -361,16 +261,11 @@ namespace API.Controllers.Shop
     /// <summary>
     /// کنترلر مربوط به مدیریت محصولات در سیستم
     /// </summary>
-    
     [Authorize]
     public class ProductController : BaseController
     {
         private readonly IProductApp _productApp;
 
-        /// <summary>
-        /// سازنده کنترلر، تزریق وابستگی IProductApp
-        /// </summary>
-        /// <param name="productApp">سرویس لایه اپلیکیشن برای مدیریت محصولات</param>
         public ProductController(IProductApp productApp)
         {
             _productApp = productApp;
@@ -379,28 +274,18 @@ namespace API.Controllers.Shop
         /// <summary>
         /// دریافت لیست محصولات با صفحه‌بندی
         /// </summary>
-        /// <param name="pagination">اطلاعات صفحه‌بندی</param>
-        /// <returns>لیست محصولات یا خطای عدم دسترسی</returns>
-        
         [RequirePermission("ViewProduct")]
-        [HttpPost]
-        [Route("/api/product/GetAll")]
-        
-        public async Task<ActionResult<OPTResult<ProductView>>> Index([FromBody] Pagination pagination)
+        [HttpPost("/api/product/GetAll")]
+        public async Task<ActionResult<ApiResult<List<ProductView>>>> Index([FromBody] Pagination pagination)
         {
-           
-            // فراخوانی متد GetAll از لایه اپلیکیشن با userId
             return await _productApp.GetAll(pagination);
         }
 
         /// <summary>
         /// جستجوی محصولات بر اساس معیارهای مشخص
         /// </summary>
-        /// <param name="productSearch">معیارهای جستجو</param>
-        /// <returns>لیست محصولات فیلترشده</returns>
-        [HttpPost]
-        [Route("/api/product/search")]
-        public async Task<ActionResult<OPTResult<ProductView>>> Search([FromBody] ProductSearchCriteria productSearch)
+        [HttpPost("/api/product/search")]
+        public async Task<ActionResult<ApiResult<List<ProductView>>>> Search([FromBody] ProductSearchCriteria productSearch)
         {
             return await _productApp.SearchProducts(productSearch);
         }
@@ -408,61 +293,37 @@ namespace API.Controllers.Shop
         /// <summary>
         /// ایجاد محصول جدید
         /// </summary>
-        /// <param name="product">اطلاعات محصول جدید</param>
-        /// <returns>نتیجه عملیات ایجاد</returns>
-        [HttpPost]
-        [Route("/api/product/create")]
-        public async Task<ActionResult> Create([FromBody] ProductCreate product)
+        [HttpPost("/api/product/create")]
+        public async Task<ActionResult<ApiResult>> Create([FromBody] ProductCreate product)
         {
-            var opt = await _productApp.Create(product);
-            return Ok(opt);
+            return await _productApp.Create(product);
         }
 
         /// <summary>
         /// حذف محصولات بر اساس لیست آیدی‌ها
         /// </summary>
-        /// <param name="ids">لیست آیدی‌های محصولات</param>
-        /// <returns>نتیجه عملیات حذف</returns>
-        [HttpPost]
-        [Route("/api/product/delete")]
-        public async Task<OkObjectResult> Delete([FromBody] List<int> ids)
+        [HttpPost("/api/product/delete")]
+        public async Task<ActionResult<ApiResult>> Delete([FromBody] List<int> ids)
         {
-            var opt = await _productApp.DeleteBy(ids);
-            return Ok(opt);
+            return await _productApp.DeleteBy(ids);
         }
 
         /// <summary>
         /// دریافت اطلاعات یک محصول بر اساس آیدی
         /// </summary>
-        /// <param name="id">آیدی محصول</param>
-        /// <returns>اطلاعات محصول یا پیام خطا</returns>
-        [HttpGet]
-        [Route("/api/product/GetById")]
-        public async Task<ActionResult<OPTResult<ProductUpdate>>> GetById([FromQuery] int id)
+        [HttpGet("/api/product/GetById")]
+        public async Task<ActionResult<ApiResult<ProductUpdate>>> GetById([FromQuery] int id)
         {
-            var result = await _productApp.GetById(id);
-            if (result.IsSucceeded)
-            {
-                return Ok(result);
-            }
-            return Ok(new { warning = result.Message });
+            return await _productApp.GetById(id);
         }
 
         /// <summary>
         /// به‌روزرسانی اطلاعات محصول
         /// </summary>
-        /// <param name="product">اطلاعات به‌روزرسانی‌شده محصول</param>
-        /// <returns>نتیجه عملیات به‌روزرسانی</returns>
-        [HttpPost]
-        [Route("/api/product/update")]
-        public async Task<ActionResult> Update([FromBody] ProductView product)
+        [HttpPost("/api/product/update")]
+        public async Task<ActionResult<ApiResult>> Update([FromBody] ProductUpdate product)
         {
-            var opt = await _productApp.Update(product);
-            if (opt.IsSucceeded)
-            {
-                return Ok(opt);
-            }
-            return Ok(new { warning = opt.Message });
+            return await _productApp.Update(product);
         }
     }
 }
@@ -698,6 +559,50 @@ namespace API.Middleware
 }
 
 
+===== FILE: API\Services\PermissionDiscoveryService.cs =====
+// API/Services/PermissionDiscoveryService.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using API.Attributes;
+using App.Contracts.Object.Base.auth;
+using Microsoft.AspNetCore.Mvc;
+
+namespace API.Services
+{
+    public class PermissionDiscoveryService : IPermissionDiscoveryService
+    {
+        public IEnumerable<string> GetAllPermissionNames()
+        {
+            var permissions = new HashSet<string>();
+            var assembly = Assembly.GetExecutingAssembly(); // ÙÙ‚Ø· Ø§Ø³Ù…Ø¨Ù„ÛŒ API
+
+            var controllers = assembly.GetTypes()
+                .Where(t => typeof(ControllerBase).IsAssignableFrom(t) && !t.IsAbstract);
+
+            foreach (var controller in controllers)
+            {
+                // Ù¾Ø±Ù…ÛŒØ´Ù†â€ŒÙ‡Ø§ÛŒ Ø±ÙˆÛŒ Ú©Ù„Ø§Ø³
+                var classAttrs = controller.GetCustomAttributes<RequirePermissionAttribute>(true);
+                foreach (var attr in classAttrs)
+                    permissions.Add(attr.Permission);
+
+                // Ù¾Ø±Ù…ÛŒØ´Ù†â€ŒÙ‡Ø§ÛŒ Ø±ÙˆÛŒ Ù…ØªØ¯Ù‡Ø§
+                var methods = controller.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+                foreach (var method in methods)
+                {
+                    var methodAttrs = method.GetCustomAttributes<RequirePermissionAttribute>(true);
+                    foreach (var attr in methodAttrs)
+                        permissions.Add(attr.Permission);
+                }
+            }
+
+            return permissions;
+        }
+    }
+}
+
 ===== FILE: API\utility\FileService.cs =====
 using App.utility;
 using Microsoft.AspNetCore.Hosting;
@@ -790,18 +695,28 @@ namespace API.utility
 
 
 ===== FILE: API\Program.cs =====
+using API.Middleware;
+using API.Services;
+using App.Contracts.Object.Base.auth;
+using App.Object.Base.Users;
+using App.utility;
+using ConfApp;
 using Infrastructure;
 using Infrastructure.data.seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using API.Middleware;
-using App.Object.Base.Users;
-using ConfApp;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// === CORS ===
+// === Add services to DI ===
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// === CORS: Allow all origins (dev only) ===
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -812,33 +727,24 @@ builder.Services.AddCors(options =>
     });
 });
 
-// === Ø³Ø±ÙˆÛŒØ³â€ŒÙ‡Ø§ÛŒ Ø§ØµÙ„ÛŒ ===
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// === Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª JWT ===
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+// === JWT Authentication ===
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = "yourapp",
-        ValidAudience = "yourapp",
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars"))
-    };
-});
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = "yourapp",
+            ValidAudience = "yourapp",
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars"))
+        };
+    });
 
-// === Ø«Ø¨Øª ØªÙ…Ø§Ù… Ø³Ø±ÙˆÛŒØ³â€ŒÙ‡Ø§ÛŒ CRM (Ø´Ø§Ù…Ù„ FileService, UserStatusService, DbContext Ùˆ ...) ===
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+// === Register CRM Services (DbContext, Repos, Apps, etc.) ===
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? "Data Source=dev.db";
 
 CRMBootstraper.AddCRMManagement(
@@ -846,28 +752,39 @@ CRMBootstraper.AddCRMManagement(
     connectionString,
     connectionString.Contains("Data Source=dev.db") ? DbProvider.Sqlite : DbProvider.SqlServer
 );
-builder.Services.AddScoped<App.utility.IFileService, API.utility.FileService>();
+
+// === Custom Services ===
+builder.Services.AddScoped<IFileService, API.utility.FileService>();
+builder.Services.AddScoped<IPermissionDiscoveryService, PermissionDiscoveryService>();
+builder.Services.AddScoped<PermissionSeeder>(); // Register seeder
+
 var app = builder.Build();
 
-// === Middleware Pipeline ===
+// === Development-only middleware ===
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    // Seed permissions from controllers (only in dev)
+    using var scope = app.Services.CreateScope();
+    var permissionSeeder = scope.ServiceProvider.GetRequiredService<PermissionSeeder>();
+    await permissionSeeder.SeedAsync();
 }
 
+// === Global Middleware Pipeline ===
 app.UseRouting();
 
-// Ù„Ø§Ú¯ Ø¯Ø±Ø®ÙˆØ§Ø³Øª
+// Log incoming requests
 app.Use(async (context, next) =>
 {
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation("Received {Method} {Path}", context.Request.Method, context.Request.Path);
+    logger.LogInformation("Request: {Method} {Path}", context.Request.Method, context.Request.Path);
     await next();
     logger.LogInformation("Response: {StatusCode}", context.Response.StatusCode);
 });
 
-// Preflight
+// Handle preflight (OPTIONS) requests
 app.Use(async (context, next) =>
 {
     if (context.Request.Method == "OPTIONS")
@@ -881,24 +798,25 @@ app.Use(async (context, next) =>
 
 app.UseCors("AllowAll");
 app.UseAuthentication();
-app.UseTokenValidation();
+app.UseTokenValidation(); // Custom middleware
 app.UseAuthorization();
 
-// === Ø§ÛŒØ¬Ø§Ø¯ ÙÙˆÙ„Ø¯Ø± uploads ===
+// === Ensure uploads folder exists ===
 var uploadsPath = Path.Combine(app.Environment.WebRootPath, "uploads");
-if (!Directory.Exists(uploadsPath))
-    Directory.CreateDirectory(uploadsPath);
+Directory.CreateDirectory(uploadsPath);
 
-// === ØªØ§ÛŒÙ…Ø± Ú†Ú© ÙˆØ¶Ø¹ÛŒØª Ú©Ø§Ø±Ø¨Ø±Ø§Ù† (Ù‡Ø± 1 Ø¯Ù‚ÛŒÙ‚Ù‡) ===
+// === Background timer: Check inactive users every minute ===
 var timer = new Timer(_ =>
 {
-    var statusService = app.Services.GetRequiredService<UserStatusService>();
+    using var scope = app.Services.CreateScope();
+    var statusService = scope.ServiceProvider.GetRequiredService<UserStatusService>();
     statusService.CheckInactive();
 }, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
 
+// === Map controllers ===
 app.MapControllers();
 
-// === Seed Ø¯ÛŒØªØ§Ø¨ÛŒØ³ ===
+// === Seed initial data (Users, Roles, etc.) ===
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MyContext>();
@@ -1007,7 +925,7 @@ namespace App.Object.Base.Auth
     });
 }
     }
-    public interface IUserRepository
+    public interface IUserRepository 
     {
         Task<User?> GetByEmailAsync(string email);
         Task AddAsync(User user);
@@ -1105,5 +1023,146 @@ using Domain.Objects.Base;
 public interface IRoleRep :  IBaseRep<Role, int> {
 
 
+}
+
+===== FILE: App\Object\Base\Users\UsersApp.cs =====
+// App/Object/Base/Users/UsersApp.cs
+using App.Contracts.Object.Base.Users;
+using App.Object.Base;
+using App.utility;
+using AutoMapper;
+using Domain.Objects.Base;
+using MyFrameWork.AppTool;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace App.Object.Base.Users
+{
+    public class UsersApp : CrudService<User, UsersView, UsersCreat, UsersUpdate, int>,
+                            IUsersApp
+    {
+        private readonly IMyUserRepository _userRepository;
+        private readonly IFileService _fileService;
+        private readonly UserStatusService _statusService;
+        private readonly IRoleRep _roleRep;
+
+        public UsersApp(
+            IMyUserRepository userRepository,
+            IMapper mapper,
+            IFileService fileService,
+            UserStatusService statusService,
+            IRoleRep roleRep)
+            : base(userRepository, mapper)
+        {
+            _userRepository = userRepository;
+            _fileService = fileService;
+            _statusService = statusService;
+            _roleRep = roleRep;
+        }
+
+        /*=== Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ IUsersApp ===*/
+        public Task<ApiResult<List<UsersView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
+        public Task<ApiResult<UsersUpdate>> GetById(int id)                 => base.GetByIdAsync(id);
+        public Task<ApiResult> Create(UsersCreat dto)                       => base.CreateAsync(dto);
+        public Task<ApiResult> Update(UsersUpdate dto)                      => base.UpdateAsync(dto);
+        public Task<ApiResult> DeleteBy(List<int> ids)                      => base.DeleteAsync(ids);
+
+        /*=== Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ ===*/
+        public async Task<ApiResult<UserCreateFormData>> CreateForm()
+        {
+            var roles = await _roleRep.GetAsync();
+            return ApiResult<UserCreateFormData>.Success(
+                new UserCreateFormData
+                {
+                    Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
+                });
+        }
+
+        public async Task<ApiResult> KeepAlive(int userId)
+        {
+            _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
+            return ApiResult.Success("ÙˆØ¶Ø¹ÛŒØª Ø¢Ù†Ù„Ø§ÛŒÙ† Ø´Ø¯.");
+        }
+
+        /*=== Ø§ÙˆØ±Ø±Ø§ÛŒØ¯Ù‡Ø§ÛŒ Ø¶Ø±ÙˆØ±ÛŒ (Business + ÙØ§ÛŒÙ„ + ÙˆØ¶Ø¹ÛŒØª) ===*/
+        public override async Task<ApiResult> CreateAsync(UsersCreat dto)
+        {
+            if (await _userRepository.ExistAsync(u => u.Email == dto.Email))
+                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+            if (await _userRepository.ExistAsync(u => u.Username == dto.Username))
+                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            var user = _mapper.Map<User>(dto);
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid }).ToList();
+
+            if (dto.ProfilePicture != null)
+            {
+                try { user.ProfilePictureUrl = await _fileService.UploadProfilePictureAsync(dto.ProfilePicture); }
+                catch (Exception ex) { return ApiResult.Failed($"Ø®Ø·Ø§ Ø¯Ø± Ø¢Ù¾Ù„ÙˆØ¯ ØªØµÙˆÛŒØ±: {ex.Message}", 400); }
+            }
+
+            await _userRepository.CreateAsync(user);
+            await _userRepository.SaveChangesAsync();
+            _statusService.UpdateStatus(user.Id, UserStatus.Offline);
+            return ApiResult.Success(message: $"Ú©Ø§Ø±Ø¨Ø± {dto.FullName} Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
+        }
+
+        public override async Task<ApiResult> UpdateAsync(UsersUpdate dto)
+        {
+            if (await _userRepository.ExistAsync(u => u.Email == dto.Email && u.Id != dto.Id))
+                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+            if (await _userRepository.ExistAsync(u => u.Username == dto.Username && u.Id != dto.Id))
+                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            var user = await _userRepository.GetAsync(dto.Id);
+            if (user == null) return ApiResult.Failed(MessageApp.NotFound, 404);
+
+            _mapper.Map(dto, user);
+            if (!string.IsNullOrEmpty(dto.Password))
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+
+            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = dto.Id }).ToList();
+
+            if (dto.ProfilePicture != null)
+            {
+                try { user.ProfilePictureUrl = await _fileService.UploadProfilePictureAsync(dto.ProfilePicture, user.ProfilePictureUrl); }
+                catch (Exception ex) { return ApiResult.Failed($"Ø®Ø·Ø§ Ø¯Ø± Ø¢Ù¾Ù„ÙˆØ¯ ØªØµÙˆÛŒØ±: {ex.Message}", 400); }
+            }
+
+            await _userRepository.UpdateAsync(user);
+            await _userRepository.SaveChangesAsync();
+            return ApiResult.Success(message: "Ú©Ø§Ø±Ø¨Ø± Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
+        }
+
+        public override async Task<ApiResult<List<UsersView>>> GetAllAsync(Pagination pagination)
+        {
+            var users = await _userRepository.GetAsync(pagination);
+            var vms = _mapper.Map<List<UsersView>>(users);
+
+            foreach (var vm in vms)
+            {
+                var (status, lastSeen) = _statusService.GetStatus(vm.Id);
+                vm.Status   = status;
+                vm.LastSeen = lastSeen;
+            }
+
+            var total = await _userRepository.CountAsync();
+            return ApiResult<List<UsersView>>.PagedSuccess(vms, total,
+                                                           pagination.PageNumber,
+                                                           pagination.PageSize);
+        }
+
+        public override async Task<ApiResult> DeleteAsync(List<int> ids)
+        {
+            var res = await base.DeleteAsync(ids);
+            if (res.IsSucceeded) ids.ForEach(id => _statusService.UpdateStatus(id, UserStatus.Offline));
+            return res;
+        }
+    }
+
+    public interface IMyUserRepository : IBaseRep<User, int> { }
 }
 

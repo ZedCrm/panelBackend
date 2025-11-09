@@ -1,13 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
 using API.Attributes;
 using App.Contracts.Object.Shop.InvCon;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using MyFrameWork.AppTool;
 
 namespace API.Controllers.Shop
@@ -16,75 +12,49 @@ namespace API.Controllers.Shop
     [Authorize]
     public class InvController : BaseController
     {
-
-
-        private readonly IInvApp invApp;
-        private readonly ILogger<InvController> _logger;
-        public InvController(IInvApp invApp, ILogger<InvController> logger)
+        private readonly IInvApp _invApp;
+        public InvController(IInvApp invApp)
         {
-            this.invApp = invApp;
-            _logger = logger;
-
+            _invApp = invApp;
         }
 
-
-
-        [HttpPost]
-        [Route("/api/inv/GetAll")]
-        [RequirePermission("ViewProducs")]
-        public async Task<ActionResult<ApiResult>> Index([FromBody] Pagination pagination)
+        [HttpPost("/api/inv/GetAll")]
+        [RequirePermission("ViewProduct")]
+        public async Task<ActionResult<ApiResult<List<InvView>>>> Index([FromBody] Pagination pagination)
         {
-            return await invApp.GetAll(pagination);
+            return await _invApp.GetAll(pagination);
         }
 
-        [HttpGet]
-        [Route("/api/inv/GetById")]
-        public async Task<ActionResult<OPTResult<InvUpdate>>> GetById([FromQuery] int id)
+        [HttpGet("/api/inv/GetById")]
+        [RequirePermission("InvView")]
+        public async Task<ActionResult<ApiResult<InvUpdate>>> GetById([FromQuery] int id)
         {
-            var result = await invApp.GetById(id);
-            if (result.IsSucceeded == true) { return Ok(result); }
-            else { return Ok(result); }
+            return await _invApp.GetById(id);
         }
 
-        [HttpPost]
-        [Route("/api/inv/create")]
-        public async Task<ActionResult> create([FromBody] InvCreate invCreate)
+        [HttpPost("/api/inv/create")]
+        public async Task<ActionResult<ApiResult>> Create([FromBody] InvCreate invCreate)
         {
-
-            var opt = await invApp.Create(invCreate);
-            if (opt.IsSucceeded == true) { return Ok(opt); }
-            else { return Ok(opt); }
-
-
+            return await _invApp.Create(invCreate);
         }
 
-        [HttpPost]
-        [Route("/api/inv/delete")]
-        public async Task<ActionResult> delete([FromBody] List<int> ids)
+        [HttpPost("/api/inv/delete")]
+        public async Task<ActionResult<ApiResult>> Delete([FromBody] List<int> ids)
         {
-            var result = await invApp.DeleteBy(ids);
-            return Ok(result);
+            return await _invApp.DeleteBy(ids);
         }
 
-        [HttpDelete]
-        [Route("/api/inv/deletebyid")]
-        public OkResult deletebyid([FromQuery] int id)
+        [HttpDelete("/api/inv/deletebyid")]
+        public async Task<ActionResult<ApiResult>> DeleteById([FromQuery] int id)
         {
-            var ids = new List<int> { id };
-            invApp.DeleteBy(ids); // تغییر متد DeleteBy برای پذیرش لیست آی‌دی‌ها
-            return Ok();
+            // متد DeleteBy لیستی می‌گیرد؛ یک آی‌دی را هم به صورت لیست ارسال می‌کنیم
+            return await _invApp.DeleteBy(new List<int> { id });
         }
 
-
-        [HttpPost]
-        [Route("/api/inv/update")]
-        public async Task<ActionResult> update([FromBody] InvUpdate invUpdate)
+        [HttpPost("/api/inv/update")]
+        public async Task<ActionResult<ApiResult>> Update([FromBody] InvUpdate invUpdate)
         {
-            var opt = await invApp.Update(invUpdate);
-            if (opt.IsSucceeded == true) { return Ok(opt); }
-            else { return Ok(opt); }  
-        }  
-
-
+            return await _invApp.Update(invUpdate);
+        }
     }
 }

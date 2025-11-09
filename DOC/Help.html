@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>راهنمای توسعه ویژگی جدید</title>
+  <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-900: #111827;
+      --successGrok: #10b981;
+      --warning: #f59e0b;
+      --border-radius: 0.75rem;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Vazirmatn', system-ui, sans-serif;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      color: var(--gray-900);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding-bottom: 2rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 0.75rem;
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      color: var(--gray-600);
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .steps {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .step-card {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      transition: all 0.3s ease;
+      overflow: hidden;
+    }
+
+    .step-card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.5rem;
+      cursor: pointer;
+      background: var(--gray-50);
+      transition: background 0.2s ease;
+    }
+
+    .step-header:hover {
+      background: var(--gray-100);
+    }
+
+    .step-number {
+      background: var(--primary);
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .step-content {
+      max-height: 0;
+      overflow: hidden;
+      padding: 0 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .step-content.active {
+      max-height: 1000px; /* مقدار بالا برای انعطاف */
+      padding: 1.5rem;
+    }
+
+    .step-content ul {
+      list-style: none;
+      padding-right: 1.5rem;
+    }
+
+    .step-content li {
+      position: relative;
+      padding-right: 1.75rem;
+      margin-bottom: 0.75rem;
+      color: var(--gray-700);
+    }
+
+    .step-content li:before {
+      content: '\f058';
+      font-family: 'Font Awesome 6 Free';
+      font-weight: 900;
+      color: var(--successGrok);
+      position: absolute;
+      right: 0;
+      font-size: 1rem;
+    }
+
+    .highlight {
+      background: #dbeafe;
+      color: var(--primary-dark);
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.375rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+    }
+
+    .example {
+      background: var(--gray-100);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      overflow-x: auto;
+    }
+
+    .example h4 {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--gray-900);
+    }
+
+    .tip-box {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: var(--border-radius);
+      padding: 1rem;
+      margin: 2rem 0;
+      font-size: 0.95rem;
+    }
+
+    .tip-box strong {
+      color: var(--warning);
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      padding: 1.5rem 0;
+      color: var(--gray-600);
+      font-size: 0.9rem;
+      border-top: 1px solid var(--gray-200);
+    }
+
+    @media (max-width: 768px) {
+      h1 { font-size: 1.75rem; }
+      .container { padding: 1.5rem 1rem; }
+      .step-title { font-size: 1.1rem; }
+      .step-content ul { padding-right: 0; }
+      .step-content li { padding-right: 2rem; }
+      .example { font-size: 0.85rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>راهنمای توسعه ویژگی جدید</h1>
+      <p class="subtitle">
+        گام‌به‌گام از <strong>Domain</strong> تا <strong>API</strong> — ساده، حرفه‌ای و بدون کد تکراری
+      </p>
+    </header>
+
+    <main class="steps">
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-number">1</div>
+          <h2 class="step-title">Domain</h2>
+        </div>
+        <div class="step-content">
+          <ul>
+            <li>کلاس جدید از <span class="highlight">BaseDomain</span> ارث‌بر شود تا ویژگی‌های پایه (Id، تاریخ‌ها، حذف نرم) به ارث برده شوند.</li>
+            <li>فیلدها و روابط (مانند navigation properties برای foreign keyها) تعریف شوند.</li>
+          </ul>
+          <div class="example">
+            <h4>مثال:</h4>
+            <pre>
+// Domain/Objects/Shop/Category.cs
+using Domain.Objects;
+public class Category : BaseDomain {
+  public string Name { get; set; }
+  public ICollection<Product> Products { get; set; }
+}
+            </pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-number">2</div>
+          <h2 class="step-title">ConfApp</h2>
+        </div>
+        <div class="step-content">
+          <ul>
+            <li><span class="highlight">MyContext</span>: افزودن <span class="highlight">DbSet&lt;Category&gt;</span> برای اتصال به دیتابیس.</li>
+            <li><span class="highlight">Mapping</span>: تنظیم جدول، کلید اصلی و روابط با <span class="highlight">IEntityTypeConfiguration</span>.</li>
+            <li><span class="highlight">Rep</span>: اگر عملیات خاص نیاز نیست، از <span class="highlight">BaseRep</span> استفاده شود؛ در غیر این صورت، repository سفارشی بسازید.</li>
+          </ul>
+          <div class="example">
+            <h4>مثال:</h4>
+            <pre>
+// ConfApp/Mapping/Shop/CategoryMapping.cs
+using Microsoft.EntityFrameworkCore;
+public class CategoryMapping : IEntityTypeConfiguration&lt;Category&gt; {
+  public void Configure(EntityTypeBuilder&lt;Category&gt; builder) {
+    builder.ToTable("Categories");
+    builder.HasKey(x => x.Id);
+    builder.Property(x => x.Name).IsRequired().HasMaxLength(100);
+  }
+}
+
+// ConfApp/MyContext.cs
+public DbSet&lt;Category&gt; Categories { get; set; }
+
+// ConfApp/Rep/Shop/CategoryRep.cs (اختیاری)
+public interface ICategoryRep : IBaseRep&lt;Category, int&gt; { }
+public class CategoryRep : BaseRep&lt;Category, int&gt;, ICategoryRep {
+  public CategoryRep(MyContext context) : base(context) { }
+}
+            </pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-number">3</div>
+          <h2 class="step-title">App.Contracts</h2>
+        </div>
+        <div class="step-content">
+          <ul>
+            <li>DTOها: تعریف <span class="highlight">CategoryView</span>, <span class="highlight">CategoryCreate</span>, <span class="highlight">CategoryUpdate</span> با اعتبارسنجی مناسب (مانند <span class="highlight">[Required]</span>).</li>
+            <li>اینترفیس <span class="highlight">ICategoryApp</span> با متدهای CRUD که از <span class="highlight">ApiResult</span> و <span class="highlight">Pagination</span> استفاده می‌کنند.</li>
+          </ul>
+          <div class="example">
+            <h4>مثال:</h4>
+            <pre>
+// App.Contracts/Object/Shop/CategoryCon/CategoryView.cs
+using MyFrameWork.AppTool;
+public class CategoryView {
+  public int Id { get; set; }
+  [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+  public string Name { get; set; }
+}
+public class CategoryCreate {
+  [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+  [MaxLength(100, ErrorMessage = MessageApp.MaxLengthcustom)]
+  public string Name { get; set; }
+}
+public class CategoryUpdate {
+  public int Id { get; set; }
+  [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+  [MaxLength(100, ErrorMessage = MessageApp.MaxLengthcustom)]
+  public string Name { get; set; }
+}
+
+// App.Contracts/Object/Shop/CategoryCon/ICategoryApp.cs
+public interface ICategoryApp {
+  Task&lt;ApiResult&lt;List&lt;CategoryView&gt;&gt;&gt; GetAll(Pagination pagination);
+  Task&lt;ApiResult&lt;CategoryUpdate&gt;&gt; GetById(int id);
+  Task&lt;ApiResult&gt; Create(CategoryCreate dto);
+  Task&lt;ApiResult&gt; Update(CategoryUpdate dto);
+  Task&lt;ApiResult&gt; DeleteBy(List&lt;int&gt; ids);
+}
+            </pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-number">4</div>
+          <h2 class="step-title">App.Object</h2>
+        </div>
+        <div class="step-content">
+          <ul>
+            <li>سرویس از <span class="highlight">CrudService&lt;Category, CategoryView, CategoryCreate, CategoryUpdate, int&gt;</span> ارث‌بر شود.</li>
+            <li>اینترفیس <span class="highlight">ICategoryApp</span> پیاده‌سازی شود.</li>
+            <li>پروفایل AutoMapper در <span class="highlight">ClassMapping.cs</span> برای نقشه‌برداری اضافه شود.</li>
+          </ul>
+          <div class="example">
+            <h4>مثال:</h4>
+            <pre>
+// App.Object/Shop/CategoryApp/CategoryApp.cs
+using App.Object.Base;
+public class CategoryApp : CrudService&lt;Category, CategoryView, CategoryCreate, CategoryUpdate, int&gt;, ICategoryApp {
+  public CategoryApp(ICategoryRep rep, IMapper mapper) : base(rep, mapper) { }
+  // متدهای CRUD از CrudService به ارث برده می‌شوند
+}
+
+// App.Object/ClassMapping.cs
+public class ClassMapping : Profile {
+  public ClassMapping() {
+    CreateMap&lt;Category, CategoryView&gt;();
+    CreateMap&lt;CategoryCreate, Category&gt;();
+    CreateMap&lt;CategoryUpdate, Category&gt;();
+  }
+}
+            </pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-number">5</div>
+          <h2 class="step-title">API</h2>
+        </div>
+        <div class="step-content">
+          <ul>
+            <li>کنترلر از <span class="highlight">BaseController</span> ارث‌بر شود.</li>
+            <li>اکشن‌ها با روتینگ مطلق (مانند <span class="highlight">/api/category/...</span>).</li>
+            <li>تزریق سرویس و استفاده از <span class="highlight">[RequirePermission]</span> در صورت نیاز.</li>
+          </ul>
+          <div class="example">
+            <h4>مثال:</h4>
+            <pre>
+// API/Controllers/Shop/CategoryController.cs
+using Microsoft.AspNetCore.Mvc;
+[Route("[controller]")]
+[Authorize]
+public class CategoryController : BaseController {
+  private readonly ICategoryApp _categoryApp;
+  public CategoryController(ICategoryApp categoryApp) => _categoryApp = categoryApp;
+  [HttpPost("/api/category/GetAll")]
+  [RequirePermission("Category.View")]
+  public async Task&lt;ActionResult&lt;ApiResult&lt;List&lt;CategoryView&gt;&gt;&gt; GetAll([FromBody] Pagination pagination)
+    => await _categoryApp.GetAll(pagination);
+}
+            </pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-number">6</div>
+          <h2 class="step-title">ثبت DI</h2>
+        </div>
+        <div class="step-content">
+          <ul>
+            <li>ثبت سرویس و repository در <span class="highlight">Program.cs</span>.</li>
+          </ul>
+          <div class="example">
+            <h4>مثال:</h4>
+            <pre>
+// API/Program.cs
+services.AddScoped&lt;ICategoryApp, CategoryApp&gt;();
+services.AddScoped&lt;IBaseRep&lt;Category, int&gt;, CategoryRep&gt;(); // اگر سفارشی
+            </pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-number">7</div>
+          <h2 class="step-title">Migration & Seed</h2>
+        </div>
+        <div class="step-content">
+          <ul>
+            <li>ایجاد و اعمال migration با <span class="highlight">Add-Migration CategoryInit</span> و <span class="highlight">Update-Database</span>.</li>
+            <li>اضافه کردن seeder در <span class="highlight">Infrastructure/data/seed</span> اگر داده اولیه لازم است.</li>
+          </ul>
+          <div class="example">
+            <h4>مثال:</h4>
+            <pre>
+// Infrastructure/data/seed/CategorySeeder.cs
+public class CategorySeeder {
+  private readonly MyContext _context;
+  public CategorySeeder(MyContext context) => _context = context;
+  public void Seed() {
+    if (!_context.Categories.Any()) {
+      _context.Categories.Add(new Category { Name = "Default Category" });
+      _context.SaveChanges();
+    }
+  }
+}
+            </pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header" onclick="toggleStep(this)">
+          <div class="step-number">8</div>
+          <h2 class="step-title">تست</h2>
+        </div>
+        <div class="step-content">
+          <ul>
+            <li>تست CRUD با Postman یا Swagger.</li>
+            <li>بررسی لاگ‌ها و وضعیت دیتابیس.</li>
+          </ul>
+          <div class="example">
+            <h4>مثال:</h4>
+            <pre>
+// Postman - POST /api/category/GetAll
+{
+  "PageNumber": 1,
+  "PageSize": 10,
+  "SortBy": "Name",
+  "SortDirection": true
+}
+            </pre>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="tip-box">
+      <p><strong>نکته کلیدی:</strong> از <span class="highlight">CrudService</span> + <span class="highlight">BaseRep</span> + <span class="highlight">ApiResult</span> استفاده کنید تا ۹۰٪ کد تکراری حذف شود. فقط در صورت نیاز خاص متدها را override کنید.</p>
+    </div>
+
+    <footer>
+      <p>طراحی شده برای توسعه‌دهندگان حرفه‌ای — ساده، تمیز و قابل نگهداری</p>
+    </footer>
+  </div>
+
+  <script>
+    function toggleStep(header) {
+      const content = header.nextElementSibling;
+      const isActive = content.classList.contains('active');
+      document.querySelectorAll('.step-content').forEach(c => c.classList.remove('active'));
+      if (!isActive) {
+        content.classList.add('active');
+      }
+    }
+  </script>
+</body>
+</html>

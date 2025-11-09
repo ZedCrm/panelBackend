@@ -8,12 +8,12 @@ namespace App.Contracts.Object.Base.Users
 {
 public interface IUsersApp
     {
-        Task<ApiResult> GetAll(Pagination pagination);
-        Task<ApiResult> Create(UsersCreat objectCreate);
-        Task<ApiResult> DeleteBy(List<int> objectids);
-        Task<ApiResult> GetById(int id);
-        Task<ApiResult> Update(UsersUpdate objectView);
-        Task<ApiResult> CreateForm();
-        Task<ApiResult> KeepAlive(int userId);
+Task<ApiResult<List<UsersView>>>             GetAll(Pagination pagination);
+        Task<ApiResult<UsersUpdate>>         GetById(int id);
+        Task<ApiResult>                      Create(UsersCreat dto);
+        Task<ApiResult>                      Update(UsersUpdate dto);
+        Task<ApiResult>                      DeleteBy(List<int> ids);
+        Task<ApiResult<UserCreateFormData>>  CreateForm();
+        Task<ApiResult>                      KeepAlive(int userId);
     }
 }

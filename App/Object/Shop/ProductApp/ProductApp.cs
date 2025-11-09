@@ -1,223 +1,58 @@
-﻿using App.Contracts.Object.Base.auth;
-using App.Contracts.Object.Base.auth.UserContext;
-using App.Contracts.Object.Shop.ProductCon;
+﻿using App.Contracts.Object.Shop.ProductCon;
+using App.Object.Base;
 using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
+using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
-
-
 
 namespace App.Object.Shop.ProductApp
 {
-    public class ProductApp : IProductApp
+    public class ProductApp : CrudService<Product, ProductView, ProductCreate, ProductUpdate, int>,
+                              IProductApp
     {
-        #region constructor
         private readonly IProductRep _productRep;
         private readonly IMapper _mapper;
-        private readonly IPermissionService _PermissionService;
-        private readonly IUserContext _userContext;
 
-        public ProductApp(IProductRep productRep, IMapper mapper , IPermissionService permissionService , IUserContext userContext)
+        public ProductApp(IProductRep productRep, IMapper mapper)
+            : base(productRep, mapper)
         {
             _productRep = productRep;
-            this._mapper = mapper;
-            _PermissionService = permissionService ;
-            _userContext = userContext;
+            _mapper = mapper;
         }
-        #endregion
 
+        /*=== CRUD یک‌خطی ===*/
+        public Task<ApiResult<List<ProductView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
+        public Task<ApiResult<ProductUpdate>> GetById(int id) => base.GetByIdAsync(id);
+        public Task<ApiResult> Create(ProductCreate dto) => base.CreateAsync(dto);
+        public Task<ApiResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
+        public Task<ApiResult> Update(ProductUpdate dto) => base.UpdateAsync(dto);
 
-
-        //Create method 
-        public async Task<OPT> Create(ProductCreate productCreate)
+        /*=== متد اختصاصی ===*/
+        public async Task<ApiResult<List<ProductView>>> SearchProducts(ProductSearchCriteria criteria)
         {
+            Expression<Func<Product, bool>> filter = p => true;
 
+            if (!string.IsNullOrWhiteSpace(criteria.Name))
+                filter = filter.And(p => p.Name.Contains(criteria.Name));
 
-                var validationOpt = ModelValidator.ValidateToOpt(productCreate);
-                if (!validationOpt.IsSucceeded) return validationOpt;
+            if (criteria.MinPrice.HasValue && criteria.MinPrice.Value != 0)
+                filter = filter.And(p => p.Price >= criteria.MinPrice.Value);
 
+            if (criteria.MaxPrice.HasValue && criteria.MaxPrice.Value != 0)
+                filter = filter.And(p => p.Price <= criteria.MaxPrice.Value);
 
-            var opt = new OPT();
+            var data = await _productRep.GetFilteredAsync(filter, criteria);
+            var views = _mapper.Map<List<ProductView>>(data);
+            var total = await _productRep.CountAsync(filter);
 
-
-            // اعتبارسنجی تکراری بودن کد محصول
-            var uniqueOpt = await ValidationUtility.ValidateUniqueAsync<Product, int>(
-                _productRep,
-                c => c.ProductCode == productCreate.ProductCode,
-                
-                MessageApp.DuplicateField(productCreate.ProductCode)
-            );
-            if (!uniqueOpt.IsSucceeded) return uniqueOpt;
-
-            // عملیات ایجاد محصول
-            var product = _mapper.Map<Product>(productCreate);
-            await _productRep.CreateAsync(product);
-            await _productRep.SaveChangesAsync();
-
-            return opt.Succeeded(MessageApp.CustomAddsuccses(productCreate.Name));
+            return ApiResult<List<ProductView>>.PagedSuccess(views, total,
+                                                             criteria.PageNumber,
+                                                             criteria.PageSize);
         }
-
-
-
-
-
-        public async Task<OPT> DeleteBy(List<int> productids)
-        {
-            var opt = new OPT();
-            try
-            {
-                if (productids == null || !productids.Any())
-                {
-                    opt.Failed(MessageApp.NotFound);
-                    return opt;
-                }
-                foreach (var productid in productids)
-                    _productRep.DeleteById(productid);
-
-                await _productRep.SaveChangesAsync();
-                 opt.Succeeded(MessageApp.CustomSuccess("حذف"));
-            }
-            catch (Exception ex)
-            {
-                 opt.Failed(MessageApp.CustomDeleteFail(ex.Message));
-            }
-
-            return opt ;
-        }
-
-
-
-
-        public async Task<OPTResult<ProductView>> GetAll(Pagination pagination)
-        {  
-
-        
-            
-              // دریافت تمام محصولات  
-            var products = await _productRep.GetAsync(pagination);
-
-            // تبدیل داده‌ها به نوع ViewModel  
-            var data = _mapper.Map<List<ProductView>>(products);
-
-            // تعداد کل رکوردها  
-            var totalRecords = await _productRep.CountAsync();
-
-
-
-            // تعداد کل صفحات  
-            var totalPages = pagination.CalculateTotalPages(totalRecords);
-
-            // آماده‌سازی و بازگشت نتیجه  
-            return new OPTResult<ProductView>
-            {
-                IsSucceeded = true,
-                Message = MessageApp.AcceptOpt,
-                Data = data,
-                TotalRecords = totalRecords,
-                TotalPages = totalPages,
-                PageNumber = pagination.PageNumber,
-                PageSize = pagination.PageSize
-            };
-
-        }
-
-
-
-
-
-        public async Task<OPTResult<ProductView>> SearchProducts(ProductSearchCriteria criteria)
-        {
-            // تعریف اولیه فیلتر جستجو
-            Expression<Func<Product, bool>> filter = product => true;
-
-            if (!string.IsNullOrEmpty(criteria.Name))
-            {
-                filter = filter.And(product => product.Name.Contains(criteria.Name));
-            }
-
-            if (criteria.MinPrice.HasValue && criteria.MinPrice > 0)
-            {
-                filter = filter.And(product => product.Price >= criteria.MinPrice.Value);
-            }
-
-            if (criteria.MaxPrice.HasValue && criteria.MaxPrice > 0)
-            {
-                filter = filter.And(product => product.Price <= criteria.MaxPrice.Value);
-            }
-
-            // گرفتن داده‌ها از ریپازیتوری بر اساس فیلتر و اطلاعات صفحه‌بندی
-            var products = await _productRep.GetFilteredAsync(filter, criteria);
-
-            // نگاشت به لیست ViewModel
-            var data = _mapper.Map<List<ProductView>>(products);
-
-            // گرفتن تعداد کل رکوردها برای صفحه‌بندی
-            var totalRecords = await _productRep.CountAsync(filter);
-            var totalPages = criteria.CalculateTotalPages(totalRecords);
-
-            return new OPTResult<ProductView>
-            {
-                IsSucceeded = true,
-                Message = MessageApp.AcceptOpt,
-                Data = data,
-                TotalRecords = totalRecords,
-                TotalPages = totalPages,
-                PageNumber = criteria.PageNumber,
-                PageSize = criteria.PageSize
-            };
-        }
-
-
-
-
-
-
-
-
-
-
-
-        public async Task<OPTResult<ProductUpdate>> GetById(int id)
-        {
-            var product = await _productRep.GetAsync(id);
-            if (product == null) { return new OPTResult<ProductUpdate> { IsSucceeded = false, Message =MessageApp.NotFound}; }
-            var productupdate = _mapper.Map<ProductUpdate>(product);
-            return OPTResult<ProductUpdate>.Success(productupdate, MessageApp.AcceptOpt);
-        }
-
-
-
-
-
-        public async Task<OPTResult<ProductView>> Update(ProductView productView)
-        {
-
-            var validationOpt = ModelValidator.ValidateToOptResult(productView);
-            if (!validationOpt.IsSucceeded) return validationOpt;
-
-            var product = await _productRep.GetAsync(productView.Id);
-            if (product == null) { return new OPTResult<ProductView> { IsSucceeded = false, Message = MessageApp.FailOpt }; }
-            var codeExist = await _productRep.ExistAsync(c => c.ProductCode == productView.ProductCode && c.Id != productView.Id);
-            if (codeExist) { return new OPTResult<ProductView> { IsSucceeded = false, Message = MessageApp.DuplicateField(productView.ProductCode) }; }
-            else
-            {
-                product.Name = productView.Name;
-                product.Price = productView.Price;
-                product.ProductCode = productView.ProductCode;
-                await _productRep.UpdateAsync(product);
-                await _productRep.SaveChangesAsync();
-                return OPTResult<ProductView>.Success(_mapper.Map<ProductView>(product));
-            }
-        }
-
-
     }
-
-
-
-
 
     public interface IProductRep : IBaseRep<Product, int> { }
 }

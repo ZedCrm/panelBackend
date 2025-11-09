@@ -1,4 +1,24 @@
-﻿===== FILE: Domain\Objects\Shop\Inv.cs =====
+﻿===== FILE: Domain\Objects\Shop\CountType.cs =====
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Domain.Objects.Shop
+{
+    public class CountType : BaseDomain
+    {
+       
+        public string Name { get; set; } = default!;
+
+        public ICollection<Product> products { get; set; } 
+    }
+}
+
+
+===== FILE: Domain\Objects\Shop\Inv.cs =====
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -95,6 +115,48 @@ namespace Domain.Objects
     }
 }
 
+
+===== FILE: Infrastructure\data\seed\PermissionSeeder.cs =====
+// Infrastructure/data/seed/PermissionSeeder.cs
+using App.Contracts.Object.Base.auth;
+using ConfApp;
+using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
+
+namespace Infrastructure.data.seed
+{
+    public class PermissionSeeder
+    {
+        private readonly MyContext _context;
+        private readonly IPermissionDiscoveryService _permissionDiscovery;
+
+        public PermissionSeeder(MyContext context, IPermissionDiscoveryService permissionDiscovery)
+        {
+            _context = context;
+            _permissionDiscovery = permissionDiscovery;
+        }
+
+        public async Task SeedAsync()
+        {
+            var permissionNames = _permissionDiscovery.GetAllPermissionNames();
+
+            foreach (var name in permissionNames)
+            {
+                if (!await _context.Permissions.AnyAsync(p => p.Name == name && !p.IsDeleted))
+                {
+                    _context.Permissions.Add(new Permission
+                    {
+                        Name = name,
+                        Category = 1,
+                        CreateDate = DateTime.Now
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
+    }
+}
 
 ===== FILE: Infrastructure\data\seed\UserSeeder.cs =====
 using System;
@@ -1277,7 +1339,7 @@ using App.Object.Base.auth.UserContext;
 using App.Object.Base.Auth;
 using App.Object.Base.Users;
 using App.Object.Shop.CountTypeApp;
-using App.Object.Shop.invApp;
+using App.Object.Shop.InvApp;
 using App.Object.Shop.ProductApp;
 using App.utility; // فقط IFileService
 using ConfApp;
@@ -1293,6 +1355,9 @@ namespace Infrastructure
     {
         public static void AddCRMManagement(IServiceCollection services, string connectionString, DbProvider dbProvider)
         {
+
+
+        
             // === Repository ها ===
             services.AddScoped<IPersonRep, PersonRep>();
             services.AddScoped<IProductRep, ProductRep>();
@@ -1357,54 +1422,92 @@ namespace Infrastructure
 // MyFrameWork\AppTool\ApiResult.cs
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace MyFrameWork.AppTool
 {
+    // Ù†Ø³Ø®Ù‡ ØºÛŒØ±Ú˜Ù†Ø±ÛŒÚ© (Ø¨Ø±Ø§ÛŒ Ù¾ÛŒØ§Ù…â€ŒÙ‡Ø§ÛŒ Ø³Ø§Ø¯Ù‡ ÛŒØ§ Ø®Ø·Ø§)
     public class ApiResult
     {
         public bool IsSucceeded { get; set; } = true;
         public int StatusCode { get; set; } = 200;
         public string? Message { get; set; }
-        public List<string> Errors { get; set; } = new();
-        public object? Data { get; set; }
+        public List<string>? Errors { get; set; }
+
+        // Ø¨Ø±Ø§ÛŒ ØµÙØ­Ù‡â€ŒØ¨Ù†Ø¯ÛŒ
         public int? TotalRecords { get; set; }
         public int? TotalPages { get; set; }
         public int? PageNumber { get; set; }
         public int? PageSize { get; set; }
 
-        // ÙÙ‚Ø· ÛŒÚ© Success: Ø¨Ø§ data Ø§Ø®ØªÛŒØ§Ø±ÛŒ
+        // --- Factory Methods Ø¨Ø§ Ø¯ÛŒÙØ§Ù„Øª Ù‡ÙˆØ´Ù…Ù†Ø¯ ---
         public static ApiResult Success(
-            object? data = null,
             string? message = null,
-            int statusCode = 200)
+            int? statusCode = null)
         {
             return new ApiResult
             {
                 IsSucceeded = true,
-                StatusCode = statusCode,
                 Message = message ?? MessageApp.AcceptOpt,
-                Data = data
+                StatusCode = statusCode ?? 200
+            };
+        }
+
+        public static ApiResult Failed(
+            string? error = null,
+            int? statusCode = null,
+            List<string>? errors = null)
+        {
+            return new ApiResult
+            {
+                IsSucceeded = false,
+                Message = error ?? MessageApp.FailOpt,
+                StatusCode = statusCode ?? 400,
+                Errors = errors?.Count > 0 
+                    ? errors 
+                    : (string.IsNullOrWhiteSpace(error) 
+                        ? new List<string> { MessageApp.FailOpt } 
+                        : new List<string> { error })
+            };
+        }
+    }
+
+    // Ù†Ø³Ø®Ù‡ Ú˜Ù†Ø±ÛŒÚ© â€” **Ù‡Ù…Ù‡ Ø¬Ø§ Ø§Ø² Ø§ÛŒÙ† Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ…**
+    public class ApiResult<T> : ApiResult
+    {
+        public T? Data { get; set; }
+
+        // Success Ø¨Ø§ Ø¯Ø§Ø¯Ù‡
+        public static ApiResult<T> Success(
+            T data,
+            string? message = null,
+            int? statusCode = null)
+        {
+            return new ApiResult<T>
+            {
+                Data = data,
+                IsSucceeded = true,
+                Message = message ?? MessageApp.AcceptOpt,
+                StatusCode = statusCode ?? 200
             };
         }
 
         // Paged Success
-        public static ApiResult PagedSuccess(
-            object data,
+        public static ApiResult<T> PagedSuccess(
+            T data,
             int totalRecords,
             int pageNumber,
             int pageSize,
             string? message = null,
-            int statusCode = 200)
+            int? statusCode = null)
         {
             var totalPages = pageSize > 0 ? (int)Math.Ceiling(totalRecords / (double)pageSize) : 0;
 
-            return new ApiResult
+            return new ApiResult<T>
             {
-                IsSucceeded = true,
-                StatusCode = statusCode,
-                Message = message ?? MessageApp.AcceptOpt,
                 Data = data,
+                IsSucceeded = true,
+                Message = message ?? MessageApp.AcceptOpt,
+                StatusCode = statusCode ?? 200,
                 TotalRecords = totalRecords,
                 TotalPages = totalPages,
                 PageNumber = pageNumber,
@@ -1412,39 +1515,23 @@ namespace MyFrameWork.AppTool
             };
         }
 
-        // Failed Ø¨Ø§ ÛŒÚ© Ø®Ø·Ø§
-        public static ApiResult Failed(string? error = null, int statusCode = 400)
+        // Failed â€” Ø§Ø² Ù¾Ø§ÛŒÙ‡ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù…ÛŒâ€ŒÚ©Ù†Ù‡
+        public new static ApiResult<T> Failed(
+            string? error = null,
+            int? statusCode = null,
+            List<string>? errors = null)
         {
-            return new ApiResult
+            return new ApiResult<T>
             {
                 IsSucceeded = false,
-                StatusCode = statusCode,
-                Errors = string.IsNullOrWhiteSpace(error)
-                    ? new List<string> { MessageApp.FailOpt }
-                    : new List<string> { error }
+                Message = error ?? MessageApp.FailOpt,
+                StatusCode = statusCode ?? 400,
+                Errors = errors?.Count > 0 
+                    ? errors 
+                    : (string.IsNullOrWhiteSpace(error) 
+                        ? new List<string> { MessageApp.FailOpt } 
+                        : new List<string> { error })
             };
-        }
-
-        // Failed Ø¨Ø§ Ù„ÛŒØ³Øª Ø®Ø·Ø§Ù‡Ø§
-        public static ApiResult Failed(List<string> errors, int statusCode = 400)
-        {
-            return new ApiResult
-            {
-                IsSucceeded = false,
-                StatusCode = statusCode,
-                Errors = errors?.Count > 0 ? errors : new List<string> { MessageApp.FailOpt }
-            };
-        }
-
-        // Ø§Ø² ModelState
-        public static ApiResult FromModelState(Dictionary<string, string[]> modelStateErrors, int statusCode = 400)
-        {
-            var errors = modelStateErrors
-                .SelectMany(kvp => kvp.Value)
-                .Where(e => !string.IsNullOrWhiteSpace(e))
-                .ToList();
-
-            return Failed(errors, statusCode);
         }
     }
 }

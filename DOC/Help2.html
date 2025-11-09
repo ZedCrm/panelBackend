@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>راهنمای توسعه کنترلر جدید</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #f0f4f8;
+      color: #222;
+    }
+
+    header {
+      background: linear-gradient(to left, #0d47a1, #1976d2);
+      color: white;
+      padding: 30px;
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    .step {
+      background: white;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .step-header {
+      padding: 18px 25px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #e3f2fd;
+      color: #0d47a1;
+      font-weight: bold;
+      font-size: 18px;
+      user-select: none;
+    }
+
+    .step-header:hover {
+      background: #bbdefb;
+    }
+
+    .step-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease;
+      padding: 0 25px;
+      background: #fafafa;
+    }
+
+    .step-content pre {
+      background: #263238;
+      color: #aed581;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .arrow {
+      transition: transform 0.3s ease;
+    }
+
+    .step.open .arrow {
+      transform: rotate(180deg);
+    }
+
+    .step.open .step-content {
+      max-height: 600px;
+      padding: 20px 25px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 30px;
+      font-size: 14px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <header>راهنمای گام‌به‌گام توسعه کنترلر جدید</header>
+
+  <div class="container">
+
+    <!-- Step 1 -->
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <span>1. تعریف موجودیت در Domain</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="step-content">
+        <p>کلاس موجودیت رو در پوشه‌ی <code>Domain\Objects</code> بساز و از <code>BaseDomain</code> ارث‌بری کن.</p>
+        <pre>
+public class Warehouse : BaseDomain
+{
+    public string Name { get; set; }
+    public string Location { get; set; }
+}
+        </pre>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <span>2. تعریف DTO ها در App.Contracts</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="step-content">
+        <p>DTO های View، Create، Update و اینترفیس سرویس رو تعریف کن.</p>
+        <pre>
+public class WarehouseView
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+}
+
+public interface IWarehouseApp
+{
+    Task&lt;ApiResult&lt;List&lt;WarehouseView&gt;&gt;&gt; GetAll(Pagination pagination);
+}
+        </pre>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <span>3. تنظیم مپینگ در ConfApp\Mapping</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="step-content">
+        <pre>
+public class WarehouseMapping : IEntityTypeConfiguration&lt;Warehouse&gt;
+{
+    public void Configure(EntityTypeBuilder&lt;Warehouse&gt; builder)
+    {
+        builder.ToTable("Warehouses");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Name).IsRequired().HasMaxLength(100);
+    }
+}
+        </pre>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <span>4. ساخت ریپازیتوری در ConfApp\Rep</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="step-content">
+        <pre>
+public interface IWarehouseRep : IBaseRep&lt;Warehouse, int&gt; { }
+
+public class WarehouseRep : BaseRep&lt;Warehouse, int&gt;, IWarehouseRep
+{
+    public WarehouseRep(MyContext context) : base(context) { }
+}
+        </pre>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <span>5. ساخت سرویس در App\Object</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="step-content">
+        <pre>
+public class WarehouseApp : CrudService&lt;Warehouse, WarehouseView, WarehouseCreate, WarehouseUpdate, int&gt;, IWarehouseApp
+{
+    public WarehouseApp(IWarehouseRep rep, IMapper mapper) : base(rep, mapper) { }
+}
+        </pre>
+      </div>
+    </div>
+
+    <!-- Step 6 -->
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <span>6. افزودن مپینگ در ClassMapping</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="step-content">
+        <pre>
+CreateMap&lt;Warehouse, WarehouseView&gt;();
+CreateMap&lt;WarehouseCreate, Warehouse&gt;();
+CreateMap&lt;WarehouseUpdate, Warehouse&gt;();
+        </pre>
+      </div>
+    </div>
+
+    <!-- Step 7 -->
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <span>7. ثبت در DI (CRMBootstraper)</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="step-content">
+        <pre>
+services.AddScoped&lt;IWarehouseRep, WarehouseRep&gt;();
+services.AddScoped&lt;IWarehouseApp, WarehouseApp&gt;();
+        </pre>
+      </div>
+    </div>
+
+    <!-- Step 8 -->
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <span>8. ساخت کنترلر در API\Controllers</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="step-content">
+        <pre>
+[ApiController]
+[Route("api/[controller]")]
+public class WarehouseController : BaseController
+{
+    private readonly IWarehouseApp _warehouseApp;
+
+    public WarehouseController(IWarehouseApp warehouseApp)
+    {
+        _warehouseApp = warehouseApp;
+    }
+
+    [HttpPost("GetAll")]
+    public async Task&lt;ActionResult&gt; GetAll([FromBody] Pagination pagination)
+    {
+        return Ok(await _warehouseApp.GetAll(pagination));
+    }
+}
+        </pre>
+      </div>
+    </div>
+
+    <!-- Step 9 -->
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <span>9. افزودن DbSet در MyContext</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="step-content">
+        <pre>
+public DbSet&lt;Warehouse&gt; Warehouses { get; set; }
+        </pre>
+      </div>
+    </div>
+
+    <!-- Step 10 -->
+    <div class="step">
+      <div class="step-header" onclick="toggleStep(this)">
+        <span>10. اجرای میگریشن</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="step-content">
+        <pre>
+Add-Migration AddWarehouse
+Update-Database
+        </pre>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    طراحی شده برای توسعه‌دهندگانی که می‌خوان سریع، تمیز و حرفه‌ای کد بزنن.
+  </footer>
+
+  <script>
+    function toggleStep(header) {
+      const step = header.parentElement;
+      step.classList.toggle('open');
+    }
+  </script>
+
+</body>
+</html>

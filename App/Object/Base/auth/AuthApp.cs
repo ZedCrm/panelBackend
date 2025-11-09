@@ -59,7 +59,7 @@ namespace App.Object.Base.Auth
     });
 }
     }
-    public interface IUserRepository
+    public interface IUserRepository 
     {
         Task<User?> GetByEmailAsync(string email);
         Task AddAsync(User user);

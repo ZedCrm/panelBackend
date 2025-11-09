@@ -7,7 +7,7 @@ param()
 $rootDir     = $PSScriptRoot
 $outDir      = Join-Path $rootDir "ExportedCode"
 $include     = @("*.cs", "*.cshtml", "*.razor", "*.js", "*.ts", "*.css", "*.scss", "*.html", "*.json", "*.xml", "*.config")
-$excludeDirs = @("bin", "obj", ".vs", ".git", "packages", "node_modules", ".vscode", "TestResults", "AppPackages")
+$excludeDirs = @("bin", "obj", ".vs", ".git", "packages", "node_modules", ".vscode", "TestResults", "AppPackages","DOC")
 
 # پاک‌سازی پوشه خروجی
 if (Test-Path $outDir) { Remove-Item -Path $outDir -Recurse -Force }

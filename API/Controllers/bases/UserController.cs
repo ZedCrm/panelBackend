@@ -11,67 +11,39 @@ namespace API.Controllers.bases
     public class UserController : BaseController
     {
         private readonly IUsersApp _usersApp;
+        public UserController(IUsersApp usersApp) => _usersApp = usersApp;
 
-        public UserController(IUsersApp usersApp)
-        {
-            _usersApp = usersApp;
-        }
-
-        private List<string> GetModelStateErrors()
-        {
-            return ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList();
-        }
-
+        /*======================================================*/
+        /*                     متدهای CRUD                      */
+        /*======================================================*/
         [RequirePermission("User.View")]
         [HttpPost("/api/User/GetAll")]
-        public async Task<ActionResult<ApiResult>> GetAll([FromBody] Pagination pagination)
-        {
-            var result = await _usersApp.GetAll(pagination);
-            return StatusCode(result.StatusCode, result);
-        }
+        public async Task<ActionResult<ApiResult<List<UsersView>>>> GetAll([FromBody] Pagination pagination)
+            => await _usersApp.GetAll(pagination);
 
         [RequirePermission("User.View")]
         [HttpGet("/api/User/GetById")]
-        public async Task<ActionResult<ApiResult>> GetById([FromQuery] int id)
-        {
-            var result = await _usersApp.GetById(id);
-           return StatusCode(result.StatusCode, result);
-        }
+        public async Task<ActionResult<ApiResult<UsersUpdate>>> GetById([FromQuery] int id)
+            => await _usersApp.GetById(id);
 
         [RequirePermission("User.Create")]
         [HttpPost("/api/User/create")]
         public async Task<ActionResult<ApiResult>> Create([FromForm] UsersCreat userCreate)
-        {
-            
-
-            var result = await _usersApp.Create(userCreate);
-            return StatusCode(result.StatusCode, result);
-        }
+            => await _usersApp.Create(userCreate);
 
         [RequirePermission("User.Edit")]
         [HttpPost("/api/User/update")]
         public async Task<ActionResult<ApiResult>> Update([FromForm] UsersUpdate userUpdate)
-        {
-            
-
-            var result = await _usersApp.Update(userUpdate);
-            return StatusCode(result.StatusCode, result);
-        }
+            => await _usersApp.Update(userUpdate);
 
         [RequirePermission("User.Delete")]
         [HttpPost("/api/User/delete")]
         public async Task<ActionResult<ApiResult>> Delete([FromBody] List<int> ids)
-        {
+            => await _usersApp.DeleteBy(ids);
 
-
-            var result = await _usersApp.DeleteBy(ids);
-            return StatusCode(result.StatusCode, result);
-        }
-
-        // KeepAlive: معمولاً نیازی به permission نیست (کاربر خودش رو آنلاین می‌کنه)
+        /*======================================================*/
+        /*                  متدهای اختصاصی                      */
+        /*======================================================*/
         [HttpPost("/api/User/keepalive")]
         public async Task<ActionResult<ApiResult>> KeepAlive()
         {
@@ -79,16 +51,12 @@ namespace API.Controllers.bases
             if (userId <= 0)
                 return Unauthorized(ApiResult.Failed("کاربر معتبر نیست.", 401));
 
-            var result = await _usersApp.KeepAlive(userId);
-            return StatusCode(result.StatusCode, result);
+            return await _usersApp.KeepAlive(userId);
         }
 
         [RequirePermission("User.Create")]
         [HttpGet("/api/user/getcreateform")]
-        public async Task<ActionResult<ApiResult>> GetCreateForm()
-        {
-            var result = await _usersApp.CreateForm();
-            return StatusCode(result.StatusCode, result);
-        }
+        public async Task<ActionResult<ApiResult<UserCreateFormData>>> GetCreateForm()
+            => await _usersApp.CreateForm();
     }
 }

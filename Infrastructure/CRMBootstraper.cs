@@ -11,7 +11,7 @@ using App.Object.Base.auth.UserContext;
 using App.Object.Base.Auth;
 using App.Object.Base.Users;
 using App.Object.Shop.CountTypeApp;
-using App.Object.Shop.invApp;
+using App.Object.Shop.InvApp;
 using App.Object.Shop.ProductApp;
 using App.utility; // فقط IFileService
 using ConfApp;
@@ -27,6 +27,9 @@ namespace Infrastructure
     {
         public static void AddCRMManagement(IServiceCollection services, string connectionString, DbProvider dbProvider)
         {
+
+
+        
             // === Repository ها ===
             services.AddScoped<IPersonRep, PersonRep>();
             services.AddScoped<IProductRep, ProductRep>();

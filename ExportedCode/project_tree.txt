@@ -15,6 +15,8 @@
 |   +-- TokenValidationMiddleware.cs
 +-- Properties
 |   +-- launchSettings.json
++-- Services
+|   +-- PermissionDiscoveryService.cs
 +-- utility
 |   +-- FileService.cs
 +-- appsettings.Development.json
@@ -36,6 +38,7 @@ App
 |   |   |   |   +-- IRoleRep.cs
 |   |   |   +-- UsersApp.cs
 |   |   |   +-- UserStatusService.cs
+|   |   +-- CrudService.cs
 |   |   +-- IPersonRep.cs
 |   |   +-- PersonApp.cs
 |   |   +-- CountTypeApp
@@ -44,6 +47,7 @@ App
 |   |   |   +-- InvApp.cs
 |   |   +-- ProductApp
 |   |   |   +-- ProductApp.cs
+|   +-- BaseService.cs
 |   +-- ClassMapping.cs
 |   +-- IFileService.cs
 |   +-- ModelValidator.cs
@@ -53,6 +57,7 @@ App.Contracts
 |   +-- MinCountAttribute.cs
 |   |   |   |   +-- IUserContext.cs
 |   |   |   +-- AuthResponseDto.cs
+|   |   |   +-- IPermissionDiscoveryService.cs
 |   |   |   +-- IPermissionService.cs
 |   |   |   +-- IUsersApp.cs
 |   |   |   +-- UsersDto.cs
@@ -84,6 +89,10 @@ ConfApp
 |   +-- PersonRep.cs
 +-- BaseRep.cs
 +-- MyContext.cs
+DOC
++-- Graph.html
++-- Help.html
++-- Help2.html
 Domain
 +-- Objects
 |   |   +-- Person.cs
@@ -97,6 +106,7 @@ Domain
 Infrastructure
 +-- data
 |   +-- seed
+|   |   +-- PermissionSeeder.cs
 |   |   +-- UserSeeder.cs
 +-- Migrations
 |   +-- 20251107184623_init.cs
