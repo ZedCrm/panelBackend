@@ -23,7 +23,7 @@ namespace API.Controllers.bases
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<OPTResult<AuthResponseDto>>> Login([FromBody] LoginRequestDto request)
+        public async Task<ActionResult<ApiResult<AuthResponseDto>>> Login([FromBody] LoginRequestDto request)
         {
             var result = await _authApp.LoginAsync(request);
             if (result.IsSucceeded == false)

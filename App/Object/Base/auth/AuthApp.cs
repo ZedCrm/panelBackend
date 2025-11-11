@@ -16,19 +16,19 @@ namespace App.Object.Base.Auth
             _tokenService = tokenService;
         }
 
-      public async Task<OPTResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
+      public async Task<ApiResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
 {
     var user = await _userRepository.GetByEmailAsync(request.Email);
     if (user == null)
-        return OPTResult<AuthResponseDto>.Failed("کاربری با این ایمیل یافت نشد.");
+        return ApiResult<AuthResponseDto>.Failed("کاربری با این ایمیل یافت نشد.");
 
     var isPasswordCorrect = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
     if (!isPasswordCorrect)
-        return OPTResult<AuthResponseDto>.Failed("رمز عبور اشتباه است.");
+        return ApiResult<AuthResponseDto>.Failed("رمز عبور اشتباه است.");
 
     var token = _tokenService.GenerateToken(user);
 
-    return OPTResult<AuthResponseDto>.Success(new AuthResponseDto
+    return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
     {   UserId = user.Id,
         Email = user.Email,
         FullName = user.FullName,
@@ -36,10 +36,10 @@ namespace App.Object.Base.Auth
     });
 }
 
-      public async Task<OPTResult<AuthResponseDto>> RegisterAsync(RegisterRequestDto request)
+      public async Task<ApiResult<AuthResponseDto>> RegisterAsync(RegisterRequestDto request)
 {
     if (await _userRepository.ExistsByEmailAsync(request.Email))
-        return OPTResult<AuthResponseDto>.Failed("ایمیل وارد شده قبلاً ثبت شده است.");
+        return ApiResult<AuthResponseDto>.Failed("ایمیل وارد شده قبلاً ثبت شده است.");
 
     var user = new User
     {
@@ -51,7 +51,7 @@ namespace App.Object.Base.Auth
     await _userRepository.AddAsync(user);
     var token = _tokenService.GenerateToken(user);
 
-    return OPTResult<AuthResponseDto>.Success(new AuthResponseDto
+    return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
     {
         Email = user.Email,
         FullName = user.FullName,

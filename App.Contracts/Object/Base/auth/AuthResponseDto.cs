@@ -31,8 +31,8 @@ namespace App.Contracts.Object.Base.auth
 
       public interface IAuthApp
     {
-         Task<OPTResult<AuthResponseDto>>  RegisterAsync(RegisterRequestDto dto);
-        Task<OPTResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
+         Task<ApiResult<AuthResponseDto>>  RegisterAsync(RegisterRequestDto dto);
+        Task<ApiResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
         
     }
 
