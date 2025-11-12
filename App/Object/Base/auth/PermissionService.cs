@@ -19,5 +19,10 @@ namespace App.Object.Base.auth
         {
             return await _permissionRep.HasPermissionAsync(userId, permission);
         }
+
+        public async Task<List<string>> GetUserPermissionsAsync(int userId){
+            return await _permissionRep.GetUserPermissionsAsync(userId);
+        }
+
     }
 }

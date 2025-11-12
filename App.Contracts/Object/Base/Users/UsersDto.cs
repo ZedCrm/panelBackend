@@ -34,6 +34,8 @@ namespace App.Contracts.Object.Base.Users
 
         public IFormFile? ProfilePicture { get; set; }
 
+        public string? ProfilePictureUrl { get; set; }
+
 
         public List<int> RoleIds { get; set; } = new();
     }
@@ -57,6 +59,7 @@ namespace App.Contracts.Object.Base.Users
 
         public IFormFile? ProfilePicture { get; set; }
 
+        public string? ProfilePictureUrl { get; set; }
 
         public List<int> RoleIds { get; set; } = new();
     }

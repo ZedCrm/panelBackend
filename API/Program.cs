@@ -74,7 +74,7 @@ if (app.Environment.IsDevelopment())
     var permissionSeeder = scope.ServiceProvider.GetRequiredService<PermissionSeeder>();
     await permissionSeeder.SeedAsync();
 }
-
+app.UseStaticFiles();
 // === Global Middleware Pipeline ===
 app.UseRouting();
 

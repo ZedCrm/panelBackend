@@ -89,10 +89,6 @@ ConfApp
 |   +-- PersonRep.cs
 +-- BaseRep.cs
 +-- MyContext.cs
-DOC
-+-- Graph.html
-+-- Help.html
-+-- Help2.html
 Domain
 +-- Objects
 |   |   +-- Person.cs

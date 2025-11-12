@@ -30,5 +30,18 @@ namespace ConfApp.Rep.bases
                 .ThenInclude(rp => rp.Permission)
                 .AnyAsync(ur => ur.Role.RolePermissions.Any(rp => rp.Permission.Name == permission));
         }
+
+
+        public async Task<List<string>> GetUserPermissionsAsync(int userId)
+        {
+            // لیست مجوزها رو از DB بگیر (بر اساس نقش‌ها)
+            return await _context.UserRoles
+                .Where(ur => ur.UserId == userId && !ur.IsDeleted)
+                .Include(ur => ur.Role)
+                .ThenInclude(r => r.RolePermissions)
+                .SelectMany(ur => ur.Role.RolePermissions.Select(rp => rp.Permission.Name))
+                .Distinct()
+                .ToListAsync();
+        }
     }
 }

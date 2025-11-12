@@ -12,7 +12,7 @@ namespace API.Attributes
             Permission = permission;
         }
     }
-}dddd
+}
 
 ===== FILE: API\Controllers\bases\AuthController.cs =====
 using System;
@@ -40,7 +40,7 @@ namespace API.Controllers.bases
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<OPTResult<AuthResponseDto>>> Login([FromBody] LoginRequestDto request)
+        public async Task<ActionResult<ApiResult<AuthResponseDto>>> Login([FromBody] LoginRequestDto request)
         {
             var result = await _authApp.LoginAsync(request);
             if (result.IsSucceeded == false)
@@ -63,7 +63,9 @@ namespace API.Controllers.bases
 ===== FILE: API\Controllers\bases\UserController.cs =====
 // API\Controllers\bases\UserController.cs
 using API.Attributes;
+using App.Contracts.Object.Base.auth;
 using App.Contracts.Object.Base.Users;
+using App.Object.Base.auth;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
 
@@ -74,7 +76,12 @@ namespace API.Controllers.bases
     public class UserController : BaseController
     {
         private readonly IUsersApp _usersApp;
-        public UserController(IUsersApp usersApp) => _usersApp = usersApp;
+        private readonly IPermissionService _permissionService;
+        public UserController(IUsersApp usersApp , IPermissionService permissionService) 
+        { 
+            _usersApp = usersApp ;
+         _permissionService = permissionService;
+         }
 
         /*======================================================*/
         /*                     Ù…ØªØ¯Ù‡Ø§ÛŒ CRUD                      */
@@ -121,6 +128,19 @@ namespace API.Controllers.bases
         [HttpGet("/api/user/getcreateform")]
         public async Task<ActionResult<ApiResult<UserCreateFormData>>> GetCreateForm()
             => await _usersApp.CreateForm();
+
+
+
+
+        [HttpGet("/api/user/permissions")]
+        public async Task<ActionResult<ApiResult<List<string>>>> GetUserPermissions()
+        {
+            var userId = GetCurrentUserId();  // Ø§Ø² BaseController Ù…ÛŒâ€ŒÚ¯ÛŒØ±ÛŒ
+            if (userId <= 0) return Unauthorized(ApiResult.Failed("Ú©Ø§Ø±Ø¨Ø± Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", 401));
+
+            var permissions = await _permissionService.GetUserPermissionsAsync(userId);  
+            return ApiResult<List<string>>.Success(permissions);
+        }
     }
 }
 
@@ -604,6 +624,7 @@ namespace API.Services
 }
 
 ===== FILE: API\utility\FileService.cs =====
+// API/utility/FileService.cs
 using App.utility;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -615,45 +636,84 @@ using System.Threading.Tasks;
 
 namespace API.utility
 {
+ 
     public class FileService : IFileService
     {
         private readonly IWebHostEnvironment _env;
-        private const int MaxFileSize = 2 * 1024 * 1024; // 2MB
-        private const int ImageSize = 200;
+        private const int MaxFileSize = 10 * 1024 * 1024; // 10MB (Ù‚Ø§Ø¨Ù„ ØªÙ†Ø¸ÛŒÙ…)
+        private static readonly string[] AllowedImageTypes = { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp" };
 
         public FileService(IWebHostEnvironment env)
         {
             _env = env;
         }
 
-        public async Task<string?> UploadProfilePictureAsync(IFormFile? file, string? oldPath = null)
+        public async Task<string?> UploadAsync(
+            IFormFile? file,
+            string folderPath,
+            string? existingUrl = null,
+            ResizeOptions? resizeOptions = null)
         {
-            if (file == null || file.Length == 0) return null;
+            // Ø§Ú¯Ø± ÙØ§ÛŒÙ„ Ù†Ø¨Ø§Ø´Ø¯
+            if (file == null || file.Length == 0)
+                return null;
 
+            // Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø­Ø¬Ù…
             if (file.Length > MaxFileSize)
-                throw new InvalidOperationException("Ø­Ø¬Ù… ÙØ§ÛŒÙ„ Ø¨ÛŒØ´ Ø§Ø² 2 Ù…Ú¯Ø§Ø¨Ø§ÛŒØª Ø§Ø³Øª.");
+                throw new InvalidOperationException("Ø­Ø¬Ù… ÙØ§ÛŒÙ„ Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø¨ÛŒØ´ØªØ± Ø§Ø² 10 Ù…Ú¯Ø§Ø¨Ø§ÛŒØª Ø¨Ø§Ø´Ø¯.");
 
-            if (!file.ContentType.StartsWith("image/"))
-                throw new InvalidOperationException("ÙÙ‚Ø· ÙØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ ØªØµÙˆÛŒØ±ÛŒ Ù…Ø¬Ø§Ø² Ù‡Ø³ØªÙ†Ø¯.");
+            // Ù…Ø³ÛŒØ± Ú©Ø§Ù…Ù„ Ù¾ÙˆØ´Ù‡
+            var fullFolderPath = Path.Combine(_env.WebRootPath, folderPath.Trim('/'));
+            Directory.CreateDirectory(fullFolderPath);
 
-            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
-            Directory.CreateDirectory(uploadsFolder);
+            // Ù¾Ø³ÙˆÙ†Ø¯ ÙØ§ÛŒÙ„
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (string.IsNullOrEmpty(extension))
+                extension = ".bin"; // fallback
 
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-            var filePath = Path.Combine(uploadsFolder, fileName);
+            // Ù†Ø§Ù… Ù…Ù†Ø­ØµØ±Ø¨Ù‡â€ŒÙØ±Ø¯
+            var fileName = $"{Guid.NewGuid()}{extension}";
+            var filePath = Path.Combine(fullFolderPath, fileName);
 
-            using var image = await Image.LoadAsync(file.OpenReadStream());
-            image.Mutate(x => x.Resize(ImageSize, ImageSize));
-            await image.SaveAsync(filePath);
-
-            if (!string.IsNullOrEmpty(oldPath))
+            // Ø§Ú¯Ø± ÙØ§ÛŒÙ„ ØªØµÙˆÛŒØ± Ø¨Ø§Ø´Ø¯ Ùˆ resizeOptions Ø¯Ø§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø¨Ø§Ø´Ø¯
+            if (IsImage(file.ContentType) && resizeOptions != null)
             {
-                var oldFilePath = Path.Combine(_env.WebRootPath, oldPath.TrimStart('/'));
-                if (File.Exists(oldFilePath))
-                    File.Delete(oldFilePath);
+                try
+                {
+                    using var image = await Image.LoadAsync(file.OpenReadStream());
+                    image.Mutate(x => x.Resize(resizeOptions));
+                    await image.SaveAsync(filePath);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Ø®Ø·Ø§ Ø¯Ø± Ù¾Ø±Ø¯Ø§Ø²Ø´ ØªØµÙˆÛŒØ±: {ex.Message}", ex);
+                }
+            }
+            else
+            {
+                // Ø°Ø®ÛŒØ±Ù‡ Ù…Ø³ØªÙ‚ÛŒÙ… ÙØ§ÛŒÙ„ (ØºÛŒØ±ØªØµÙˆÛŒØ±ÛŒ ÛŒØ§ Ø¨Ø¯ÙˆÙ† resize)
+                using var stream = new FileStream(filePath, FileMode.Create);
+                await file.CopyToAsync(stream);
             }
 
-            return $"/uploads/{fileName}";
+            // Ø­Ø°Ù ÙØ§ÛŒÙ„ Ù‚Ø¨Ù„ÛŒ
+            if (!string.IsNullOrWhiteSpace(existingUrl))
+            {
+                var oldFilePath = Path.Combine(_env.WebRootPath, existingUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(oldFilePath) && !oldFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    try { File.Delete(oldFilePath); }
+                    catch { /* Ù†Ø§Ø¯ÛŒØ¯Ù‡ Ø¨Ú¯ÛŒØ± */ }
+                }
+            }
+
+            // Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†Ø¯Ù† Ù…Ø³ÛŒØ± Ù†Ø³Ø¨ÛŒ
+            return $"/{folderPath.Trim('/')}/{fileName}";
+        }
+
+        private static bool IsImage(string contentType)
+        {
+            return AllowedImageTypes.Contains(contentType.ToLowerInvariant());
         }
     }
 }
@@ -771,7 +831,7 @@ if (app.Environment.IsDevelopment())
     var permissionSeeder = scope.ServiceProvider.GetRequiredService<PermissionSeeder>();
     await permissionSeeder.SeedAsync();
 }
-
+app.UseStaticFiles();
 // === Global Middleware Pipeline ===
 app.UseRouting();
 
@@ -882,44 +942,45 @@ namespace App.Object.Base.Auth
             _tokenService = tokenService;
         }
 
-      public async Task<OPTResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
+ public async Task<ApiResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
 {
-    var user = await _userRepository.GetByEmailAsync(request.Email);
+    var user = await _userRepository.GetByUsernameAsync(request.Username);
     if (user == null)
-        return OPTResult<AuthResponseDto>.Failed("Ú©Ø§Ø±Ø¨Ø±ÛŒ Ø¨Ø§ Ø§ÛŒÙ† Ø§ÛŒÙ…ÛŒÙ„ ÛŒØ§ÙØª Ù†Ø´Ø¯.");
+        return ApiResult<AuthResponseDto>.Failed("Ú©Ø§Ø±Ø¨Ø±ÛŒ Ø¨Ø§ Ø§ÛŒÙ† Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ ÛŒØ§ÙØª Ù†Ø´Ø¯.");
 
     var isPasswordCorrect = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
     if (!isPasswordCorrect)
-        return OPTResult<AuthResponseDto>.Failed("Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª.");
+        return ApiResult<AuthResponseDto>.Failed("Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª.");
 
     var token = _tokenService.GenerateToken(user);
 
-    return OPTResult<AuthResponseDto>.Success(new AuthResponseDto
-    {   UserId = user.Id,
-        Email = user.Email,
+    return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
+    {
+        UserId = user.Id,
+        Username = user.Username,
         FullName = user.FullName,
         Token = token
     });
 }
 
-      public async Task<OPTResult<AuthResponseDto>> RegisterAsync(RegisterRequestDto request)
+      public async Task<ApiResult<AuthResponseDto>> RegisterAsync(RegisterRequestDto request)
 {
-    if (await _userRepository.ExistsByEmailAsync(request.Email))
-        return OPTResult<AuthResponseDto>.Failed("Ø§ÛŒÙ…ÛŒÙ„ ÙˆØ§Ø±Ø¯ Ø´Ø¯Ù‡ Ù‚Ø¨Ù„Ø§Ù‹ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.");
+    if (await _userRepository.ExistsByUsername(request.Username))
+        return ApiResult<AuthResponseDto>.Failed("Ø§ÛŒÙ…ÛŒÙ„ ÙˆØ§Ø±Ø¯ Ø´Ø¯Ù‡ Ù‚Ø¨Ù„Ø§Ù‹ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.");
 
     var user = new User
     {
         FullName = request.FullName,
-        Email = request.Email,
+        Username = request.Username,
         PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
     };
 
     await _userRepository.AddAsync(user);
     var token = _tokenService.GenerateToken(user);
 
-    return OPTResult<AuthResponseDto>.Success(new AuthResponseDto
+    return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
     {
-        Email = user.Email,
+        Username = user.Username,
         FullName = user.FullName,
         Token = token
     });
@@ -928,8 +989,10 @@ namespace App.Object.Base.Auth
     public interface IUserRepository 
     {
         Task<User?> GetByEmailAsync(string email);
+        Task<User?> GetByUsernameAsync(string username);
         Task AddAsync(User user);
         Task<bool> ExistsByEmailAsync(string email);
+        Task<bool> ExistsByUsername(string username);
     }
 
 }
@@ -945,6 +1008,7 @@ namespace App.Object.Base.auth
     public interface IPermissionRep 
     {
         Task<bool> HasPermissionAsync(int userId, string permission);
+        Task<List<string>> GetUserPermissionsAsync(int userId);
     }
 }
 
@@ -970,6 +1034,11 @@ namespace App.Object.Base.auth
         {
             return await _permissionRep.HasPermissionAsync(userId, permission);
         }
+
+        public async Task<List<string>> GetUserPermissionsAsync(int userId){
+            return await _permissionRep.GetUserPermissionsAsync(userId);
+        }
+
     }
 }
 
@@ -1033,6 +1102,8 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects.Base;
 using MyFrameWork.AppTool;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -1064,10 +1135,10 @@ namespace App.Object.Base.Users
 
         /*=== Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ IUsersApp ===*/
         public Task<ApiResult<List<UsersView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<ApiResult<UsersUpdate>> GetById(int id)                 => base.GetByIdAsync(id);
-        public Task<ApiResult> Create(UsersCreat dto)                       => base.CreateAsync(dto);
-        public Task<ApiResult> Update(UsersUpdate dto)                      => base.UpdateAsync(dto);
-        public Task<ApiResult> DeleteBy(List<int> ids)                      => base.DeleteAsync(ids);
+        public Task<ApiResult<UsersUpdate>> GetById(int id) => base.GetByIdAsync(id);
+        public Task<ApiResult> Create(UsersCreat dto) => base.CreateAsync(dto);
+        public Task<ApiResult> Update(UsersUpdate dto) => base.UpdateAsync(dto);
+        public Task<ApiResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
 
         /*=== Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ ===*/
         public async Task<ApiResult<UserCreateFormData>> CreateForm()
@@ -1100,9 +1171,26 @@ namespace App.Object.Base.Users
 
             if (dto.ProfilePicture != null)
             {
-                try { user.ProfilePictureUrl = await _fileService.UploadProfilePictureAsync(dto.ProfilePicture); }
-                catch (Exception ex) { return ApiResult.Failed($"Ø®Ø·Ø§ Ø¯Ø± Ø¢Ù¾Ù„ÙˆØ¯ ØªØµÙˆÛŒØ±: {ex.Message}", 400); }
+                var resizeOptions = new ResizeOptions
+                {
+                    Size = new Size(200, 200),
+                    Mode = ResizeMode.Max
+                };
+
+                user.ProfilePictureUrl = await _fileService.UploadAsync(
+                    file: dto.ProfilePicture,
+                    folderPath: "uploads/profiles",
+                    existingUrl: user.ProfilePictureUrl,
+                    resizeOptions: resizeOptions
+                );
             }
+
+
+
+
+
+
+
 
             await _userRepository.CreateAsync(user);
             await _userRepository.SaveChangesAsync();
@@ -1128,8 +1216,18 @@ namespace App.Object.Base.Users
 
             if (dto.ProfilePicture != null)
             {
-                try { user.ProfilePictureUrl = await _fileService.UploadProfilePictureAsync(dto.ProfilePicture, user.ProfilePictureUrl); }
-                catch (Exception ex) { return ApiResult.Failed($"Ø®Ø·Ø§ Ø¯Ø± Ø¢Ù¾Ù„ÙˆØ¯ ØªØµÙˆÛŒØ±: {ex.Message}", 400); }
+                var resizeOptions = new ResizeOptions
+                {
+                    Size = new Size(200, 200),
+                    Mode = ResizeMode.Max
+                };
+
+                user.ProfilePictureUrl = await _fileService.UploadAsync(
+                    file: dto.ProfilePicture,
+                    folderPath: "uploads/profiles",
+                    existingUrl: user.ProfilePictureUrl,
+                    resizeOptions: resizeOptions
+                );
             }
 
             await _userRepository.UpdateAsync(user);
@@ -1145,7 +1243,7 @@ namespace App.Object.Base.Users
             foreach (var vm in vms)
             {
                 var (status, lastSeen) = _statusService.GetStatus(vm.Id);
-                vm.Status   = status;
+                vm.Status = status;
                 vm.LastSeen = lastSeen;
             }
 

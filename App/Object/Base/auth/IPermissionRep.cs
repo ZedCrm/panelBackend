@@ -8,5 +8,6 @@ namespace App.Object.Base.auth
     public interface IPermissionRep 
     {
         Task<bool> HasPermissionAsync(int userId, string permission);
+        Task<List<string>> GetUserPermissionsAsync(int userId);
     }
 }

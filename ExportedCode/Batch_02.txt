@@ -534,12 +534,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using SixLabors.ImageSharp.Processing;
 
 namespace App.utility
 {
     public interface IFileService
     {
-        Task<string?> UploadProfilePictureAsync(IFormFile? file, string? oldPath = null);
+             Task<string?> UploadAsync(
+            IFormFile? file,
+            string folderPath,
+            string? existingUrl = null,
+            ResizeOptions? resizeOptions = null);
     }
 }
 
@@ -761,28 +766,28 @@ namespace App.Contracts.Object.Base.auth
     {
         public int UserId { get; set; } = default! ;
         public string Token { get; set; } = default!;
-        public string Email { get; set; } = default!;
+        public string Username { get; set; } = default!;
         public string FullName { get; set; } = default!;
         
     }
 
      public class LoginRequestDto
     {
-        public string Email { get; set; } = default!;
+        public string Username  { get; set; } = default!;
         public string Password { get; set; } = default!;
     }
 
         public class RegisterRequestDto
     {
         public string FullName { get; set; } = default!;
-        public string Email { get; set; } = default!;
+        public string Username { get; set; } = default!;
         public string Password { get; set; } = default!;
     }
 
       public interface IAuthApp
     {
-         Task<OPTResult<AuthResponseDto>>  RegisterAsync(RegisterRequestDto dto);
-        Task<OPTResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
+         Task<ApiResult<AuthResponseDto>>  RegisterAsync(RegisterRequestDto dto);
+        Task<ApiResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
         
     }
 
@@ -817,6 +822,7 @@ namespace App.Contracts.Object.Base.auth
     public interface IPermissionService
     {
         Task<bool> HasPermissionAsync(int userId, string permission);
+        Task<List<string>> GetUserPermissionsAsync(int userId);
     }
 }
 
@@ -865,26 +871,20 @@ namespace App.Contracts.Object.Base.Users
 
     public class UsersCreat
     {
-        [Required(ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ù…Ù„ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
-        [MaxLength(100, ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ù…Ù„ Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø¨ÛŒØ´ Ø§Ø² 100 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.")]
+      
         public string FullName { get; set; } = default!;
 
-        [Required(ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
-        [MaxLength(50, ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø¨ÛŒØ´ Ø§Ø² 50 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.")]
+
         public string Username { get; set; } = default!;
 
-        [Required(ErrorMessage = "Ø§ÛŒÙ…ÛŒÙ„ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
-        [EmailAddress(ErrorMessage = "Ø§ÛŒÙ…ÛŒÙ„ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.")]
+
         public string Email { get; set; } = default!;
 
-        [Required(ErrorMessage = "Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
-        [MinLength(6, ErrorMessage = "Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø¨Ø§ÛŒØ¯ Ø­Ø¯Ø§Ù‚Ù„ 6 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.")]
         public string Password { get; set; } = default!;
 
         public IFormFile? ProfilePicture { get; set; }
 
-        [Required(ErrorMessage = "Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù†Ù‚Ø´ Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†ÛŒØ¯.")]
-        [MinCount(1, ErrorMessage = "Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù†Ù‚Ø´ Ø¨Ø§ÛŒØ¯ Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆØ¯.")]
+
         public List<int> RoleIds { get; set; } = new();
     }
 
@@ -893,24 +893,21 @@ namespace App.Contracts.Object.Base.Users
         [Required]
         public int Id { get; set; }
 
-        [Required(ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ù…Ù„ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
-        [MaxLength(100)]
+
         public string FullName { get; set; } = default!;
 
-        [Required(ErrorMessage = "Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
-        [MaxLength(50)]
+
         public string Username { get; set; } = default!;
 
-        [Required(ErrorMessage = "Ø§ÛŒÙ…ÛŒÙ„ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.")]
-        [EmailAddress]
+
         public string Email { get; set; } = default!;
 
-        [MinLength(6, ErrorMessage = "Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø¨Ø§ÛŒØ¯ Ø­Ø¯Ø§Ù‚Ù„ 6 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.")]
+
         public string? Password { get; set; }
 
         public IFormFile? ProfilePicture { get; set; }
 
-        [MinCount(1, ErrorMessage = "Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù†Ù‚Ø´ Ø¨Ø§ÛŒØ¯ Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆØ¯.")]
+
         public List<int> RoleIds { get; set; } = new();
     }
 

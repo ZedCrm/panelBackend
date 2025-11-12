@@ -5,6 +5,8 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects.Base;
 using MyFrameWork.AppTool;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,10 +38,8 @@ namespace App.Object.Base.Users
 
         /*=== اینترفیس IUsersApp ===*/
         public Task<ApiResult<List<UsersView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<ApiResult<UsersUpdate>> GetById(int id)                 => base.GetByIdAsync(id);
-        public Task<ApiResult> Create(UsersCreat dto)                       => base.CreateAsync(dto);
-        public Task<ApiResult> Update(UsersUpdate dto)                      => base.UpdateAsync(dto);
-        public Task<ApiResult> DeleteBy(List<int> ids)                      => base.DeleteAsync(ids);
+        public Task<ApiResult<UsersUpdate>> GetById(int id) => base.GetByIdAsync(id);
+        public Task<ApiResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
 
         /*=== متدهای اختصاصی ===*/
         public async Task<ApiResult<UserCreateFormData>> CreateForm()
@@ -72,9 +72,26 @@ namespace App.Object.Base.Users
 
             if (dto.ProfilePicture != null)
             {
-                try { user.ProfilePictureUrl = await _fileService.UploadProfilePictureAsync(dto.ProfilePicture); }
-                catch (Exception ex) { return ApiResult.Failed($"خطا در آپلود تصویر: {ex.Message}", 400); }
+                var resizeOptions = new ResizeOptions
+                {
+                    Size = new Size(200, 200),
+                    Mode = ResizeMode.Max
+                };
+
+                user.ProfilePictureUrl = await _fileService.UploadAsync(
+                    file: dto.ProfilePicture,
+                    folderPath: "uploads/profiles",
+                    existingUrl: user.ProfilePictureUrl,
+                    resizeOptions: resizeOptions
+                );
             }
+
+
+
+
+
+
+
 
             await _userRepository.CreateAsync(user);
             await _userRepository.SaveChangesAsync();
@@ -100,8 +117,18 @@ namespace App.Object.Base.Users
 
             if (dto.ProfilePicture != null)
             {
-                try { user.ProfilePictureUrl = await _fileService.UploadProfilePictureAsync(dto.ProfilePicture, user.ProfilePictureUrl); }
-                catch (Exception ex) { return ApiResult.Failed($"خطا در آپلود تصویر: {ex.Message}", 400); }
+                var resizeOptions = new ResizeOptions
+                {
+                    Size = new Size(200, 200),
+                    Mode = ResizeMode.Max
+                };
+
+                user.ProfilePictureUrl = await _fileService.UploadAsync(
+                    file: dto.ProfilePicture,
+                    folderPath: "uploads/profiles",
+                    existingUrl: user.ProfilePictureUrl,
+                    resizeOptions: resizeOptions
+                );
             }
 
             await _userRepository.UpdateAsync(user);
@@ -117,7 +144,7 @@ namespace App.Object.Base.Users
             foreach (var vm in vms)
             {
                 var (status, lastSeen) = _statusService.GetStatus(vm.Id);
-                vm.Status   = status;
+                vm.Status = status;
                 vm.LastSeen = lastSeen;
             }
 

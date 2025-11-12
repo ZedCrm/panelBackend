@@ -1,6 +1,8 @@
 // API\Controllers\bases\UserController.cs
 using API.Attributes;
+using App.Contracts.Object.Base.auth;
 using App.Contracts.Object.Base.Users;
+using App.Object.Base.auth;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
 
@@ -11,7 +13,12 @@ namespace API.Controllers.bases
     public class UserController : BaseController
     {
         private readonly IUsersApp _usersApp;
-        public UserController(IUsersApp usersApp) => _usersApp = usersApp;
+        private readonly IPermissionService _permissionService;
+        public UserController(IUsersApp usersApp , IPermissionService permissionService) 
+        { 
+            _usersApp = usersApp ;
+         _permissionService = permissionService;
+         }
 
         /*======================================================*/
         /*                     متدهای CRUD                      */
@@ -29,12 +36,12 @@ namespace API.Controllers.bases
         [RequirePermission("User.Create")]
         [HttpPost("/api/User/create")]
         public async Task<ActionResult<ApiResult>> Create([FromForm] UsersCreat userCreate)
-            => await _usersApp.Create(userCreate);
+            => await _usersApp.CreateAsync(userCreate);
 
         [RequirePermission("User.Edit")]
         [HttpPost("/api/User/update")]
         public async Task<ActionResult<ApiResult>> Update([FromForm] UsersUpdate userUpdate)
-            => await _usersApp.Update(userUpdate);
+            => await _usersApp.UpdateAsync(userUpdate);
 
         [RequirePermission("User.Delete")]
         [HttpPost("/api/User/delete")]
@@ -58,5 +65,18 @@ namespace API.Controllers.bases
         [HttpGet("/api/user/getcreateform")]
         public async Task<ActionResult<ApiResult<UserCreateFormData>>> GetCreateForm()
             => await _usersApp.CreateForm();
+
+
+
+
+        [HttpGet("/api/user/permissions")]
+        public async Task<ActionResult<ApiResult<List<string>>>> GetUserPermissions()
+        {
+            var userId = GetCurrentUserId();  // از BaseController می‌گیری
+            if (userId <= 0) return Unauthorized(ApiResult.Failed("کاربر معتبر نیست.", 401));
+
+            var permissions = await _permissionService.GetUserPermissionsAsync(userId);  
+            return ApiResult<List<string>>.Success(permissions);
+        }
     }
 }

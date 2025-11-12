@@ -16,11 +16,11 @@ namespace App.Object.Base.Auth
             _tokenService = tokenService;
         }
 
-      public async Task<ApiResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
+ public async Task<ApiResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
 {
-    var user = await _userRepository.GetByEmailAsync(request.Email);
+    var user = await _userRepository.GetByUsernameAsync(request.Username);
     if (user == null)
-        return ApiResult<AuthResponseDto>.Failed("کاربری با این ایمیل یافت نشد.");
+        return ApiResult<AuthResponseDto>.Failed("کاربری با این نام کاربری یافت نشد.");
 
     var isPasswordCorrect = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
     if (!isPasswordCorrect)
@@ -29,8 +29,9 @@ namespace App.Object.Base.Auth
     var token = _tokenService.GenerateToken(user);
 
     return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
-    {   UserId = user.Id,
-        Email = user.Email,
+    {
+        UserId = user.Id,
+        Username = user.Username,
         FullName = user.FullName,
         Token = token
     });
@@ -38,13 +39,13 @@ namespace App.Object.Base.Auth
 
       public async Task<ApiResult<AuthResponseDto>> RegisterAsync(RegisterRequestDto request)
 {
-    if (await _userRepository.ExistsByEmailAsync(request.Email))
+    if (await _userRepository.ExistsByUsername(request.Username))
         return ApiResult<AuthResponseDto>.Failed("ایمیل وارد شده قبلاً ثبت شده است.");
 
     var user = new User
     {
         FullName = request.FullName,
-        Email = request.Email,
+        Username = request.Username,
         PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
     };
 
@@ -53,7 +54,7 @@ namespace App.Object.Base.Auth
 
     return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
     {
-        Email = user.Email,
+        Username = user.Username,
         FullName = user.FullName,
         Token = token
     });
@@ -62,8 +63,10 @@ namespace App.Object.Base.Auth
     public interface IUserRepository 
     {
         Task<User?> GetByEmailAsync(string email);
+        Task<User?> GetByUsernameAsync(string username);
         Task AddAsync(User user);
         Task<bool> ExistsByEmailAsync(string email);
+        Task<bool> ExistsByUsername(string username);
     }
 
 }

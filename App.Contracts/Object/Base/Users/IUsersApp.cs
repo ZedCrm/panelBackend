@@ -10,8 +10,8 @@ public interface IUsersApp
     {
 Task<ApiResult<List<UsersView>>>             GetAll(Pagination pagination);
         Task<ApiResult<UsersUpdate>>         GetById(int id);
-        Task<ApiResult>                      Create(UsersCreat dto);
-        Task<ApiResult>                      Update(UsersUpdate dto);
+        Task<ApiResult>                      CreateAsync(UsersCreat dto);
+        Task<ApiResult>                      UpdateAsync(UsersUpdate dto);
         Task<ApiResult>                      DeleteBy(List<int> ids);
         Task<ApiResult<UserCreateFormData>>  CreateForm();
         Task<ApiResult>                      KeepAlive(int userId);
