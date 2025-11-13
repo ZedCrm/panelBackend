@@ -23,6 +23,7 @@
 +-- appsettings.json
 +-- Program.cs
 +-- test.js
++-- user-status.json
 App
 +-- Object
 |   +-- Base

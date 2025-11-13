@@ -1,4 +1,178 @@
-﻿===== FILE: App\Object\Base\Users\UserStatusService.cs =====
+﻿===== FILE: App\Object\Base\Users\UsersApp.cs =====
+// App/Object/Base/Users/UsersApp.cs
+using App.Contracts.Object.Base.Users;
+using App.Object.Base;
+using App.utility;
+using AutoMapper;
+using Domain.Objects.Base;
+using MyFrameWork.AppTool;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace App.Object.Base.Users
+{
+    public class UsersApp : CrudService<User, UsersView, UsersCreat, UsersUpdate, int>,
+                            IUsersApp
+    {
+        private readonly IMyUserRepository _userRepository;
+        private readonly IFileService _fileService;
+        private readonly UserStatusService _statusService;
+        private readonly IRoleRep _roleRep;
+
+        public UsersApp(
+            IMyUserRepository userRepository,
+            IMapper mapper,
+            IFileService fileService,
+            UserStatusService statusService,
+            IRoleRep roleRep)
+            : base(userRepository, mapper)
+        {
+            _userRepository = userRepository;
+            _fileService = fileService;
+            _statusService = statusService;
+            _roleRep = roleRep;
+        }
+
+        /*=== Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ IUsersApp ===*/
+        public Task<ApiResult<List<UsersView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
+        public Task<ApiResult<UsersUpdate>> GetById(int id) => base.GetByIdAsync(id);
+        public Task<ApiResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
+
+        /*=== Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ ===*/
+        public async Task<ApiResult<UserCreateFormData>> CreateForm()
+        {
+            var roles = await _roleRep.GetAsync();
+            return ApiResult<UserCreateFormData>.Success(
+                new UserCreateFormData
+                {
+                    Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
+                });
+        }
+
+        public async Task<ApiResult> KeepAlive(int userId)
+        {
+            _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
+            return ApiResult.Success("ÙˆØ¶Ø¹ÛŒØª Ø¢Ù†Ù„Ø§ÛŒÙ† Ø´Ø¯.");
+        }
+
+        /*=== Ø§ÙˆØ±Ø±Ø§ÛŒØ¯Ù‡Ø§ÛŒ Ø¶Ø±ÙˆØ±ÛŒ (Business + ÙØ§ÛŒÙ„ + ÙˆØ¶Ø¹ÛŒØª) ===*/
+        public override async Task<ApiResult> CreateAsync(UsersCreat dto)
+        {
+            if (await _userRepository.ExistAsync(u => u.Email == dto.Email))
+                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+            if (await _userRepository.ExistAsync(u => u.Username == dto.Username))
+                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            var user = _mapper.Map<User>(dto);
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid }).ToList();
+
+            if (dto.ProfilePicture != null)
+            {
+                var resizeOptions = new ResizeOptions
+                {
+                    Size = new Size(200, 200),
+                    Mode = ResizeMode.Max
+                };
+
+                user.ProfilePictureUrl = await _fileService.UploadAsync(
+                    file: dto.ProfilePicture,
+                    folderPath: "uploads/profiles",
+                    existingUrl: user.ProfilePictureUrl,
+                    resizeOptions: resizeOptions
+                );
+            }
+
+
+
+
+
+
+
+
+            await _userRepository.CreateAsync(user);
+            await _userRepository.SaveChangesAsync();
+            _statusService.UpdateStatus(user.Id, UserStatus.Offline);
+            return ApiResult.Success(message: $"Ú©Ø§Ø±Ø¨Ø± {dto.FullName} Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
+        }
+
+        public override async Task<ApiResult> UpdateAsync(UsersUpdate dto)
+        {
+            if (await _userRepository.ExistAsync(u => u.Email == dto.Email && u.Id != dto.Id))
+                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+            if (await _userRepository.ExistAsync(u => u.Username == dto.Username && u.Id != dto.Id))
+                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            var user = await _userRepository.GetAsync(dto.Id);
+            if (user == null) return ApiResult.Failed(MessageApp.NotFound, 404);
+
+
+            var oldPasswordHash = user.PasswordHash;
+
+            _mapper.Map(dto, user);
+            // Ø§Ú¯Ø± Ú©Ø§Ø±Ø¨Ø± Ø±Ù…Ø² Ø¬Ø¯ÛŒØ¯ Ù†ÙØ±Ø³ØªØ§Ø¯Ù‡ Ø¨ÙˆØ¯ØŒ Ù¾Ø³ÙˆØ±Ø¯ Ù‚Ø¨Ù„ÛŒ Ø±Ø§ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†
+            if (string.IsNullOrEmpty(dto.Password))
+                user.PasswordHash = oldPasswordHash;
+            else
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+
+            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = dto.Id }).ToList();
+
+            if (dto.ProfilePicture != null)
+            {
+                var resizeOptions = new ResizeOptions
+                {
+                    Size = new Size(200, 200),
+                    Mode = ResizeMode.Max
+                };
+
+                user.ProfilePictureUrl = await _fileService.UploadAsync(
+                    file: dto.ProfilePicture,
+                    folderPath: "uploads/profiles",
+                    existingUrl: user.ProfilePictureUrl,
+                    resizeOptions: resizeOptions
+                );
+            }
+
+            await _userRepository.UpdateAsync(user);
+            await _userRepository.SaveChangesAsync();
+            return ApiResult.Success(message: "Ú©Ø§Ø±Ø¨Ø± Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
+        }
+
+        public override async Task<ApiResult<List<UsersView>>> GetAllAsync(Pagination pagination)
+        {
+            var users = await _userRepository.GetAsync(pagination);
+            var vms = _mapper.Map<List<UsersView>>(users);
+
+            foreach (var vm in vms)
+            {
+                var (status, lastSeen) = _statusService.GetStatus(vm.Id);
+                vm.Status = status;
+                vm.LastSeen = lastSeen;
+            }
+
+            var total = await _userRepository.CountAsync();
+            return ApiResult<List<UsersView>>.PagedSuccess(vms, total,
+                                                           pagination.PageNumber,
+                                                           pagination.PageSize);
+        }
+
+        public override async Task<ApiResult> DeleteAsync(List<int> ids)
+        {
+            var res = await base.DeleteAsync(ids);
+            if (res.IsSucceeded) ids.ForEach(id => _statusService.UpdateStatus(id, UserStatus.Offline));
+            return res;
+        }
+    }
+
+    public interface IMyUserRepository : IBaseRep<User, int> { }
+}
+
+===== FILE: App\Object\Base\Users\UserStatusService.cs =====
 using System.Collections.Concurrent;
 using System.IO;
 using System.Text.Json;
@@ -493,30 +667,35 @@ namespace App.utility
 
 
         // مپینگ برای UsersView (برای GetAll) - بدون RoleIds
-            CreateMap<User, UsersView>(); // نادیده گرفتن RoleIds
+            CreateMap<User, UsersView>()
+            .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src => src.ProfilePictureUrl)); 
 
             // مپینگ برای UsersUpdate (برای GetById) - شامل RoleIds
             CreateMap<User, UsersUpdate>()
                 .ForMember(dest => dest.RoleIds, opt => opt.MapFrom(src => src.UserRoles.Select(ur => ur.RoleId).ToList()))
-                .ForMember(dest => dest.Password, opt => opt.Ignore()); // رمز عبور در پاسخ ارسال نشود
+                .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src => src.ProfilePictureUrl))
+                .ForMember(dest => dest.Password, opt => opt.Ignore()); 
 
             // مپینگ برای UsersCreat به User
             CreateMap<UsersCreat, User>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src =>
                     string.IsNullOrEmpty(src.Password) ? null : BCrypt.Net.BCrypt.HashPassword(src.Password)))
-                .ForMember(dest => dest.UserRoles, opt => opt.MapFrom(src => src.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList()));
+                .ForMember(dest => dest.UserRoles, opt => opt.MapFrom(src => src.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList()))
+                .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src => src.ProfilePictureUrl));
 
             // مپینگ برای UsersUpdate به User
             CreateMap<UsersUpdate, User>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src =>
                     string.IsNullOrEmpty(src.Password) ? null : BCrypt.Net.BCrypt.HashPassword(src.Password)))
-                .ForMember(dest => dest.UserRoles, opt => opt.MapFrom(src => src.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList()));
+                .ForMember(dest => dest.UserRoles, opt => opt.MapFrom(src => src.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList()))
+                .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src => src.ProfilePictureUrl));
 
             // مپینگ معکوس (اختیاری، در صورت نیاز)
             CreateMap<User, UsersCreat>()
-                .ForMember(dest => dest.RoleIds, opt => opt.MapFrom(src => src.UserRoles.Select(ur => ur.RoleId).ToList()));
+                .ForMember(dest => dest.RoleIds, opt => opt.MapFrom(src => src.UserRoles.Select(ur => ur.RoleId).ToList()))
+                .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src => src.ProfilePictureUrl));
 
 
 
@@ -839,8 +1018,8 @@ public interface IUsersApp
     {
 Task<ApiResult<List<UsersView>>>             GetAll(Pagination pagination);
         Task<ApiResult<UsersUpdate>>         GetById(int id);
-        Task<ApiResult>                      Create(UsersCreat dto);
-        Task<ApiResult>                      Update(UsersUpdate dto);
+        Task<ApiResult>                      CreateAsync(UsersCreat dto);
+        Task<ApiResult>                      UpdateAsync(UsersUpdate dto);
         Task<ApiResult>                      DeleteBy(List<int> ids);
         Task<ApiResult<UserCreateFormData>>  CreateForm();
         Task<ApiResult>                      KeepAlive(int userId);
@@ -884,8 +1063,10 @@ namespace App.Contracts.Object.Base.Users
 
         public IFormFile? ProfilePicture { get; set; }
 
+        public string? ProfilePictureUrl { get; set; }
 
-        public List<int> RoleIds { get; set; } = new();
+
+        public List<int>? RoleIds { get; set; } = new();
     }
 
     public class UsersUpdate
@@ -907,8 +1088,9 @@ namespace App.Contracts.Object.Base.Users
 
         public IFormFile? ProfilePicture { get; set; }
 
+        public string? ProfilePictureUrl { get; set; }
 
-        public List<int> RoleIds { get; set; } = new();
+        public List<int>? RoleIds { get; set; } = new();
     }
 
     public class UserCreateFormData
@@ -959,49 +1141,6 @@ namespace App.Contracts.Object.Base
         [Required]
         public int age { get; set; }
     }
-}
-
-
-===== FILE: App.Contracts\Object\Shop\CountTypeCon\CountTypeView.cs =====
-using MyFrameWork.AppTool;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
-
-namespace App.Contracts.Object.Shop.CountTypeCon
-{
-    public class CountTypeView
-    {
-        [Display(Name = " Ø´Ù†Ø§Ø³Ù‡")]
-        public int Id { get; set; }
-    
-        [Display(Name = " Ù†Ø§Ù… ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´")]
-        public string Name { get; set; } = "";
-        
-
-    }
-    public class CountTypeCreate 
-    {
-
-        
-    
-        [Display(Name = " Ù†Ø§Ù… ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
-        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
-        [RegularExpression(@"^[\u0600-\u06FF\s]+$", ErrorMessage = "ÙÙ‚Ø· Ø§Ø² Ø­Ø±ÙˆÙ ÙØ§Ø±Ø³ÛŒ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ú©Ù†ÛŒØ¯")]
-        [DataType(DataType.Text)]
-        public string Name { get; set; } = "";
-       
-       
-
-    }
-    
-   
-
 }
 
 

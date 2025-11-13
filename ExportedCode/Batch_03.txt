@@ -1,4 +1,47 @@
-﻿===== FILE: App.Contracts\Object\Shop\CountTypeCon\ICountTypeApp.cs =====
+﻿===== FILE: App.Contracts\Object\Shop\CountTypeCon\CountTypeView.cs =====
+using MyFrameWork.AppTool;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Text.Json.Nodes;
+using System.Threading.Tasks;
+
+namespace App.Contracts.Object.Shop.CountTypeCon
+{
+    public class CountTypeView
+    {
+        [Display(Name = " Ø´Ù†Ø§Ø³Ù‡")]
+        public int Id { get; set; }
+    
+        [Display(Name = " Ù†Ø§Ù… ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´")]
+        public string Name { get; set; } = "";
+        
+
+    }
+    public class CountTypeCreate 
+    {
+
+        
+    
+        [Display(Name = " Ù†Ø§Ù… ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        [RegularExpression(@"^[\u0600-\u06FF\s]+$", ErrorMessage = "ÙÙ‚Ø· Ø§Ø² Ø­Ø±ÙˆÙ ÙØ§Ø±Ø³ÛŒ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ú©Ù†ÛŒØ¯")]
+        [DataType(DataType.Text)]
+        public string Name { get; set; } = "";
+       
+       
+
+    }
+    
+   
+
+}
+
+
+===== FILE: App.Contracts\Object\Shop\CountTypeCon\ICountTypeApp.cs =====
 using MyFrameWork.AppTool;
 
 
@@ -961,26 +1004,6 @@ namespace Domain.Objects.Shop
         
         public string Name { get; set; }
         public Boolean Active  { get; set; }=true;
-
-    }
-}
-
-
-===== FILE: Domain\Objects\Shop\InvTran.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Objects.Shop
-{
-    public class InvTran : BaseDomain
-    {
-        
-        public DateTime CreateTime { get; set; }
-        public DateTime AcceptTime{ get; set; }
-        public Inv Inv { get; set; }
 
     }
 }

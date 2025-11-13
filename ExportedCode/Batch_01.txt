@@ -99,12 +99,12 @@ namespace API.Controllers.bases
         [RequirePermission("User.Create")]
         [HttpPost("/api/User/create")]
         public async Task<ActionResult<ApiResult>> Create([FromForm] UsersCreat userCreate)
-            => await _usersApp.Create(userCreate);
+            => await _usersApp.CreateAsync(userCreate);
 
         [RequirePermission("User.Edit")]
         [HttpPost("/api/User/update")]
         public async Task<ActionResult<ApiResult>> Update([FromForm] UsersUpdate userUpdate)
-            => await _usersApp.Update(userUpdate);
+            => await _usersApp.UpdateAsync(userUpdate);
 
         [RequirePermission("User.Delete")]
         [HttpPost("/api/User/delete")]
@@ -889,6 +889,9 @@ app.Run();
 ===== FILE: API\test.js =====
 
 
+===== FILE: API\user-status.json =====
+{"1013":{},"1014":{}}
+
 ===== FILE: App\Object\Base\auth\UserContext\UserContext.cs =====
 
 using System.Security.Claims;
@@ -1092,175 +1095,5 @@ using Domain.Objects.Base;
 public interface IRoleRep :  IBaseRep<Role, int> {
 
 
-}
-
-===== FILE: App\Object\Base\Users\UsersApp.cs =====
-// App/Object/Base/Users/UsersApp.cs
-using App.Contracts.Object.Base.Users;
-using App.Object.Base;
-using App.utility;
-using AutoMapper;
-using Domain.Objects.Base;
-using MyFrameWork.AppTool;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace App.Object.Base.Users
-{
-    public class UsersApp : CrudService<User, UsersView, UsersCreat, UsersUpdate, int>,
-                            IUsersApp
-    {
-        private readonly IMyUserRepository _userRepository;
-        private readonly IFileService _fileService;
-        private readonly UserStatusService _statusService;
-        private readonly IRoleRep _roleRep;
-
-        public UsersApp(
-            IMyUserRepository userRepository,
-            IMapper mapper,
-            IFileService fileService,
-            UserStatusService statusService,
-            IRoleRep roleRep)
-            : base(userRepository, mapper)
-        {
-            _userRepository = userRepository;
-            _fileService = fileService;
-            _statusService = statusService;
-            _roleRep = roleRep;
-        }
-
-        /*=== Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ IUsersApp ===*/
-        public Task<ApiResult<List<UsersView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<ApiResult<UsersUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<ApiResult> Create(UsersCreat dto) => base.CreateAsync(dto);
-        public Task<ApiResult> Update(UsersUpdate dto) => base.UpdateAsync(dto);
-        public Task<ApiResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
-
-        /*=== Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ ===*/
-        public async Task<ApiResult<UserCreateFormData>> CreateForm()
-        {
-            var roles = await _roleRep.GetAsync();
-            return ApiResult<UserCreateFormData>.Success(
-                new UserCreateFormData
-                {
-                    Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
-                });
-        }
-
-        public async Task<ApiResult> KeepAlive(int userId)
-        {
-            _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
-            return ApiResult.Success("ÙˆØ¶Ø¹ÛŒØª Ø¢Ù†Ù„Ø§ÛŒÙ† Ø´Ø¯.");
-        }
-
-        /*=== Ø§ÙˆØ±Ø±Ø§ÛŒØ¯Ù‡Ø§ÛŒ Ø¶Ø±ÙˆØ±ÛŒ (Business + ÙØ§ÛŒÙ„ + ÙˆØ¶Ø¹ÛŒØª) ===*/
-        public override async Task<ApiResult> CreateAsync(UsersCreat dto)
-        {
-            if (await _userRepository.ExistAsync(u => u.Email == dto.Email))
-                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
-            if (await _userRepository.ExistAsync(u => u.Username == dto.Username))
-                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
-
-            var user = _mapper.Map<User>(dto);
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid }).ToList();
-
-            if (dto.ProfilePicture != null)
-            {
-                var resizeOptions = new ResizeOptions
-                {
-                    Size = new Size(200, 200),
-                    Mode = ResizeMode.Max
-                };
-
-                user.ProfilePictureUrl = await _fileService.UploadAsync(
-                    file: dto.ProfilePicture,
-                    folderPath: "uploads/profiles",
-                    existingUrl: user.ProfilePictureUrl,
-                    resizeOptions: resizeOptions
-                );
-            }
-
-
-
-
-
-
-
-
-            await _userRepository.CreateAsync(user);
-            await _userRepository.SaveChangesAsync();
-            _statusService.UpdateStatus(user.Id, UserStatus.Offline);
-            return ApiResult.Success(message: $"Ú©Ø§Ø±Ø¨Ø± {dto.FullName} Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
-        }
-
-        public override async Task<ApiResult> UpdateAsync(UsersUpdate dto)
-        {
-            if (await _userRepository.ExistAsync(u => u.Email == dto.Email && u.Id != dto.Id))
-                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
-            if (await _userRepository.ExistAsync(u => u.Username == dto.Username && u.Id != dto.Id))
-                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
-
-            var user = await _userRepository.GetAsync(dto.Id);
-            if (user == null) return ApiResult.Failed(MessageApp.NotFound, 404);
-
-            _mapper.Map(dto, user);
-            if (!string.IsNullOrEmpty(dto.Password))
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-
-            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = dto.Id }).ToList();
-
-            if (dto.ProfilePicture != null)
-            {
-                var resizeOptions = new ResizeOptions
-                {
-                    Size = new Size(200, 200),
-                    Mode = ResizeMode.Max
-                };
-
-                user.ProfilePictureUrl = await _fileService.UploadAsync(
-                    file: dto.ProfilePicture,
-                    folderPath: "uploads/profiles",
-                    existingUrl: user.ProfilePictureUrl,
-                    resizeOptions: resizeOptions
-                );
-            }
-
-            await _userRepository.UpdateAsync(user);
-            await _userRepository.SaveChangesAsync();
-            return ApiResult.Success(message: "Ú©Ø§Ø±Ø¨Ø± Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
-        }
-
-        public override async Task<ApiResult<List<UsersView>>> GetAllAsync(Pagination pagination)
-        {
-            var users = await _userRepository.GetAsync(pagination);
-            var vms = _mapper.Map<List<UsersView>>(users);
-
-            foreach (var vm in vms)
-            {
-                var (status, lastSeen) = _statusService.GetStatus(vm.Id);
-                vm.Status = status;
-                vm.LastSeen = lastSeen;
-            }
-
-            var total = await _userRepository.CountAsync();
-            return ApiResult<List<UsersView>>.PagedSuccess(vms, total,
-                                                           pagination.PageNumber,
-                                                           pagination.PageSize);
-        }
-
-        public override async Task<ApiResult> DeleteAsync(List<int> ids)
-        {
-            var res = await base.DeleteAsync(ids);
-            if (res.IsSucceeded) ids.ForEach(id => _statusService.UpdateStatus(id, UserStatus.Offline));
-            return res;
-        }
-    }
-
-    public interface IMyUserRepository : IBaseRep<User, int> { }
 }
 

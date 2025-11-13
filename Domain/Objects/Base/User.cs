@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Domain.Objects.Chat;
 
 namespace Domain.Objects.Base
 {
@@ -16,6 +17,12 @@ namespace Domain.Objects.Base
         public UserStatus Status { get; set; } = UserStatus.Offline;  // جدید: وضعیت
         public DateTime? LastSeen { get; set; }  // جدید: آخرین بازدید
         public List<UserRole> UserRoles { get; set; }
+
+        public List<Message> SentMessages { get; set; } = new();
+        public List<Message> ReceivedMessages { get; set; } = new();
+        public List<ChatGroup> CreatedGroups { get; set; } = new();
+        public List<ChatGroupMember> GroupMemberships { get; set; } = new();
+        public List<GroupMessage> GroupMessages { get; set; } = new();
 
     }
 

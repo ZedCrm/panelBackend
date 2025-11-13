@@ -109,8 +109,14 @@ namespace App.Object.Base.Users
             var user = await _userRepository.GetAsync(dto.Id);
             if (user == null) return ApiResult.Failed(MessageApp.NotFound, 404);
 
+
+            var oldPasswordHash = user.PasswordHash;
+
             _mapper.Map(dto, user);
-            if (!string.IsNullOrEmpty(dto.Password))
+            // اگر کاربر رمز جدید نفرستاده بود، پسورد قبلی را برگردان
+            if (string.IsNullOrEmpty(dto.Password))
+                user.PasswordHash = oldPasswordHash;
+            else
                 user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
             user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = dto.Id }).ToList();

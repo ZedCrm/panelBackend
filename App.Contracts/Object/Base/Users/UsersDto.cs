@@ -37,7 +37,7 @@ namespace App.Contracts.Object.Base.Users
         public string? ProfilePictureUrl { get; set; }
 
 
-        public List<int> RoleIds { get; set; } = new();
+        public List<int>? RoleIds { get; set; } = new();
     }
 
     public class UsersUpdate
@@ -61,7 +61,7 @@ namespace App.Contracts.Object.Base.Users
 
         public string? ProfilePictureUrl { get; set; }
 
-        public List<int> RoleIds { get; set; } = new();
+        public List<int>? RoleIds { get; set; } = new();
     }
 
     public class UserCreateFormData
