@@ -1,3 +1,4 @@
+using API.Hubs;
 using API.Middleware;
 using API.Services;
 using App.Contracts.Object.Base.auth;
@@ -106,6 +107,8 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseTokenValidation(); // Custom middleware
 app.UseAuthorization();
+
+app.MapHub<ChatHub>("/chatHub");
 
 // === Ensure uploads folder exists ===
 var uploadsPath = Path.Combine(app.Environment.WebRootPath, "uploads");
