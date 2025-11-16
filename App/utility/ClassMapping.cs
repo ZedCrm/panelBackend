@@ -69,6 +69,8 @@ namespace App.utility
                 .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src => src.ProfilePictureUrl));
 
 
+            CreateMap<User,UserList>();
+
 
             CreateMap<Inv , InvView>();
 

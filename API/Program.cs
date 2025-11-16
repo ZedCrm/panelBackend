@@ -10,6 +10,7 @@ using Infrastructure.data.seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,7 +19,33 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "CRM API", Version = "v1" });
+
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization. Example: 'Bearer {token}'",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+
+
 builder.Services.AddSignalR();
 builder.Services.AddHttpContextAccessor();
 
@@ -28,9 +55,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("http://localhost:4200")
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();;
     });
 });
 
@@ -71,7 +99,11 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM API v1");
+    c.RoutePrefix = "swagger";
+});
 
     // Seed permissions from controllers (only in dev)
     using var scope = app.Services.CreateScope();
@@ -81,6 +113,7 @@ if (app.Environment.IsDevelopment())
 app.UseStaticFiles();
 // === Global Middleware Pipeline ===
 app.UseRouting();
+app.UseCors("AllowAll");
 
 // Log incoming requests
 app.Use(async (context, next) =>
@@ -103,7 +136,20 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseCors("AllowAll");
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/chatHub"))
+    {
+        var accessToken = context.Request.Query["access_token"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(accessToken))
+        {
+            context.Request.Headers.Authorization = $"Bearer {accessToken}";
+        }
+    }
+    await next();
+});
+
 app.UseAuthentication();
 app.UseTokenValidation(); // Custom middleware
 app.UseAuthorization();

@@ -4,9 +4,9 @@ using App.Object.Base.Users;
 using App.Object.Chat.MessageApp;
 using App.utility;
 using AutoMapper;
+using MyFrameWork.AppTool;
 using Domain.Objects.Base;
 using Domain.Objects.Chat;
-using MyFrameWork.AppTool;
 using SixLabors.ImageSharp.Processing;
 
 namespace App.Object.Chat
@@ -36,7 +36,8 @@ namespace App.Object.Chat
         public async Task<ApiResult<MessageView>> SendMessageAsync(SendMessageDto dto, int senderId)
         {
             var receiver = await _userRep.GetAsync(dto.ReceiverId);
-            if (receiver == null) return ApiResult<MessageView>.Failed("گیرنده یافت نشد.");
+            if (receiver == null)
+                return ApiResult<MessageView>.Failed("گیرنده یافت نشد.", 404);
 
             var message = new Message
             {
@@ -62,10 +63,10 @@ namespace App.Object.Chat
             await _messageRep.SaveChangesAsync();
 
             var view = _mapper.Map<MessageView>(message);
-            view.SenderName = (await _userRep.GetAsync(senderId))?.FullName ?? "";
+            view.SenderName = (await _userRep.GetAsync(senderId))?.FullName ?? "من";
             view.IsMine = true;
 
-            return ApiResult<MessageView>.Success(view);
+            return ApiResult<MessageView>.Success(view, "پیام با موفقیت ارسال شد.");
         }
 
         public async Task<ApiResult<List<MessageView>>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId)
@@ -73,10 +74,14 @@ namespace App.Object.Chat
             var messages = await _messageRep.GetChatHistoryAsync(currentUserId, otherUserId, pagination);
             var views = _mapper.Map<List<MessageView>>(messages);
 
-            var sender = await _userRep.GetAsync(currentUserId);
+            var currentUser = await _userRep.GetAsync(currentUserId);
+            var otherUser = await _userRep.GetAsync(otherUserId);
+
             foreach (var v in views)
             {
-                v.SenderName = v.SenderId == currentUserId ? sender?.FullName ?? "" : "Unknown";
+                v.SenderName = v.SenderId == currentUserId 
+                    ? currentUser?.FullName ?? "من" 
+                    : otherUser?.FullName ?? "کاربر ناشناس";
                 v.IsMine = v.SenderId == currentUserId;
             }
 
@@ -100,10 +105,13 @@ namespace App.Object.Chat
                     return new ChatListItem
                     {
                         UserId = g.Key,
-                        UserName = "User", // بعداً با join واقعی از دیتابیس
+                        UserName = "کاربر", // بعداً با join واقعی
                         LastMessage = lastMsg.Content,
                         LastMessageTime = lastMsg.SentAt,
-                        UnreadCount = g.Count(m => m.ReceiverId == userId && m.SeenAt == null && !m.IsDeletedForReceiver),
+                        UnreadCount = g.Count(m => 
+                            m.ReceiverId == userId && 
+                            m.SeenAt == null && 
+                            !m.IsDeletedForReceiver),
                         IsOnline = status == UserStatus.Online,
                         LastSeen = lastSeen
                     };
@@ -117,23 +125,24 @@ namespace App.Object.Chat
         {
             await _messageRep.MarkAsReadAsync(receiverId, senderId);
             await _messageRep.SaveChangesAsync();
-            return ApiResult.Success();
+            return ApiResult.Success("پیام‌ها به عنوان خوانده‌شده علامت‌گذاری شدند.");
         }
 
-        public async Task<ApiResult<int>> GetUnreadCountAsync(int receiverId) =>
-            ApiResult<int>.Success(await _messageRep.GetUnreadCountAsync(receiverId, 0)); // 0 = همه
-
+        public async Task<ApiResult<int>> GetUnreadCountAsync(int receiverId)
+        {
+            var count = await _messageRep.GetUnreadCountAsync(receiverId, 0);
+            return ApiResult<int>.Success(count);
+        }
 
         public async Task<ApiResult<int>> GetTotalUnreadCountAsync(int receiverId)
         {
-            // جمع تعداد پیام‌های خوانده‌نشده از همه فرستنده‌ها
-            var count = await _messageRep.GetFilteredAsync(m =>
+            var unreadMessages = await _messageRep.GetFilteredAsync(m =>
                 m.ReceiverId == receiverId &&
                 m.SeenAt == null &&
                 !m.IsDeletedForReceiver
             );
 
-            return ApiResult<int>.Success(count.Count);
+            return ApiResult<int>.Success(unreadMessages.Count);
         }
     }
 }

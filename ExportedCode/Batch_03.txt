@@ -1,67 +1,4 @@
-﻿===== FILE: App.Contracts\Object\Shop\CountTypeCon\CountTypeView.cs =====
-using MyFrameWork.AppTool;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Nodes;
-using System.Threading.Tasks;
-
-namespace App.Contracts.Object.Shop.CountTypeCon
-{
-    public class CountTypeView
-    {
-        [Display(Name = " Ø´Ù†Ø§Ø³Ù‡")]
-        public int Id { get; set; }
-    
-        [Display(Name = " Ù†Ø§Ù… ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´")]
-        public string Name { get; set; } = "";
-        
-
-    }
-    public class CountTypeCreate 
-    {
-
-        
-    
-        [Display(Name = " Ù†Ø§Ù… ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´")]
-        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
-        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
-        [RegularExpression(@"^[\u0600-\u06FF\s]+$", ErrorMessage = "ÙÙ‚Ø· Ø§Ø² Ø­Ø±ÙˆÙ ÙØ§Ø±Ø³ÛŒ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ú©Ù†ÛŒØ¯")]
-        [DataType(DataType.Text)]
-        public string Name { get; set; } = "";
-       
-       
-
-    }
-    
-   
-
-}
-
-
-===== FILE: App.Contracts\Object\Shop\CountTypeCon\ICountTypeApp.cs =====
-using MyFrameWork.AppTool;
-
-
-namespace App.Contracts.Object.Shop.CountTypeCon
-{
-    public interface ICountTypeApp
-    {
-        public Task<ApiResult<List<CountTypeView>>> GetAll(Pagination pagination);
-        public Task<ApiResult<CountTypeView>> GetById(int id);
-        public Task<ApiResult> Create(CountTypeCreate dto);
-        public Task<ApiResult> DeleteBy(List<int> ids);
-        public Task<ApiResult> Update(CountTypeView dto);
-    
-
-    }
-
-}
-
-
-===== FILE: App.Contracts\Object\Shop\InvCon\IInvApp.cs =====
+﻿===== FILE: App.Contracts\Object\Shop\InvCon\IInvApp.cs =====
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -251,6 +188,121 @@ namespace App.Contracts.Object.Shop.ProductCon
 
 }
 
+
+===== FILE: ConfApp\Mapping\Chat\ChatGroupMapping.cs =====
+// ConfApp/Mapping/Chat/ChatGroupMapping.cs
+using Domain.Objects.Chat;
+using Microsoft.EntityFrameworkCore;
+
+namespace ConfApp.Mapping.Chat
+{
+    public class ChatGroupMapping : IEntityTypeConfiguration<ChatGroup>
+    {
+        public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<ChatGroup> builder)
+        {
+            builder.ToTable("ChatGroups");
+            builder.HasKey(x => x.Id);
+
+            builder.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            builder.Property(x => x.ImageUrl).HasMaxLength(500);
+
+            builder.HasOne(g => g.Creator)
+                   .WithMany(u => u.CreatedGroups)
+                   .HasForeignKey(g => g.CreatorId)
+                   .OnDelete(DeleteBehavior.NoAction);
+        }
+    }
+}
+
+===== FILE: ConfApp\Mapping\Chat\ChatGroupMemberMapping.cs =====
+// ConfApp/Mapping/Chat/ChatGroupMemberMapping.cs
+using Domain.Objects.Chat;
+using Microsoft.EntityFrameworkCore;
+
+namespace ConfApp.Mapping.Chat
+{
+    public class ChatGroupMemberMapping : IEntityTypeConfiguration<ChatGroupMember>
+    {
+        public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<ChatGroupMember> builder)
+        {
+            builder.ToTable("ChatGroupMembers");
+            builder.HasKey(x => x.Id);
+
+            builder.HasOne(m => m.Group)
+                   .WithMany(g => g.Members)
+                   .HasForeignKey(m => m.GroupId)
+                   .OnDelete(DeleteBehavior.NoAction);
+
+            builder.HasOne(m => m.User)
+                   .WithMany(u => u.GroupMemberships)
+                   .HasForeignKey(m => m.UserId)
+                   .OnDelete(DeleteBehavior.NoAction);
+
+            builder.HasIndex(m => new { m.GroupId, m.UserId }).IsUnique();
+        }
+    }
+}
+
+===== FILE: ConfApp\Mapping\Chat\GroupMessageMapping.cs =====
+// ConfApp/Mapping/Chat/GroupMessageMapping.cs
+using Domain.Objects.Chat;
+using Microsoft.EntityFrameworkCore;
+
+namespace ConfApp.Mapping.Chat
+{
+    public class GroupMessageMapping : IEntityTypeConfiguration<GroupMessage>
+    {
+        public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<GroupMessage> builder)
+        {
+            builder.ToTable("GroupMessages");
+            builder.HasKey(x => x.Id);
+
+            builder.Property(x => x.Content).HasMaxLength(2000);
+            builder.Property(x => x.FileUrl).HasMaxLength(500);
+
+            builder.HasOne(m => m.Group)
+                   .WithMany(g => g.Messages)
+                   .HasForeignKey(m => m.GroupId);
+
+            builder.HasOne(m => m.Sender)
+                   .WithMany(u => u.GroupMessages)
+                   .HasForeignKey(m => m.SenderId)
+                   .OnDelete(DeleteBehavior.NoAction);
+        }
+    }
+}
+
+===== FILE: ConfApp\Mapping\Chat\MessageMapping.cs =====
+// ConfApp/Mapping/Chat/MessageMapping.cs
+using Domain.Objects.Chat;
+using Microsoft.EntityFrameworkCore;
+
+namespace ConfApp.Mapping.Chat
+{
+    public class MessageMapping : IEntityTypeConfiguration<Message>
+    {
+        public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<Message> builder)
+        {
+            builder.ToTable("Messages");
+            builder.HasKey(x => x.Id);
+
+            builder.Property(x => x.Content).HasMaxLength(2000);
+            builder.Property(x => x.FileUrl).HasMaxLength(500);
+
+            builder.HasOne(m => m.Sender)
+                   .WithMany(u => u.SentMessages)
+                   .HasForeignKey(m => m.SenderId)
+                   .OnDelete(DeleteBehavior.NoAction);
+
+            builder.HasOne(m => m.Receiver)
+                   .WithMany(u => u.ReceivedMessages)
+                   .HasForeignKey(m => m.ReceiverId)
+                   .OnDelete(DeleteBehavior.NoAction);
+
+            builder.HasIndex(m => new { m.SenderId, m.ReceiverId });
+        }
+    }
+}
 
 ===== FILE: ConfApp\Mapping\Inv\CountTypeMapping.cs =====
 using Domain.Objects.Shop;
@@ -479,6 +531,154 @@ namespace ConfApp.Rep.bases
         public async Task<bool> ExistsByUsername(string username)
         {
             return await _context.Users.AnyAsync(u => u.Username == username);
+        }
+    }
+}
+
+===== FILE: ConfApp\Rep\Chat\MessageRep.cs =====
+// ConfApp/Rep/Chat/MessageRep.cs
+using System.Linq.Expressions;
+using App;
+using App.Contracts.Object.Shop.ProductCon;
+using App.Object.Chat.MessageApp;
+using Domain.Objects.Chat;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+
+namespace ConfApp.Rep.Chat
+{
+    public class MessageRep : IMessageRep
+    {
+        private readonly MyContext _context;
+        private bool _disposed = false;
+
+        public MessageRep(MyContext context)
+        {
+            _context = context;
+        }
+
+        // --- IBaseRep Implementation ---
+        public async Task<Message> GetAsync(int id) => 
+            await _context.Messages.FindAsync(id) ?? throw new KeyNotFoundException();
+
+        public Message Get(int id) => 
+            _context.Messages.Find(id) ?? throw new KeyNotFoundException();
+
+        public async Task<List<Message>> GetAsync() => 
+            await _context.Messages.ToListAsync();
+
+        public async Task<List<Message>> GetAsync(Pagination pagination)
+        {
+            return await _context.Messages
+                .OrderBy(m => m.SentAt)
+                .Skip(pagination.CalculateSkip())
+                .Take(pagination.PageSize)
+                .ToListAsync();
+        }
+
+        public async Task<List<Message>> GetFilteredAsync(
+            Expression<Func<Message, bool>>? filter = null, 
+            ProductSearchCriteria? criteria = null)
+        {
+            var query = filter != null ? _context.Messages.Where(filter) : _context.Messages.AsQueryable();
+            return await query.ToListAsync();
+        }
+
+        public async Task CreateAsync(Message entity)
+        {
+            entity.CreateDate = DateTime.Now;
+            await _context.Messages.AddAsync(entity);
+        }
+
+        public void Delete(Message entity)
+        {
+            entity.IsDeleted = true;
+            entity.UpdateDate = DateTime.Now;
+            _context.Messages.Update(entity);
+        }
+
+        public void DeleteById(int id)
+        {
+            var entity = _context.Messages.Find(id);
+            if (entity != null) Delete(entity);
+        }
+
+        public async Task<int> CountAsync() => 
+            await _context.Messages.CountAsync();
+
+        public async Task<int> CountAsync(Expression<Func<Message, bool>> filter) => 
+            await _context.Messages.CountAsync(filter);
+
+        public async Task<bool> ExistAsync(Expression<Func<Message, bool>> expression) => 
+            await _context.Messages.AnyAsync(expression);
+
+        public async Task<bool> UpdateAsync(Message entity)
+        {
+            entity.UpdateDate = DateTime.Now;
+            _context.Messages.Update(entity);
+            return true;
+        }
+
+        public async Task SaveChangesAsync() => 
+            await _context.SaveChangesAsync();
+
+        public async Task<List<Message>> GetByIdsAsync(List<int> ids) => 
+            await _context.Messages.Where(m => ids.Contains(m.Id)).ToListAsync();
+
+        public void DeleteRange(List<Message> entities)
+        {
+            foreach (var e in entities)
+                e.IsDeleted = true;
+            _context.Messages.UpdateRange(entities);
+        }
+
+        public Task<bool> HasRelationsAsync(Message entity) => 
+            Task.FromResult(false); // Ø¨Ø¹Ø¯Ø§Ù‹ Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ
+
+        // --- IMessageRep Specific Methods ---
+        public async Task<List<Message>> GetChatHistoryAsync(int userId, int otherUserId, Pagination pagination)
+        {
+            return await _context.Messages
+                .Where(m => 
+                    (m.SenderId == userId && m.ReceiverId == otherUserId) ||
+                    (m.SenderId == otherUserId && m.ReceiverId == userId))
+                .OrderBy(m => m.SentAt)
+                .Skip(pagination.CalculateSkip())
+                .Take(pagination.PageSize)
+                .ToListAsync();
+        }
+
+        public async Task<int> GetUnreadCountAsync(int receiverId, int senderId) =>
+            await _context.Messages
+                .CountAsync(m => 
+                    m.ReceiverId == receiverId && 
+                    m.SenderId == senderId && 
+                    m.SeenAt == null && 
+                    !m.IsDeletedForReceiver);
+
+        public async Task MarkAsReadAsync(int receiverId, int senderId)
+        {
+            var messages = await _context.Messages
+                .Where(m => m.ReceiverId == receiverId && m.SenderId == senderId && m.SeenAt == null)
+                .ToListAsync();
+
+            foreach (var m in messages)
+            {
+                m.SeenAt = DateTime.Now;
+                m.UpdateDate = DateTime.Now;
+            }
+
+            _context.Messages.UpdateRange(messages);
+        }
+
+        // --- IDisposable ---
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                _context.Dispose();
+                _disposed = true;
+            }
         }
     }
 }
@@ -848,6 +1048,7 @@ namespace ConfApp
 ===== FILE: ConfApp\MyContext.cs =====
 using ConfApp.Mapping;
 using Domain.Objects.Base;
+using Domain.Objects.Chat;
 using Domain.Objects.Shop;
 using Microsoft.EntityFrameworkCore;
 
@@ -861,11 +1062,16 @@ namespace ConfApp
         public DbSet<Product> Products { get; set; }
         public DbSet<CountType> CountTypes { get; set; }
         public DbSet<Inv> Inventories { get; set; }
-        public DbSet<User> Users {get; set;}
-        public DbSet<Role> Roles {get; set;}
-        public DbSet<Permission> Permissions {get; set;}
-        public DbSet<UserRole> UserRoles {get; set;}
-        public DbSet<RolePermission> RolePermissions {get; set;}
+        public DbSet<User> Users { get; set; }
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<Permission> Permissions { get; set; }
+        public DbSet<UserRole> UserRoles { get; set; }
+        public DbSet<RolePermission> RolePermissions { get; set; }
+
+        public DbSet<Message> Messages { get; set; }
+        public DbSet<ChatGroup> ChatGroups { get; set; }
+        public DbSet<ChatGroupMember> ChatGroupMembers { get; set; }
+        public DbSet<GroupMessage> GroupMessages { get; set; }
 
         #endregion
         public MyContext(DbContextOptions<MyContext> options) : base(options)
@@ -909,6 +1115,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Domain.Objects.Chat;
 
 namespace Domain.Objects.Base
 {
@@ -923,6 +1130,12 @@ namespace Domain.Objects.Base
         public UserStatus Status { get; set; } = UserStatus.Offline;  // Ø¬Ø¯ÛŒØ¯: ÙˆØ¶Ø¹ÛŒØª
         public DateTime? LastSeen { get; set; }  // Ø¬Ø¯ÛŒØ¯: Ø¢Ø®Ø±ÛŒÙ† Ø¨Ø§Ø²Ø¯ÛŒØ¯
         public List<UserRole> UserRoles { get; set; }
+
+        public List<Message> SentMessages { get; set; } = new();
+        public List<Message> ReceivedMessages { get; set; } = new();
+        public List<ChatGroup> CreatedGroups { get; set; } = new();
+        public List<ChatGroupMember> GroupMemberships { get; set; } = new();
+        public List<GroupMessage> GroupMessages { get; set; } = new();
 
     }
 
@@ -970,42 +1183,109 @@ namespace Domain.Objects.Base
 
 
 
-===== FILE: Domain\Objects\Shop\CountType.cs =====
-using System;
+===== FILE: Domain\Objects\Chat\ChatGroup.cs =====
+// Domain/Objects/Chat/ChatGroup.cs
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Domain.Objects.Base;
 
-namespace Domain.Objects.Shop
+namespace Domain.Objects.Chat
 {
-    public class CountType : BaseDomain
+    public class ChatGroup : BaseDomain
     {
-       
-        public string Name { get; set; } = default!;
+        public string Name { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+        public int CreatorId { get; set; }
+        public User Creator { get; set; } = null!;
 
-        public ICollection<Product> products { get; set; } 
+        public ICollection<ChatGroupMember> Members { get; set; } = new List<ChatGroupMember>();
+        public ICollection<GroupMessage> Messages { get; set; } = new List<GroupMessage>();
     }
 }
 
+===== FILE: Domain\Objects\Chat\ChatGroupMember.cs =====
+// Domain/Objects/Chat/ChatGroupMember.cs
+using Domain.Objects.Base;
 
-===== FILE: Domain\Objects\Shop\Inv.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Objects.Shop
+namespace Domain.Objects.Chat
 {
-    public class Inv : BaseDomain
+    public class ChatGroupMember : BaseDomain
     {
-        
-        public string Name { get; set; }
-        public Boolean Active  { get; set; }=true;
+        public int GroupId { get; set; }
+        public ChatGroup Group { get; set; } = null!;
+
+        public int UserId { get; set; }
+        public User User { get; set; } = null!;
+
+        public bool IsAdmin { get; set; } = false;
+    }
+}
+
+===== FILE: Domain\Objects\Chat\GroupMessage.cs =====
+// Domain/Objects/Chat/GroupMessage.cs
+using System;
+using Domain.Objects.Base;
+
+namespace Domain.Objects.Chat
+{
+    public class GroupMessage : BaseDomain
+    {
+        public int GroupId { get; set; }
+        public ChatGroup Group { get; set; } = null!;
+
+        public int SenderId { get; set; }
+        public User Sender { get; set; } = null!;
+
+        public string Content { get; set; } = string.Empty;
+        public string? FileUrl { get; set; }
+        public MessageType Type { get; set; } = MessageType.Text;
+
+        public DateTime SentAt { get; set; } = DateTime.Now;
+
 
     }
 }
+
+===== FILE: Domain\Objects\Chat\Message.cs =====
+// Domain/Objects/Chat/Message.cs
+using Domain.Objects;
+using Domain.Objects.Base;
+using System;
+
+namespace Domain.Objects.Chat
+{
+    public class Message : BaseDomain
+    {
+        public int SenderId { get; set; }
+        public User Sender { get; set; } = null!;
+
+        public int ReceiverId { get; set; }
+        public User Receiver { get; set; } = null!;
+
+        public string Content { get; set; } = string.Empty;
+        public string? FileUrl { get; set; } // Ø¨Ø±Ø§ÛŒ Ø¹Ú©Ø³/ÙØ§ÛŒÙ„
+        public MessageType Type { get; set; } = MessageType.Text; // Ù…ØªÙ†ØŒ Ø¹Ú©Ø³ØŒ ÙØ§ÛŒÙ„
+
+        public DateTime SentAt { get; set; } = DateTime.Now;
+        public DateTime? DeliveredAt { get; set; }
+        public DateTime? SeenAt { get; set; }
+
+        public bool IsDeletedForSender { get; set; } = false;
+        public bool IsDeletedForReceiver { get; set; } = false;
+    }
+
+    public enum MessageType
+    {
+        Text = 1,
+        Image = 2,
+        File = 3
+    }
+
+
+
+}
+
+
+
+
 
 

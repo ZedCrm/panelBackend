@@ -1,5 +1,7 @@
 // API/Controllers/ChatController.cs
+using System.Security.Claims;
 using API.Attributes;
+using API.utility;
 using App.Contracts.Object.Chat;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
@@ -22,7 +24,8 @@ namespace API.Controllers
         }
 
         private int CurrentUserId => 
-            int.TryParse(_httpContext.HttpContext?.User?.FindFirst("userId")?.Value, out var id) 
+            int.TryParse(_httpContext.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) 
+            
                 ? id 
                 : throw new UnauthorizedAccessException("User ID not found in token.");
 

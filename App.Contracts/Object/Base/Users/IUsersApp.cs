@@ -15,5 +15,6 @@ Task<ApiResult<List<UsersView>>>             GetAll(Pagination pagination);
         Task<ApiResult>                      DeleteBy(List<int> ids);
         Task<ApiResult<UserCreateFormData>>  CreateForm();
         Task<ApiResult>                      KeepAlive(int userId);
+        Task<ApiResult<List<UserList>>>      GetList();
     }
 }

@@ -5,12 +5,17 @@
 |   +-- bases
 |   |   +-- AuthController.cs
 |   |   +-- UserController.cs
+|   +-- Chat
+|   |   +-- ChatController.cs
 |   +-- Shop
 |   |   +-- CountTypeController.cs
 |   |   +-- InvController.cs
 |   |   +-- ProductController.cs
 |   +-- BaseController.cs
 |   +-- MetadataController.cs
++-- Hubs
+|   +-- ChatHub
+|   |   +-- ChatHub.cs
 +-- Middleware
 |   +-- TokenValidationMiddleware.cs
 +-- Properties
@@ -18,6 +23,7 @@
 +-- Services
 |   +-- PermissionDiscoveryService.cs
 +-- utility
+|   +-- ApiResultExtensions.cs
 |   +-- FileService.cs
 +-- appsettings.Development.json
 +-- appsettings.json
@@ -42,6 +48,9 @@ App
 |   |   +-- CrudService.cs
 |   |   +-- IPersonRep.cs
 |   |   +-- PersonApp.cs
+|   |   +-- MessageApp
+|   |   |   +-- IMessageRep.cs
+|   |   +-- ChatApp.cs
 |   |   +-- CountTypeApp
 |   |   |   +-- ContTypeApp.cs
 |   |   +-- invApp
@@ -49,6 +58,7 @@ App
 |   |   +-- ProductApp
 |   |   |   +-- ProductApp.cs
 |   +-- BaseService.cs
+|   +-- ChatProfile.cs
 |   +-- ClassMapping.cs
 |   +-- IFileService.cs
 |   +-- ModelValidator.cs
@@ -64,6 +74,8 @@ App.Contracts
 |   |   |   +-- UsersDto.cs
 |   |   +-- IPersonApp.cs
 |   |   +-- PersonView.cs
+|   |   +-- IChatApp.cs
+|   |   +-- SendMessageDto.cs
 |   |   +-- CountTypeCon
 |   |   |   +-- CountTypeView.cs
 |   |   |   +-- ICountTypeApp.cs
@@ -75,6 +87,10 @@ App.Contracts
 |   |   |   +-- ProductView.cs
 ConfApp
 +-- Mapping
+|   |   +-- ChatGroupMapping.cs
+|   |   +-- ChatGroupMemberMapping.cs
+|   |   +-- GroupMessageMapping.cs
+|   |   +-- MessageMapping.cs
 |   +-- Inv
 |   |   +-- CountTypeMapping.cs
 |   |   +-- ProductMapping.cs
@@ -84,6 +100,7 @@ ConfApp
 |   |   +-- PermissionRepository.cs
 |   |   +-- RoleRepo.cs
 |   |   +-- UserRep.cs
+|   |   +-- MessageRep.cs
 |   |   +-- CountTypeRep.cs
 |   |   +-- invRep.cs
 |   |   +-- ProductRep.cs
@@ -94,6 +111,10 @@ Domain
 +-- Objects
 |   |   +-- Person.cs
 |   |   +-- User.cs
+|   |   +-- ChatGroup.cs
+|   |   +-- ChatGroupMember.cs
+|   |   +-- GroupMessage.cs
+|   |   +-- Message.cs
 |   |   +-- CountType.cs
 |   |   +-- Inv.cs
 |   |   +-- InvTran.cs
@@ -108,6 +129,8 @@ Infrastructure
 +-- Migrations
 |   +-- 20251107184623_init.cs
 |   +-- 20251107184623_init.Designer.cs
+|   +-- 20251113075911_AddChatSchema_FixedCascade.cs
+|   +-- 20251113075911_AddChatSchema_FixedCascade.Designer.cs
 |   +-- MyContextModelSnapshot.cs
 +-- CRMBootstraper.cs
 MyFrameWork

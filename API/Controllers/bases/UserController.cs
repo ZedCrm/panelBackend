@@ -78,5 +78,13 @@ namespace API.Controllers.bases
             var permissions = await _permissionService.GetUserPermissionsAsync(userId);  
             return ApiResult<List<string>>.Success(permissions);
         }
+
+        [HttpGet("/api/user/getlist")]
+
+        public async Task<ApiResult<List<UserList>>> GetList(){
+
+            return await _usersApp.GetList();
+
+        }
     }
 }

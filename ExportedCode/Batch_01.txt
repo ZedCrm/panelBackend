@@ -141,6 +141,83 @@ namespace API.Controllers.bases
             var permissions = await _permissionService.GetUserPermissionsAsync(userId);  
             return ApiResult<List<string>>.Success(permissions);
         }
+
+        [HttpGet("/api/user/getlist")]
+
+        public async Task<ApiResult<List<UserList>>> GetList(){
+
+            return await _usersApp.GetList();
+
+        }
+    }
+}
+
+===== FILE: API\Controllers\Chat\ChatController.cs =====
+// API/Controllers/ChatController.cs
+using System.Security.Claims;
+using API.Attributes;
+using API.utility;
+using App.Contracts.Object.Chat;
+using Microsoft.AspNetCore.Mvc;
+using MyFrameWork.AppTool;
+
+
+namespace API.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    [RequirePermission("Chat.Access")]
+    public class ChatController : ControllerBase
+    {
+        private readonly IChatApp _chatApp;
+        private readonly IHttpContextAccessor _httpContext;
+
+        public ChatController(IChatApp chatApp, IHttpContextAccessor httpContext)
+        {
+            _chatApp = chatApp;
+            _httpContext = httpContext;
+        }
+
+        private int CurrentUserId => 
+            int.TryParse(_httpContext.HttpContext?.User?.FindFirst("id")?.Value, out var id) 
+            
+                ? id 
+                : throw new UnauthorizedAccessException("User ID not found in token.");
+
+        [HttpPost("send")]
+        public async Task<IActionResult> SendMessage([FromForm] SendMessageDto dto)
+        {
+            var result = await _chatApp.SendMessageAsync(dto, CurrentUserId);
+            return result.ToActionResult();
+        }
+
+        [HttpGet("history/{otherUserId}")]
+        public async Task<IActionResult> GetChatHistory(int otherUserId, [FromQuery] Pagination pagination)
+        {
+            var result = await _chatApp.GetChatHistoryAsync(otherUserId, pagination, CurrentUserId);
+            return result.ToActionResult();
+        }
+
+        [HttpGet("list")]
+        public async Task<IActionResult> GetChatList()
+        {
+            var result = await _chatApp.GetChatListAsync(CurrentUserId);
+            return result.ToActionResult();
+        }
+
+        [HttpPost("mark-as-read/{senderId}")]
+        public async Task<IActionResult> MarkAsRead(int senderId)
+        {
+            var result = await _chatApp.MarkAsReadAsync(senderId, CurrentUserId);
+            return result.ToActionResult();
+        }
+
+        [HttpGet("unread-count")]
+        public async Task<IActionResult> GetTotalUnreadCount()
+        {
+            var result = await _chatApp.GetTotalUnreadCountAsync(CurrentUserId);
+            return result.ToActionResult();
+        }
     }
 }
 
@@ -445,6 +522,123 @@ namespace API.Controllers
 }
 
 
+===== FILE: API\Hubs\ChatHub\ChatHub.cs =====
+// API/Hubs/ChatHub.cs
+using System.Security.Claims;
+using App.Contracts.Object.Chat;
+using App.Object.Chat;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+using MyFrameWork.AppTool;
+
+namespace API.Hubs
+{
+    [Authorize]
+    public class ChatHub : Hub
+    {
+        private readonly IChatApp _chatApp;
+        private readonly IHttpContextAccessor _httpContext;
+
+        public ChatHub(IChatApp chatApp, IHttpContextAccessor httpContext)
+        {
+            _chatApp = chatApp;
+            _httpContext = httpContext;
+        }
+
+        private int CurrentUserId
+        {
+            get
+            {
+                var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var id))
+                    throw new HubException("User not authenticated or invalid user ID.");
+
+                return id;
+            }
+        }
+
+        public override async Task OnConnectedAsync()
+        {
+            try
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"User_{CurrentUserId}");
+                await base.OnConnectedAsync();
+            }
+            catch (Exception ex)
+            {
+                await Clients.Caller.SendAsync("Error", new { message = "Failed to connect to chat.", error = ex.Message });
+                throw;
+            }
+        }
+
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+            try
+            {
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"User_{CurrentUserId}");
+                await base.OnDisconnectedAsync(exception);
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        public async Task SendMessage(SendMessageDto dto)
+        {
+            try
+            {
+                var result = await _chatApp.SendMessageAsync(dto, CurrentUserId);
+
+                if (result.IsSucceeded && result.Data != null)
+                {
+                    var messageView = result.Data;
+
+                    // Ø§Ø±Ø³Ø§Ù„ Ø¨Ù‡ ÙØ±Ø³ØªÙ†Ø¯Ù‡ (Ø®ÙˆØ¯Ø´)
+                    await Clients.Group($"User_{CurrentUserId}").SendAsync("ReceiveMessage", messageView);
+
+                    // Ø§Ø±Ø³Ø§Ù„ Ø¨Ù‡ Ú¯ÛŒØ±Ù†Ø¯Ù‡
+                    await Clients.Group($"User_{dto.ReceiverId}").SendAsync("ReceiveMessage", messageView);
+                }
+                else
+                {
+                    // Ø®Ø·Ø§ ÙÙ‚Ø· Ø¨Ù‡ ÙØ±Ø³ØªÙ†Ø¯Ù‡
+                    await Clients.Caller.SendAsync("SendError", new
+                    {
+                        message = result.Message ?? "Failed to send message.",
+                        errors = result.Errors
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                await Clients.Caller.SendAsync("SendError", new
+                {
+                    message = "An error occurred while sending the message.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        public async Task OpenChat(int otherUserId)
+        {
+            try
+            {
+                var result = await _chatApp.MarkAsReadAsync(otherUserId, CurrentUserId);
+
+                if (result.IsSucceeded)
+                {
+                    await Clients.Group($"User_{CurrentUserId}").SendAsync("ChatOpened", otherUserId);
+                }
+            }
+            catch (Exception ex)
+            {
+                await Clients.Caller.SendAsync("Error", new { message = "Failed to open chat.", error = ex.Message });
+            }
+        }
+    }
+}
+
 ===== FILE: API\Middleware\TokenValidationMiddleware.cs =====
 using API.Attributes;
 using App.Contracts.Object.Base.auth;
@@ -623,6 +817,66 @@ namespace API.Services
     }
 }
 
+===== FILE: API\utility\ApiResultExtensions.cs =====
+// MyFrameWork/AppTool/ApiResultExtensions.cs
+using Microsoft.AspNetCore.Mvc;
+using MyFrameWork.AppTool;
+
+
+namespace API.utility
+{
+    public static class ApiResultExtensions
+    {
+        public static IActionResult ToActionResult(this ApiResult result)
+        {
+            if (result == null) return new StatusCodeResult(500);
+
+            var content = new
+            {
+                success = result.IsSucceeded,
+                message = result.Message,
+                errors = result.Errors,
+                data = (object?)null,
+                pagination = result.TotalRecords != null ? new
+                {
+                    result.TotalRecords,
+                    result.TotalPages,
+                    result.PageNumber,
+                    result.PageSize
+                } : null
+            };
+
+            return result.IsSucceeded
+                ? new OkObjectResult(content) { StatusCode = result.StatusCode }
+                : new ObjectResult(content) { StatusCode = result.StatusCode };
+        }
+
+        public static IActionResult ToActionResult<T>(this ApiResult<T> result)
+        {
+            if (result == null) return new StatusCodeResult(500);
+
+            var content = new
+            {
+                success = result.IsSucceeded,
+                message = result.Message,
+                errors = result.Errors,
+                data = result.Data,
+                pagination = result.TotalRecords != null ? new
+                {
+                    result.TotalRecords,
+                    result.TotalPages,
+                    result.PageNumber,
+                    result.PageSize
+                } : null
+            };
+
+            return result.IsSucceeded
+                ? new OkObjectResult(content) { StatusCode = result.StatusCode }
+                : new ObjectResult(content) { StatusCode = result.StatusCode };
+        }
+    }
+}
+
 ===== FILE: API\utility\FileService.cs =====
 // API/utility/FileService.cs
 using App.utility;
@@ -755,6 +1009,7 @@ namespace API.utility
 
 
 ===== FILE: API\Program.cs =====
+using API.Hubs;
 using API.Middleware;
 using API.Services;
 using App.Contracts.Object.Base.auth;
@@ -766,6 +1021,7 @@ using Infrastructure.data.seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -774,7 +1030,36 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "CRM API", Version = "v1" });
+
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization. Example: 'Bearer {token}'",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+
+
+builder.Services.AddSignalR();
+builder.Services.AddHttpContextAccessor();
+
 
 // === CORS: Allow all origins (dev only) ===
 builder.Services.AddCors(options =>
@@ -824,7 +1109,11 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM API v1");
+    c.RoutePrefix = "swagger";
+});
 
     // Seed permissions from controllers (only in dev)
     using var scope = app.Services.CreateScope();
@@ -860,6 +1149,8 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseTokenValidation(); // Custom middleware
 app.UseAuthorization();
+
+app.MapHub<ChatHub>("/chatHub");
 
 // === Ensure uploads folder exists ===
 var uploadsPath = Path.Combine(app.Environment.WebRootPath, "uploads");
@@ -1066,6 +1357,7 @@ namespace App.Object.Base.auth
         {
             var claims = new[]
             {
+                new Claim("id", user.Id.ToString()),
         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
         new Claim(ClaimTypes.Email, user.Email),
         new Claim(ClaimTypes.Name, user.FullName)
@@ -1095,5 +1387,248 @@ using Domain.Objects.Base;
 public interface IRoleRep :  IBaseRep<Role, int> {
 
 
+}
+
+===== FILE: App\Object\Base\Users\UsersApp.cs =====
+// App/Object/Base/Users/UsersApp.cs
+using App.Contracts.Object.Base.Users;
+using App.Object.Base;
+using App.utility;
+using AutoMapper;
+using Domain.Objects.Base;
+using MyFrameWork.AppTool;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace App.Object.Base.Users
+{
+    public class UsersApp : CrudService<User, UsersView, UsersCreat, UsersUpdate, int>,
+                            IUsersApp
+    {
+        private readonly IMyUserRepository _userRepository;
+        private readonly IFileService _fileService;
+        private readonly UserStatusService _statusService;
+        private readonly IRoleRep _roleRep;
+
+        public UsersApp(
+            IMyUserRepository userRepository,
+            IMapper mapper,
+            IFileService fileService,
+            UserStatusService statusService,
+            IRoleRep roleRep)
+            : base(userRepository, mapper)
+        {
+            _userRepository = userRepository;
+            _fileService = fileService;
+            _statusService = statusService;
+            _roleRep = roleRep;
+        }
+
+        /*=== Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ IUsersApp ===*/
+        public Task<ApiResult<List<UsersView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
+        public Task<ApiResult<UsersUpdate>> GetById(int id) => base.GetByIdAsync(id);
+        public Task<ApiResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
+
+        /*=== Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ ===*/
+        public async Task<ApiResult<UserCreateFormData>> CreateForm()
+        {
+            var roles = await _roleRep.GetAsync();
+            return ApiResult<UserCreateFormData>.Success(
+                new UserCreateFormData
+                {
+                    Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
+                });
+        }
+
+        public async Task<ApiResult> KeepAlive(int userId)
+        {
+            _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
+            return ApiResult.Success("ÙˆØ¶Ø¹ÛŒØª Ø¢Ù†Ù„Ø§ÛŒÙ† Ø´Ø¯.");
+        }
+
+        /*=== Ø§ÙˆØ±Ø±Ø§ÛŒØ¯Ù‡Ø§ÛŒ Ø¶Ø±ÙˆØ±ÛŒ (Business + ÙØ§ÛŒÙ„ + ÙˆØ¶Ø¹ÛŒØª) ===*/
+        public override async Task<ApiResult> CreateAsync(UsersCreat dto)
+        {
+            if (await _userRepository.ExistAsync(u => u.Email == dto.Email))
+                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+            if (await _userRepository.ExistAsync(u => u.Username == dto.Username))
+                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            var user = _mapper.Map<User>(dto);
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid }).ToList();
+
+            if (dto.ProfilePicture != null)
+            {
+                var resizeOptions = new ResizeOptions
+                {
+                    Size = new Size(200, 200),
+                    Mode = ResizeMode.Max
+                };
+
+                user.ProfilePictureUrl = await _fileService.UploadAsync(
+                    file: dto.ProfilePicture,
+                    folderPath: "uploads/profiles",
+                    existingUrl: user.ProfilePictureUrl,
+                    resizeOptions: resizeOptions
+                );
+            }
+
+
+
+
+
+
+
+
+            await _userRepository.CreateAsync(user);
+            await _userRepository.SaveChangesAsync();
+            _statusService.UpdateStatus(user.Id, UserStatus.Offline);
+            return ApiResult.Success(message: $"Ú©Ø§Ø±Ø¨Ø± {dto.FullName} Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
+        }
+
+        public override async Task<ApiResult> UpdateAsync(UsersUpdate dto)
+        {
+            if (await _userRepository.ExistAsync(u => u.Email == dto.Email && u.Id != dto.Id))
+                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+            if (await _userRepository.ExistAsync(u => u.Username == dto.Username && u.Id != dto.Id))
+                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+
+            var user = await _userRepository.GetAsync(dto.Id);
+            if (user == null) return ApiResult.Failed(MessageApp.NotFound, 404);
+
+
+            var oldPasswordHash = user.PasswordHash;
+
+            _mapper.Map(dto, user);
+            // Ø§Ú¯Ø± Ú©Ø§Ø±Ø¨Ø± Ø±Ù…Ø² Ø¬Ø¯ÛŒØ¯ Ù†ÙØ±Ø³ØªØ§Ø¯Ù‡ Ø¨ÙˆØ¯ØŒ Ù¾Ø³ÙˆØ±Ø¯ Ù‚Ø¨Ù„ÛŒ Ø±Ø§ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†
+            if (string.IsNullOrEmpty(dto.Password))
+                user.PasswordHash = oldPasswordHash;
+            else
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+
+            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = dto.Id }).ToList();
+
+            if (dto.ProfilePicture != null)
+            {
+                var resizeOptions = new ResizeOptions
+                {
+                    Size = new Size(200, 200),
+                    Mode = ResizeMode.Max
+                };
+
+                user.ProfilePictureUrl = await _fileService.UploadAsync(
+                    file: dto.ProfilePicture,
+                    folderPath: "uploads/profiles",
+                    existingUrl: user.ProfilePictureUrl,
+                    resizeOptions: resizeOptions
+                );
+            }
+
+            await _userRepository.UpdateAsync(user);
+            await _userRepository.SaveChangesAsync();
+            return ApiResult.Success(message: "Ú©Ø§Ø±Ø¨Ø± Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
+        }
+
+        public override async Task<ApiResult<List<UsersView>>> GetAllAsync(Pagination pagination)
+        {
+            var users = await _userRepository.GetAsync(pagination);
+            var vms = _mapper.Map<List<UsersView>>(users);
+
+            foreach (var vm in vms)
+            {
+                var (status, lastSeen) = _statusService.GetStatus(vm.Id);
+                vm.Status = status;
+                vm.LastSeen = lastSeen;
+            }
+
+            var total = await _userRepository.CountAsync();
+            return ApiResult<List<UsersView>>.PagedSuccess(vms, total,
+                                                           pagination.PageNumber,
+                                                           pagination.PageSize);
+        }
+
+        public override async Task<ApiResult> DeleteAsync(List<int> ids)
+        {
+            var res = await base.DeleteAsync(ids);
+            if (res.IsSucceeded) ids.ForEach(id => _statusService.UpdateStatus(id, UserStatus.Offline));
+            return res;
+        }
+
+        public async Task<ApiResult<List<UserList>>> GetList()
+        {
+            var users = await _repo.GetAsync();
+          var res =  _mapper.Map<List<UserList>>(users);
+          return  ApiResult<List<UserList>>.Success(res);
+
+        }
+    }
+
+    public interface IMyUserRepository : IBaseRep<User, int> { }
+}
+
+===== FILE: App\Object\Base\Users\UserStatusService.cs =====
+using System.Collections.Concurrent;
+using System.IO;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Domain.Objects.Base;
+
+namespace App.Object.Base.Users
+{
+    public class UserStatusService
+    {
+        private readonly ConcurrentDictionary<int, (UserStatus Status, DateTime? LastSeen)> _userStatuses = new();
+        private readonly string _statusFilePath = Path.Combine(Directory.GetCurrentDirectory(), "user-status.json");
+
+        public UserStatusService()
+        {
+            LoadFromFile();  // Ù„ÙˆØ¯ Ù…ÙˆÙ‚Ø¹ startup
+        }
+
+        public void UpdateStatus(int userId, UserStatus status, DateTime? lastSeen = null)
+        {
+            _userStatuses[userId] = (status, lastSeen ?? DateTime.Now);
+            SaveToFile();  // Ù‡Ø± Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø³ÛŒÙˆ Ú©Ù† (Ø¨Ø±Ø§ÛŒ ØªØºÛŒÛŒØ±Ø§Øª Ø²ÛŒØ§Ø¯, Ø´Ø§ÛŒØ¯ debounce Ú©Ù† Ø§Ù…Ø§ Ø³Ø§Ø¯Ù‡)
+        }
+
+        public (UserStatus, DateTime?) GetStatus(int userId)
+        {
+            return _userStatuses.TryGetValue(userId, out var status) ? status : (UserStatus.Offline, null);
+        }
+
+        public void CheckInactive()  // periodical call Ù…Ø«Ù„Ø§Ù‹ Ø¨Ø§ timer
+        {
+            var now = DateTime.Now;
+            foreach (var kvp in _userStatuses)
+            {
+                if (kvp.Value.LastSeen.HasValue && (now - kvp.Value.LastSeen.Value).TotalMinutes > 5 && kvp.Value.Status == UserStatus.Online)
+                {
+                    UpdateStatus(kvp.Key, UserStatus.Inactive, kvp.Value.LastSeen);
+                }
+            }
+        }
+
+        private void LoadFromFile()
+        {
+            if (File.Exists(_statusFilePath))
+            {
+                var json = File.ReadAllText(_statusFilePath);
+                var data = JsonSerializer.Deserialize<Dictionary<int, (UserStatus, DateTime?)>>(json);
+                if (data != null)
+                    foreach (var kvp in data) _userStatuses[kvp.Key] = kvp.Value;
+            }
+        }
+
+        private void SaveToFile()
+        {
+            var json = JsonSerializer.Serialize(_userStatuses.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
+            File.WriteAllText(_statusFilePath, json);
+        }
+    }
 }
 

@@ -166,6 +166,14 @@ namespace App.Object.Base.Users
             if (res.IsSucceeded) ids.ForEach(id => _statusService.UpdateStatus(id, UserStatus.Offline));
             return res;
         }
+
+        public async Task<ApiResult<List<UserList>>> GetList()
+        {
+            var users = await _repo.GetAsync();
+          var res =  _mapper.Map<List<UserList>>(users);
+          return  ApiResult<List<UserList>>.Success(res);
+
+        }
     }
 
     public interface IMyUserRepository : IBaseRep<User, int> { }

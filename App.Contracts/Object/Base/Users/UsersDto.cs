@@ -21,7 +21,7 @@ namespace App.Contracts.Object.Base.Users
 
     public class UsersCreat
     {
-      
+
         public string FullName { get; set; } = default!;
 
 
@@ -63,7 +63,13 @@ namespace App.Contracts.Object.Base.Users
 
         public List<int>? RoleIds { get; set; } = new();
     }
+    public class UserList
+    {
+        public int Id { get; set; }
+        public string FullName { get; set; } = default!;
 
+
+    }
     public class UserCreateFormData
     {
         public List<RoleView> Roles { get; set; } = new();

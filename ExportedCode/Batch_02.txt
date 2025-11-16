@@ -1,239 +1,4 @@
-﻿===== FILE: App\Object\Base\Users\UsersApp.cs =====
-// App/Object/Base/Users/UsersApp.cs
-using App.Contracts.Object.Base.Users;
-using App.Object.Base;
-using App.utility;
-using AutoMapper;
-using Domain.Objects.Base;
-using MyFrameWork.AppTool;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace App.Object.Base.Users
-{
-    public class UsersApp : CrudService<User, UsersView, UsersCreat, UsersUpdate, int>,
-                            IUsersApp
-    {
-        private readonly IMyUserRepository _userRepository;
-        private readonly IFileService _fileService;
-        private readonly UserStatusService _statusService;
-        private readonly IRoleRep _roleRep;
-
-        public UsersApp(
-            IMyUserRepository userRepository,
-            IMapper mapper,
-            IFileService fileService,
-            UserStatusService statusService,
-            IRoleRep roleRep)
-            : base(userRepository, mapper)
-        {
-            _userRepository = userRepository;
-            _fileService = fileService;
-            _statusService = statusService;
-            _roleRep = roleRep;
-        }
-
-        /*=== Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ IUsersApp ===*/
-        public Task<ApiResult<List<UsersView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<ApiResult<UsersUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<ApiResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
-
-        /*=== Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ ===*/
-        public async Task<ApiResult<UserCreateFormData>> CreateForm()
-        {
-            var roles = await _roleRep.GetAsync();
-            return ApiResult<UserCreateFormData>.Success(
-                new UserCreateFormData
-                {
-                    Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
-                });
-        }
-
-        public async Task<ApiResult> KeepAlive(int userId)
-        {
-            _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
-            return ApiResult.Success("ÙˆØ¶Ø¹ÛŒØª Ø¢Ù†Ù„Ø§ÛŒÙ† Ø´Ø¯.");
-        }
-
-        /*=== Ø§ÙˆØ±Ø±Ø§ÛŒØ¯Ù‡Ø§ÛŒ Ø¶Ø±ÙˆØ±ÛŒ (Business + ÙØ§ÛŒÙ„ + ÙˆØ¶Ø¹ÛŒØª) ===*/
-        public override async Task<ApiResult> CreateAsync(UsersCreat dto)
-        {
-            if (await _userRepository.ExistAsync(u => u.Email == dto.Email))
-                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
-            if (await _userRepository.ExistAsync(u => u.Username == dto.Username))
-                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
-
-            var user = _mapper.Map<User>(dto);
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid }).ToList();
-
-            if (dto.ProfilePicture != null)
-            {
-                var resizeOptions = new ResizeOptions
-                {
-                    Size = new Size(200, 200),
-                    Mode = ResizeMode.Max
-                };
-
-                user.ProfilePictureUrl = await _fileService.UploadAsync(
-                    file: dto.ProfilePicture,
-                    folderPath: "uploads/profiles",
-                    existingUrl: user.ProfilePictureUrl,
-                    resizeOptions: resizeOptions
-                );
-            }
-
-
-
-
-
-
-
-
-            await _userRepository.CreateAsync(user);
-            await _userRepository.SaveChangesAsync();
-            _statusService.UpdateStatus(user.Id, UserStatus.Offline);
-            return ApiResult.Success(message: $"Ú©Ø§Ø±Ø¨Ø± {dto.FullName} Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
-        }
-
-        public override async Task<ApiResult> UpdateAsync(UsersUpdate dto)
-        {
-            if (await _userRepository.ExistAsync(u => u.Email == dto.Email && u.Id != dto.Id))
-                return ApiResult.Failed("Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
-            if (await _userRepository.ExistAsync(u => u.Username == dto.Username && u.Id != dto.Id))
-                return ApiResult.Failed("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
-
-            var user = await _userRepository.GetAsync(dto.Id);
-            if (user == null) return ApiResult.Failed(MessageApp.NotFound, 404);
-
-
-            var oldPasswordHash = user.PasswordHash;
-
-            _mapper.Map(dto, user);
-            // Ø§Ú¯Ø± Ú©Ø§Ø±Ø¨Ø± Ø±Ù…Ø² Ø¬Ø¯ÛŒØ¯ Ù†ÙØ±Ø³ØªØ§Ø¯Ù‡ Ø¨ÙˆØ¯ØŒ Ù¾Ø³ÙˆØ±Ø¯ Ù‚Ø¨Ù„ÛŒ Ø±Ø§ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†
-            if (string.IsNullOrEmpty(dto.Password))
-                user.PasswordHash = oldPasswordHash;
-            else
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-
-            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = dto.Id }).ToList();
-
-            if (dto.ProfilePicture != null)
-            {
-                var resizeOptions = new ResizeOptions
-                {
-                    Size = new Size(200, 200),
-                    Mode = ResizeMode.Max
-                };
-
-                user.ProfilePictureUrl = await _fileService.UploadAsync(
-                    file: dto.ProfilePicture,
-                    folderPath: "uploads/profiles",
-                    existingUrl: user.ProfilePictureUrl,
-                    resizeOptions: resizeOptions
-                );
-            }
-
-            await _userRepository.UpdateAsync(user);
-            await _userRepository.SaveChangesAsync();
-            return ApiResult.Success(message: "Ú©Ø§Ø±Ø¨Ø± Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
-        }
-
-        public override async Task<ApiResult<List<UsersView>>> GetAllAsync(Pagination pagination)
-        {
-            var users = await _userRepository.GetAsync(pagination);
-            var vms = _mapper.Map<List<UsersView>>(users);
-
-            foreach (var vm in vms)
-            {
-                var (status, lastSeen) = _statusService.GetStatus(vm.Id);
-                vm.Status = status;
-                vm.LastSeen = lastSeen;
-            }
-
-            var total = await _userRepository.CountAsync();
-            return ApiResult<List<UsersView>>.PagedSuccess(vms, total,
-                                                           pagination.PageNumber,
-                                                           pagination.PageSize);
-        }
-
-        public override async Task<ApiResult> DeleteAsync(List<int> ids)
-        {
-            var res = await base.DeleteAsync(ids);
-            if (res.IsSucceeded) ids.ForEach(id => _statusService.UpdateStatus(id, UserStatus.Offline));
-            return res;
-        }
-    }
-
-    public interface IMyUserRepository : IBaseRep<User, int> { }
-}
-
-===== FILE: App\Object\Base\Users\UserStatusService.cs =====
-using System.Collections.Concurrent;
-using System.IO;
-using System.Text.Json;
-using System.Threading.Tasks;
-using Domain.Objects.Base;
-
-namespace App.Object.Base.Users
-{
-    public class UserStatusService
-    {
-        private readonly ConcurrentDictionary<int, (UserStatus Status, DateTime? LastSeen)> _userStatuses = new();
-        private readonly string _statusFilePath = Path.Combine(Directory.GetCurrentDirectory(), "user-status.json");
-
-        public UserStatusService()
-        {
-            LoadFromFile();  // Ù„ÙˆØ¯ Ù…ÙˆÙ‚Ø¹ startup
-        }
-
-        public void UpdateStatus(int userId, UserStatus status, DateTime? lastSeen = null)
-        {
-            _userStatuses[userId] = (status, lastSeen ?? DateTime.Now);
-            SaveToFile();  // Ù‡Ø± Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø³ÛŒÙˆ Ú©Ù† (Ø¨Ø±Ø§ÛŒ ØªØºÛŒÛŒØ±Ø§Øª Ø²ÛŒØ§Ø¯, Ø´Ø§ÛŒØ¯ debounce Ú©Ù† Ø§Ù…Ø§ Ø³Ø§Ø¯Ù‡)
-        }
-
-        public (UserStatus, DateTime?) GetStatus(int userId)
-        {
-            return _userStatuses.TryGetValue(userId, out var status) ? status : (UserStatus.Offline, null);
-        }
-
-        public void CheckInactive()  // periodical call Ù…Ø«Ù„Ø§Ù‹ Ø¨Ø§ timer
-        {
-            var now = DateTime.Now;
-            foreach (var kvp in _userStatuses)
-            {
-                if (kvp.Value.LastSeen.HasValue && (now - kvp.Value.LastSeen.Value).TotalMinutes > 5 && kvp.Value.Status == UserStatus.Online)
-                {
-                    UpdateStatus(kvp.Key, UserStatus.Inactive, kvp.Value.LastSeen);
-                }
-            }
-        }
-
-        private void LoadFromFile()
-        {
-            if (File.Exists(_statusFilePath))
-            {
-                var json = File.ReadAllText(_statusFilePath);
-                var data = JsonSerializer.Deserialize<Dictionary<int, (UserStatus, DateTime?)>>(json);
-                if (data != null)
-                    foreach (var kvp in data) _userStatuses[kvp.Key] = kvp.Value;
-            }
-        }
-
-        private void SaveToFile()
-        {
-            var json = JsonSerializer.Serialize(_userStatuses.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
-            File.WriteAllText(_statusFilePath, json);
-        }
-    }
-}
-
-===== FILE: App\Object\Base\CrudService.cs =====
+﻿===== FILE: App\Object\Base\CrudService.cs =====
 using App.utility;
 using AutoMapper;
 using Domain.Objects;
@@ -382,6 +147,173 @@ namespace App.Object.Base
     }
 }
 
+
+===== FILE: App\Object\Chat\MessageApp\IMessageRep.cs =====
+// ConfApp/Rep/Chat/IMessageRep.cs
+using App;
+using Domain.Objects.Chat;
+using MyFrameWork.AppTool;
+
+namespace App.Object.Chat.MessageApp
+
+{
+    public interface IMessageRep : IBaseRep<Message, int>
+    {
+        Task<List<Message>> GetChatHistoryAsync(int userId, int otherUserId, Pagination pagination);
+        Task<int> GetUnreadCountAsync(int receiverId, int senderId);
+        Task MarkAsReadAsync(int receiverId, int senderId);
+    }
+}
+
+===== FILE: App\Object\Chat\ChatApp.cs =====
+// App/Object/Chat/ChatApp.cs
+using App.Contracts.Object.Chat;
+using App.Object.Base.Users;
+using App.Object.Chat.MessageApp;
+using App.utility;
+using AutoMapper;
+using MyFrameWork.AppTool;
+using Domain.Objects.Base;
+using Domain.Objects.Chat;
+using SixLabors.ImageSharp.Processing;
+
+namespace App.Object.Chat
+{
+    public class ChatApp : IChatApp
+    {
+        private readonly IMessageRep _messageRep;
+        private readonly IMyUserRepository _userRep;
+        private readonly IFileService _fileService;
+        private readonly IMapper _mapper;
+        private readonly UserStatusService _statusService;
+
+        public ChatApp(
+            IMessageRep messageRep,
+            IMyUserRepository userRep,
+            IFileService fileService,
+            IMapper mapper,
+            UserStatusService statusService)
+        {
+            _messageRep = messageRep;
+            _userRep = userRep;
+            _fileService = fileService;
+            _mapper = mapper;
+            _statusService = statusService;
+        }
+
+        public async Task<ApiResult<MessageView>> SendMessageAsync(SendMessageDto dto, int senderId)
+        {
+            var receiver = await _userRep.GetAsync(dto.ReceiverId);
+            if (receiver == null)
+                return ApiResult<MessageView>.Failed("Ú¯ÛŒØ±Ù†Ø¯Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯.", 404);
+
+            var message = new Message
+            {
+                SenderId = senderId,
+                ReceiverId = dto.ReceiverId,
+                Content = dto.Content,
+                Type = dto.Type,
+                SentAt = DateTime.Now,
+                DeliveredAt = DateTime.Now
+            };
+
+            if (dto.File != null)
+            {
+                var resize = dto.Type == MessageType.Image
+                    ? new ResizeOptions { Size = new(800, 800), Mode = ResizeMode.Max }
+                    : null;
+
+                message.FileUrl = await _fileService.UploadAsync(
+                    dto.File, "uploads/chat", null, resize);
+            }
+
+            await _messageRep.CreateAsync(message);
+            await _messageRep.SaveChangesAsync();
+
+            var view = _mapper.Map<MessageView>(message);
+            view.SenderName = (await _userRep.GetAsync(senderId))?.FullName ?? "Ù…Ù†";
+            view.IsMine = true;
+
+            return ApiResult<MessageView>.Success(view, "Ù¾ÛŒØ§Ù… Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯.");
+        }
+
+        public async Task<ApiResult<List<MessageView>>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId)
+        {
+            var messages = await _messageRep.GetChatHistoryAsync(currentUserId, otherUserId, pagination);
+            var views = _mapper.Map<List<MessageView>>(messages);
+
+            var currentUser = await _userRep.GetAsync(currentUserId);
+            var otherUser = await _userRep.GetAsync(otherUserId);
+
+            foreach (var v in views)
+            {
+                v.SenderName = v.SenderId == currentUserId 
+                    ? currentUser?.FullName ?? "Ù…Ù†" 
+                    : otherUser?.FullName ?? "Ú©Ø§Ø±Ø¨Ø± Ù†Ø§Ø´Ù†Ø§Ø³";
+                v.IsMine = v.SenderId == currentUserId;
+            }
+
+            return ApiResult<List<MessageView>>.Success(views);
+        }
+
+        public async Task<ApiResult<List<ChatListItem>>> GetChatListAsync(int userId)
+        {
+            var sent = await _messageRep.GetFilteredAsync(m => m.SenderId == userId);
+            var received = await _messageRep.GetFilteredAsync(m => m.ReceiverId == userId);
+
+            var allMessages = sent.Concat(received);
+
+            var grouped = allMessages
+                .GroupBy(m => m.SenderId == userId ? m.ReceiverId : m.SenderId)
+                .Select(g =>
+                {
+                    var lastMsg = g.OrderByDescending(m => m.SentAt).First();
+                    var (status, lastSeen) = _statusService.GetStatus(g.Key);
+
+                    return new ChatListItem
+                    {
+                        UserId = g.Key,
+                        UserName = "Ú©Ø§Ø±Ø¨Ø±", // Ø¨Ø¹Ø¯Ø§Ù‹ Ø¨Ø§ join ÙˆØ§Ù‚Ø¹ÛŒ
+                        LastMessage = lastMsg.Content,
+                        LastMessageTime = lastMsg.SentAt,
+                        UnreadCount = g.Count(m => 
+                            m.ReceiverId == userId && 
+                            m.SeenAt == null && 
+                            !m.IsDeletedForReceiver),
+                        IsOnline = status == UserStatus.Online,
+                        LastSeen = lastSeen
+                    };
+                })
+                .ToList();
+
+            return ApiResult<List<ChatListItem>>.Success(grouped);
+        }
+
+        public async Task<ApiResult> MarkAsReadAsync(int senderId, int receiverId)
+        {
+            await _messageRep.MarkAsReadAsync(receiverId, senderId);
+            await _messageRep.SaveChangesAsync();
+            return ApiResult.Success("Ù¾ÛŒØ§Ù…â€ŒÙ‡Ø§ Ø¨Ù‡ Ø¹Ù†ÙˆØ§Ù† Ø®ÙˆØ§Ù†Ø¯Ù‡â€ŒØ´Ø¯Ù‡ Ø¹Ù„Ø§Ù…Øªâ€ŒÚ¯Ø°Ø§Ø±ÛŒ Ø´Ø¯Ù†Ø¯.");
+        }
+
+        public async Task<ApiResult<int>> GetUnreadCountAsync(int receiverId)
+        {
+            var count = await _messageRep.GetUnreadCountAsync(receiverId, 0);
+            return ApiResult<int>.Success(count);
+        }
+
+        public async Task<ApiResult<int>> GetTotalUnreadCountAsync(int receiverId)
+        {
+            var unreadMessages = await _messageRep.GetFilteredAsync(m =>
+                m.ReceiverId == receiverId &&
+                m.SeenAt == null &&
+                !m.IsDeletedForReceiver
+            );
+
+            return ApiResult<int>.Success(unreadMessages.Count);
+        }
+    }
+}
 
 ===== FILE: App\Object\Shop\CountTypeApp\ContTypeApp.cs =====
 using App.Contracts.Object.Shop.CountTypeCon;
@@ -626,6 +558,20 @@ namespace App.Object
     }
 }
 
+===== FILE: App\utility\ChatProfile.cs =====
+// App/utility/ChatProfile.cs
+using App.Contracts.Object.Chat;
+using AutoMapper;
+using Domain.Objects.Chat;
+
+public class ChatProfile : Profile
+{
+    public ChatProfile()
+    {
+        CreateMap<Message, MessageView>();
+    }
+}
+
 ===== FILE: App\utility\ClassMapping.cs =====
 // فایل: App/ClassMapping.cs
 using App.Contracts.Object.Base.Users;
@@ -697,6 +643,8 @@ namespace App.utility
                 .ForMember(dest => dest.RoleIds, opt => opt.MapFrom(src => src.UserRoles.Select(ur => ur.RoleId).ToList()))
                 .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src => src.ProfilePictureUrl));
 
+
+            CreateMap<User,UserList>();
 
 
             CreateMap<Inv , InvView>();
@@ -1023,6 +971,7 @@ Task<ApiResult<List<UsersView>>>             GetAll(Pagination pagination);
         Task<ApiResult>                      DeleteBy(List<int> ids);
         Task<ApiResult<UserCreateFormData>>  CreateForm();
         Task<ApiResult>                      KeepAlive(int userId);
+        Task<ApiResult<List<UserList>>>      GetList();
     }
 }
 
@@ -1050,7 +999,7 @@ namespace App.Contracts.Object.Base.Users
 
     public class UsersCreat
     {
-      
+
         public string FullName { get; set; } = default!;
 
 
@@ -1092,7 +1041,13 @@ namespace App.Contracts.Object.Base.Users
 
         public List<int>? RoleIds { get; set; } = new();
     }
+    public class UserList
+    {
+        public int Id { get; set; }
+        public string FullName { get; set; } = default!;
 
+
+    }
     public class UserCreateFormData
     {
         public List<RoleView> Roles { get; set; } = new();
@@ -1141,6 +1096,129 @@ namespace App.Contracts.Object.Base
         [Required]
         public int age { get; set; }
     }
+}
+
+
+===== FILE: App.Contracts\Object\Chat\IChatApp.cs =====
+// App.Contracts/Object/Chat/IChatApp.cs
+using MyFrameWork.AppTool;
+
+namespace App.Contracts.Object.Chat
+{
+    public interface IChatApp
+    {
+        Task<ApiResult<MessageView>> SendMessageAsync(SendMessageDto dto, int senderId);
+        Task<ApiResult<List<MessageView>>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId);
+        Task<ApiResult<List<ChatListItem>>> GetChatListAsync(int userId);
+        Task<ApiResult> MarkAsReadAsync(int senderId, int receiverId);
+        Task<ApiResult<int>> GetTotalUnreadCountAsync(int receiverId);
+    }
+}
+
+===== FILE: App.Contracts\Object\Chat\SendMessageDto.cs =====
+// App.Contracts/Object/Chat/SendMessageDto.cs
+using Microsoft.AspNetCore.Http;
+using Domain.Objects.Chat;
+
+namespace App.Contracts.Object.Chat
+{
+    public class SendMessageDto
+    {
+        public int ReceiverId { get; set; }
+        public string Content { get; set; } = string.Empty;
+        public IFormFile? File { get; set; }
+        public MessageType Type { get; set; } = MessageType.Text;
+    }
+
+
+
+
+    public class MessageView
+    {
+        public int Id { get; set; }
+        public int SenderId { get; set; }
+        public string SenderName { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public string? FileUrl { get; set; }
+        public MessageType Type { get; set; }
+        public DateTime SentAt { get; set; }
+        public DateTime? DeliveredAt { get; set; }
+        public DateTime? SeenAt { get; set; }
+        public bool IsMine { get; set; } // Ø¨Ø±Ø§ÛŒ UI
+    }
+
+    public class ChatListItem
+    {
+        public int UserId { get; set; }
+        public string UserName { get; set; } = string.Empty;
+        public string? LastMessage { get; set; }
+        public DateTime? LastMessageTime { get; set; }
+        public int UnreadCount { get; set; }
+        public bool IsOnline { get; set; }
+        public DateTime? LastSeen { get; set; }
+    }
+}
+
+===== FILE: App.Contracts\Object\Shop\CountTypeCon\CountTypeView.cs =====
+using MyFrameWork.AppTool;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Text.Json.Nodes;
+using System.Threading.Tasks;
+
+namespace App.Contracts.Object.Shop.CountTypeCon
+{
+    public class CountTypeView
+    {
+        [Display(Name = " Ø´Ù†Ø§Ø³Ù‡")]
+        public int Id { get; set; }
+    
+        [Display(Name = " Ù†Ø§Ù… ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´")]
+        public string Name { get; set; } = "";
+        
+
+    }
+    public class CountTypeCreate 
+    {
+
+        
+    
+        [Display(Name = " Ù†Ø§Ù… ÙˆØ§Ø­Ø¯ Ø´Ù…Ø§Ø±Ø´")]
+        [Required(ErrorMessage = MessageApp.IsRequiredcustom)]
+        [MaxLength(20,ErrorMessage = MessageApp.MaxLengthcustom)]
+        [RegularExpression(@"^[\u0600-\u06FF\s]+$", ErrorMessage = "ÙÙ‚Ø· Ø§Ø² Ø­Ø±ÙˆÙ ÙØ§Ø±Ø³ÛŒ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ú©Ù†ÛŒØ¯")]
+        [DataType(DataType.Text)]
+        public string Name { get; set; } = "";
+       
+       
+
+    }
+    
+   
+
+}
+
+
+===== FILE: App.Contracts\Object\Shop\CountTypeCon\ICountTypeApp.cs =====
+using MyFrameWork.AppTool;
+
+
+namespace App.Contracts.Object.Shop.CountTypeCon
+{
+    public interface ICountTypeApp
+    {
+        public Task<ApiResult<List<CountTypeView>>> GetAll(Pagination pagination);
+        public Task<ApiResult<CountTypeView>> GetById(int id);
+        public Task<ApiResult> Create(CountTypeCreate dto);
+        public Task<ApiResult> DeleteBy(List<int> ids);
+        public Task<ApiResult> Update(CountTypeView dto);
+    
+
+    }
+
 }
 
 
