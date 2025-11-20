@@ -179,7 +179,7 @@ namespace API.Controllers
         }
 
         private int CurrentUserId => 
-            int.TryParse(_httpContext.HttpContext?.User?.FindFirst("id")?.Value, out var id) 
+            int.TryParse(_httpContext.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) 
             
                 ? id 
                 : throw new UnauthorizedAccessException("User ID not found in token.");
@@ -1066,9 +1066,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("http://localhost:4200")
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();;
     });
 });
 
@@ -1123,6 +1124,7 @@ app.UseSwaggerUI(c =>
 app.UseStaticFiles();
 // === Global Middleware Pipeline ===
 app.UseRouting();
+app.UseCors("AllowAll");
 
 // Log incoming requests
 app.Use(async (context, next) =>
@@ -1145,7 +1147,20 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseCors("AllowAll");
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/chatHub"))
+    {
+        var accessToken = context.Request.Query["access_token"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(accessToken))
+        {
+            context.Request.Headers.Authorization = $"Bearer {accessToken}";
+        }
+    }
+    await next();
+});
+
 app.UseAuthentication();
 app.UseTokenValidation(); // Custom middleware
 app.UseAuthorization();
@@ -1357,7 +1372,7 @@ namespace App.Object.Base.auth
         {
             var claims = new[]
             {
-                new Claim("id", user.Id.ToString()),
+  
         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
         new Claim(ClaimTypes.Email, user.Email),
         new Claim(ClaimTypes.Name, user.FullName)
