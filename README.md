@@ -47,10 +47,10 @@
 - Resizing تصاویر موقع آپلود با ImageSharp
 
 **کدهای کلیدی:**
-- [ChatHub.cs](https://github.com/yourusername/CRM-Sample/blob/main/API/Hubs/ChatHub/ChatHub.cs)
-- [ChatApp.cs](https://github.com/yourusername/CRM-Sample/blob/main/App/Object/Chat/ChatApp.cs)
-- [SendMessageDto.cs](https://github.com/yourusername/CRM-Sample/blob/main/App/Contracts/Object/Chat/SendMessageDto.cs)
-- [MessageMapping.cs](https://github.com/yourusername/CRM-Sample/blob/main/ConfApp/Mapping/Chat/MessageMapping.cs)
+- [ChatHub.cs](https://github.com/ZedCrm/panelBackend/blob/main/API/Hubs/ChatHub/ChatHub.cs)
+- [ChatApp.cs](https://github.com/ZedCrm/panelBackend/blob/main/App/Object/Chat/ChatApp.cs)
+- [SendMessageDto.cs](https://github.com/ZedCrm/panelBackend/blob/main/App/Contracts/Object/Chat/SendMessageDto.cs)
+- [MessageMapping.cs](https://github.com/ZedCrm/panelBackend/blob/main/ConfApp/Mapping/Chat/MessageMapping.cs)
 
 ### احراز هویت و مجوزهای پیشرفته 🔒
 JWT + RBAC با Permissionهای پویا (اسکن خودکار Attributeها در Startup) + KeepAlive برای وضعیت آنلاین + Cache وضعیت کاربران.
@@ -61,10 +61,10 @@ JWT + RBAC با Permissionهای پویا (اسکن خودکار Attributeها �
 - Middleware سفارشی برای اعتبارسنجی توکن
 
 **کدهای کلیدی:**
-- [RequirePermissionAttribute.cs](https://github.com/yourusername/CRM-Sample/blob/main/API/Attributes/RequirePermissionAttribute.cs)
-- [UserStatusService.cs](https://github.com/yourusername/CRM-Sample/blob/main/App/Object/Base/Users/UserStatusService.cs)
-- [PermissionSeeder.cs](https://github.com/yourusername/CRM-Sample/blob/main/Infrastructure/data/seed/PermissionSeeder.cs)
-- [TokenApp.cs](https://github.com/yourusername/CRM-Sample/blob/main/App/Object/Base/auth/TokenApp.cs)
+- [RequirePermissionAttribute.cs](https://github.com/ZedCrm/panelBackend/blob/main/API/Attributes/RequirePermissionAttribute.cs)
+- [UserStatusService.cs](https://github.com/ZedCrm/panelBackend/blob/main/App/Object/Base/Users/UserStatusService.cs)
+- [PermissionSeeder.cs](https://github.com/ZedCrm/panelBackend/blob/main/Infrastructure/data/seed/PermissionSeeder.cs)
+- [TokenApp.cs](https://github.com/ZedCrm/panelBackend/blob/main/App/Object/Base/auth/TokenApp.cs)
 
 ### مدیریت فروشگاه و انبار 🛒
 CRUD کامل برای محصولات، واحدهای شمارش و انبارها + جستجوی پیشرفته (نام + محدوده قیمت) + Pagination و Sorting دینامیک.
@@ -74,9 +74,9 @@ CRUD کامل برای محصولات، واحدهای شمارش و انبار�
 - Sorting و Filtering دینامیک بدون N+1
 
 **کدهای کلیدی:**
-- [ProductController.cs](https://github.com/yourusername/CRM-Sample/blob/main/API/Controllers/Shop/ProductController.cs)
-- [ProductView.cs](https://github.com/yourusername/CRM-Sample/blob/main/App/Contracts/Object/Shop/ProductCon/ProductView.cs)
-- [BaseRep.cs](https://github.com/yourusername/CRM-Sample/blob/main/ConfApp/Rep/BaseRep.cs) → Dynamic OrderBy و Pagination
+- [ProductController.cs](https://github.com/ZedCrm/panelBackend/blob/main/API/Controllers/Shop/ProductController.cs)
+- [ProductView.cs](https://github.com/ZedCrm/panelBackend/blob/main/App/Contracts/Object/Shop/ProductCon/ProductView.cs)
+- [BaseRep.cs](https://github.com/ZedCrm/panelBackend/blob/main/ConfApp/Rep/BaseRep.cs) → Dynamic OrderBy و Pagination
 
 ### مدیریت کاربران و نقش‌ها 👥
 CRUD کاربران با آپلود عکس پروفایل (با Resizing) + تخصیص چند Role + Hashing امن با BCrypt.
@@ -86,8 +86,8 @@ CRUD کاربران با آپلود عکس پروفایل (با Resizing) + تخ
 - اعتبارسنجی Uniqueness برای Username و Email
 
 **کدهای کلیدی:**
-- [UsersApp.cs](https://github.com/yourusername/CRM-Sample/blob/main/App/Object/Base/Users/UsersApp.cs)
-- [UsersDto.cs](https://github.com/yourusername/CRM-Sample/blob/main/App/Contracts/Object/Base/Users/UsersDto.cs)
+- [UsersApp.cs](https://github.com/ZedCrm/panelBackend/blob/main/App/Object/Base/Users/UsersApp.cs)
+- [UsersDto.cs](https://github.com/ZedCrm/panelBackend/blob/main/App/Contracts/Object/Base/Users/UsersDto.cs)
 
 ### ابزارهای پایه و Utilityها 🧰
 - Responseهای استاندارد و یکدست با Paging
@@ -95,17 +95,17 @@ CRUD کاربران با آپلود عکس پروفایل (با Resizing) + تخ
 - FileService با Resizing و آپلود امن
 
 **کدهای کلیدی:**
-- [ApiResult.cs](https://github.com/yourusername/CRM-Sample/blob/main/MyFrameWork/AppTool/ApiResult.cs)
-- [CrudService.cs](https://github.com/yourusername/CRM-Sample/blob/main/App/Object/Base/CrudService.cs)
-- [Pagination.cs](https://github.com/yourusername/CRM-Sample/blob/main/MyFrameWork/AppTool/Pagination.cs)
-- [FileService.cs](https://github.com/yourusername/CRM-Sample/blob/main/API/utility/FileService.cs)
+- [ApiResult.cs](https://github.com/ZedCrm/panelBackend/blob/main/MyFrameWork/AppTool/ApiResult.cs)
+- [CrudService.cs](https://github.com/ZedCrm/panelBackend/blob/main/App/Object/Base/CrudService.cs)
+- [Pagination.cs](https://github.com/ZedCrm/panelBackend/blob/main/MyFrameWork/AppTool/Pagination.cs)
+- [FileService.cs](https://github.com/ZedCrm/panelBackend/blob/main/API/utility/FileService.cs)
 
 ### دیتابیس و Migrations 📊
 Code-First + Soft Delete در تمام Entityها + Seeding خودکار Permissionها و کاربران اولیه.
 
 **کدهای کلیدی:**
-- [MyContext.cs](https://github.com/yourusername/CRM-Sample/blob/main/ConfApp/MyContext.cs)
-- [Migration اولیه](https://github.com/yourusername/CRM-Sample/blob/main/Infrastructure/Migrations/20251107184623_init.cs)
+- [MyContext.cs](https://github.com/ZedCrm/panelBackend/blob/main/ConfApp/MyContext.cs)
+- [Migration اولیه](https://github.com/ZedCrm/panelBackend/blob/main/Infrastructure/Migrations/20251107184623_init.cs)
 
 ## نحوه اجرا ⚙️
 1. پیش‌نیازها: .NET 8 SDK + SQL Server
