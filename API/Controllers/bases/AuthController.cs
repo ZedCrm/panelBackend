@@ -11,6 +11,7 @@ using MyFrameWork.AppTool;
 namespace API.Controllers.bases
 {
 
+   // [ApiExplorerSettings(IgnoreApi = true)] 
     [ApiController]
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
