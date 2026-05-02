@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Domain.Objects.Base;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Contracts.Object.Base.auth
 {
@@ -31,8 +32,8 @@ namespace App.Contracts.Object.Base.auth
 
       public interface IAuthApp
     {
-         Task<ApiResult<AuthResponseDto>>  RegisterAsync(RegisterRequestDto dto);
-        Task<ApiResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
+         Task<SingleDataResult<AuthResponseDto>>  RegisterAsync(RegisterRequestDto dto);
+        Task<SingleDataResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
         
     }
 

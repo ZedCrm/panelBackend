@@ -1,6 +1,7 @@
 using App.Contracts.Object.Base.auth;
 using Domain.Objects.Base;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Object.Base.Auth
 {
@@ -16,19 +17,19 @@ namespace App.Object.Base.Auth
             _tokenService = tokenService;
         }
 
- public async Task<ApiResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
+ public async Task<SingleDataResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
 {
     var user = await _userRepository.GetByUsernameAsync(request.Username);
     if (user == null)
-        return ApiResult<AuthResponseDto>.Failed("کاربری با این نام کاربری یافت نشد.");
+        return ResultFactory.Single<AuthResponseDto>(404 ,null,"کاربری با این نام کاربری یافت نشد." );
 
     var isPasswordCorrect = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
     if (!isPasswordCorrect)
-        return ApiResult<AuthResponseDto>.Failed("رمز عبور اشتباه است.");
+        return ResultFactory.Single<AuthResponseDto>(404,null,"رمز عبور اشتباه است.");
 
     var token = _tokenService.GenerateToken(user);
 
-    return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
+    return ResultFactory.Single<AuthResponseDto>(200,new AuthResponseDto
     {
         UserId = user.Id,
         Username = user.Username,
@@ -37,10 +38,10 @@ namespace App.Object.Base.Auth
     });
 }
 
-      public async Task<ApiResult<AuthResponseDto>> RegisterAsync(RegisterRequestDto request)
+      public async Task<SingleDataResult<AuthResponseDto>> RegisterAsync(RegisterRequestDto request)
 {
     if (await _userRepository.ExistsByUsername(request.Username))
-        return ApiResult<AuthResponseDto>.Failed("ایمیل وارد شده قبلاً ثبت شده است.");
+        return ResultFactory.Single<AuthResponseDto>(400,null,"ایمیل وارد شده قبلاً ثبت شده است.");
 
     var user = new User
     {
@@ -52,7 +53,7 @@ namespace App.Object.Base.Auth
     await _userRepository.AddAsync(user);
     var token = _tokenService.GenerateToken(user);
 
-    return ApiResult<AuthResponseDto>.Success(new AuthResponseDto
+    return ResultFactory.Single<AuthResponseDto>(200,new AuthResponseDto
     {
         Username = user.Username,
         FullName = user.FullName,
