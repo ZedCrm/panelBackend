@@ -2,12 +2,14 @@ namespace MyFrameWork.AppTool.ResultType
 {
 public  class StatusResult{
 
-    public int Statusid { get; set; }
+    public int Status { get; set; }
+    
     public List<string>? Messeges { get; set; }
 
     public StatusResult(int statusid,List<string>? messeges)
     {
-        this.Statusid = statusid ; this.Messeges = messeges;
+        this.Status = statusid ; this.Messeges = messeges;
+        
     }
 
 }

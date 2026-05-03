@@ -27,7 +27,7 @@ namespace API.Controllers.bases
         public async Task<ActionResult<ApiResult<AuthResponseDto>>> Login([FromBody] LoginRequestDto request)
         {
             var result = await _authApp.LoginAsync(request);
-            if (result.IsSucceeded == false)
+            if (result.Status == 200)
                 return BadRequest(result);
 
             return Ok(result);
@@ -37,9 +37,9 @@ namespace API.Controllers.bases
         public async Task<IActionResult> Register(RegisterRequestDto dto)
         {
             var result = await _authApp.RegisterAsync(dto);
-            if (result.IsSucceeded == false)
-                return BadRequest(result.Message);
-            return Ok(result.Data);
+            if (result.Status == 200)
+                return BadRequest(result.Messeges);
+            return Ok(result.SingleData);
         }
     }
 }
