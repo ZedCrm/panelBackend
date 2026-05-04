@@ -4,6 +4,7 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
@@ -24,14 +25,14 @@ namespace App.Object.Shop.ProductApp
         }
 
         /*=== CRUD یک‌خطی ===*/
-        public Task<ApiResult<List<ProductView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<ApiResult<ProductUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<ApiResult> Create(ProductCreate dto) => base.CreateAsync(dto);
-        public Task<ApiResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
-        public Task<ApiResult> Update(ProductUpdate dto) => base.UpdateAsync(dto);
+        public Task<ListDataResult<ProductView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
+        public Task<SingleDataResult<ProductUpdate>> GetById(int id) => base.GetByIdAsync(id);
+        public Task<StatusResult> Create(ProductCreate dto) => base.CreateAsync(dto);
+        public Task<StatusResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
+        public Task<StatusResult> Update(ProductUpdate dto) => base.UpdateAsync(dto);
 
         /*=== متد اختصاصی ===*/
-        public async Task<ApiResult<List<ProductView>>> SearchProducts(ProductSearchCriteria criteria)
+        public async Task<ListDataResult<ProductView>> SearchProducts(ProductSearchCriteria criteria)
         {
             Expression<Func<Product, bool>> filter = p => true;
 
@@ -48,9 +49,8 @@ namespace App.Object.Shop.ProductApp
             var views = _mapper.Map<List<ProductView>>(data);
             var total = await _productRep.CountAsync(filter);
 
-            return ApiResult<List<ProductView>>.PagedSuccess(views, total,
-                                                             criteria.PageNumber,
-                                                             criteria.PageSize);
+            return ResultFactory.List( ResultStatusEnum.Accepted, views, total,
+                                                             criteria);
         }
     }
 

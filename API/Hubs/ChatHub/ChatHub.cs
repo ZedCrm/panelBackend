@@ -1,10 +1,11 @@
-// API/Hubs/ChatHub.cs
 using System.Security.Claims;
 using App.Contracts.Object.Chat;
 using App.Object.Chat;
+using App.utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace API.Hubs
 {
@@ -63,25 +64,29 @@ namespace API.Hubs
         {
             try
             {
+                // اعتبارسنجی اولیه DTO
+                var validation = ModelValidator.ValidateToStatusResult(dto);
+                if (!validation.IsSuccess)
+                {
+                    await Clients.Caller.SendAsync("SendError", new
+                    {
+                        message = "Validation failed",
+                        errors = validation.Messages
+                    });
+                    return;
+                }
+
                 var result = await _chatApp.SendMessageAsync(dto, CurrentUserId);
 
-                if (result.IsSucceeded && result.Data != null)
-                {
-                    var messageView = result.Data;
-
-                    // ارسال به فرستنده (خودش)
-                    await Clients.Group($"User_{CurrentUserId}").SendAsync("ReceiveMessage", messageView);
-
-                    // ارسال به گیرنده
-                    await Clients.Group($"User_{dto.ReceiverId}").SendAsync("ReceiveMessage", messageView);
-                }
-                else
+                // بررسی موفقیت با استفاده از IsSuccess
+              
+                if(!result.IsSuccess)
                 {
                     // خطا فقط به فرستنده
                     await Clients.Caller.SendAsync("SendError", new
                     {
-                        message = result.Message ?? "Failed to send message.",
-                        errors = result.Errors
+                        message = result.Messages?.FirstOrDefault() ?? "Failed to send message.",
+                        errors = result.Messages
                     });
                 }
             }
@@ -101,9 +106,18 @@ namespace API.Hubs
             {
                 var result = await _chatApp.MarkAsReadAsync(otherUserId, CurrentUserId);
 
-                if (result.IsSucceeded)
+                // استفاده از IsSuccess به جای IsSucceeded
+                if (result.IsSuccess)
                 {
                     await Clients.Group($"User_{CurrentUserId}").SendAsync("ChatOpened", otherUserId);
+                }
+                else
+                {
+                    await Clients.Caller.SendAsync("Error", new 
+                    { 
+                        message = result.Messages?.FirstOrDefault() ?? "Failed to open chat.",
+                        errors = result.Messages 
+                    });
                 }
             }
             catch (Exception ex)
@@ -111,5 +125,61 @@ namespace API.Hubs
                 await Clients.Caller.SendAsync("Error", new { message = "Failed to open chat.", error = ex.Message });
             }
         }
+
+        // متد جدید: دریافت تاریخچه چت
+        public async Task GetChatHistory(int otherUserId, int pageNumber = 1, int pageSize = 20)
+        {
+            try
+            {
+                var pagination = new Pagination { PageNumber = pageNumber, PageSize = pageSize };
+                var result = await _chatApp.GetChatHistoryAsync( otherUserId, pagination ,CurrentUserId);
+
+                if (result.IsSuccess)
+                {
+                    await Clients.Caller.SendAsync("ChatHistory", new
+                    {
+                        messages = result.Data,
+                        pagination = new
+                        {
+                            totalRecords = result.TotalRecords,
+                            pageNumber = result.PageNumber,
+                            pageSize = result.PageSize
+                        }
+                    });
+                }
+                else
+                {
+                    await Clients.Caller.SendAsync("Error", new
+                    {
+                        message = result.Messages?.FirstOrDefault() ?? "Failed to get chat history.",
+                        errors = result.Messages
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                await Clients.Caller.SendAsync("Error", new { message = "Failed to get chat history.", error = ex.Message });
+            }
+        }
+
+        // متد جدید: تایپ کردن
+        public async Task Typing(int receiverId, bool isTyping)
+        {
+            try
+            {
+                await Clients.Group($"User_{receiverId}").SendAsync("UserTyping", new
+                {
+                    userId = CurrentUserId,
+                    isTyping = isTyping
+                });
+            }
+            catch (Exception ex)
+            {
+                // لاگ خطا
+                Console.WriteLine($"Error in Typing: {ex.Message}");
+            }
+        }
+
+
     }
 }

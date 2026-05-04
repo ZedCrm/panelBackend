@@ -3,6 +3,7 @@ using App.Contracts.Object.Shop.ProductCon;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace API.Controllers.Shop
 {
@@ -24,7 +25,7 @@ namespace API.Controllers.Shop
         /// </summary>
         [RequirePermission("ViewProduct")]
         [HttpPost("/api/product/GetAll")]
-        public async Task<ActionResult<ApiResult<List<ProductView>>>> Index([FromBody] Pagination pagination)
+        public async Task<ActionResult<ListDataResult<ProductView>>> Index([FromBody] Pagination pagination)
         {
             return await _productApp.GetAll(pagination);
         }
@@ -33,7 +34,7 @@ namespace API.Controllers.Shop
         /// جستجوی محصولات بر اساس معیارهای مشخص
         /// </summary>
         [HttpPost("/api/product/search")]
-        public async Task<ActionResult<ApiResult<List<ProductView>>>> Search([FromBody] ProductSearchCriteria productSearch)
+        public async Task<ActionResult<ListDataResult<ProductView>>> Search([FromBody] ProductSearchCriteria productSearch)
         {
             return await _productApp.SearchProducts(productSearch);
         }
@@ -42,7 +43,7 @@ namespace API.Controllers.Shop
         /// ایجاد محصول جدید
         /// </summary>
         [HttpPost("/api/product/create")]
-        public async Task<ActionResult<ApiResult>> Create([FromBody] ProductCreate product)
+        public async Task<ActionResult<StatusResult>> Create([FromBody] ProductCreate product)
         {
             return await _productApp.Create(product);
         }
@@ -51,7 +52,7 @@ namespace API.Controllers.Shop
         /// حذف محصولات بر اساس لیست آیدی‌ها
         /// </summary>
         [HttpPost("/api/product/delete")]
-        public async Task<ActionResult<ApiResult>> Delete([FromBody] List<int> ids)
+        public async Task<ActionResult<StatusResult>> Delete([FromBody] List<int> ids)
         {
             return await _productApp.DeleteBy(ids);
         }
@@ -60,7 +61,7 @@ namespace API.Controllers.Shop
         /// دریافت اطلاعات یک محصول بر اساس آیدی
         /// </summary>
         [HttpGet("/api/product/GetById")]
-        public async Task<ActionResult<ApiResult<ProductUpdate>>> GetById([FromQuery] int id)
+        public async Task<ActionResult<SingleDataResult<ProductUpdate>>> GetById([FromQuery] int id)
         {
             return await _productApp.GetById(id);
         }
@@ -69,7 +70,7 @@ namespace API.Controllers.Shop
         /// به‌روزرسانی اطلاعات محصول
         /// </summary>
         [HttpPost("/api/product/update")]
-        public async Task<ActionResult<ApiResult>> Update([FromBody] ProductUpdate product)
+        public async Task<ActionResult<StatusResult>> Update([FromBody] ProductUpdate product)
         {
             return await _productApp.Update(product);
         }

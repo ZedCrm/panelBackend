@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace MyFrameWork.AppTool
 {
-    public class OPTResult<T> where T : class
+    public class OPTResultOld<T> where T : class
     {
         public bool IsSucceeded { get; set; }   // وضعیت موفقیت عملیات
         public string? Message { get; set; }     // پیام عملیات
@@ -15,15 +15,15 @@ namespace MyFrameWork.AppTool
         public int? PageSize { get; set; }       // تعداد آیتم در هر صفحه
 
         // متد سازنده پیش‌فرض
-        public OPTResult()
+        public OPTResultOld()
         {
             IsSucceeded = true;
         }
 
         // ساخت نتیجه موفق برای لیست داده‌ها
-        public static OPTResult<T> Success(List<T> data, string message = "عملیات با موفقیت انجام شد")
+        public static OPTResultOld<T> Success(List<T> data, string message = "عملیات با موفقیت انجام شد")
         {
-            return new OPTResult<T>
+            return new OPTResultOld<T>
             {
                 IsSucceeded = true,
                 Message = message,
@@ -32,9 +32,9 @@ namespace MyFrameWork.AppTool
         }
 
         // ساخت نتیجه موفق برای یک داده تکی
-        public static OPTResult<T> Success(T singleData, string message = "عملیات با موفقیت انجام شد")
+        public static OPTResultOld<T> Success(T singleData, string message = "عملیات با موفقیت انجام شد")
         {
-            return new OPTResult<T>
+            return new OPTResultOld<T>
             {
                 IsSucceeded = true,
                 Message = message,
@@ -44,9 +44,9 @@ namespace MyFrameWork.AppTool
 
 
         // ساخت نتیجه موفق با پیام و بدون داده
-        public static OPTResult<T> Success(string message = "عملیات با موفقیت انجام شد")
+        public static OPTResultOld<T> Success(string message = "عملیات با موفقیت انجام شد")
         {
-            return new OPTResult<T>
+            return new OPTResultOld<T>
             {
                 IsSucceeded = true,
                 Message = message
@@ -58,9 +58,9 @@ namespace MyFrameWork.AppTool
 
 
         // ساخت نتیجه ناموفق با پیام خطا
-        public static OPTResult<T> Failed(string message = "عملیات با شکست مواجه شد")
+        public static OPTResultOld<T> Failed(string message = "عملیات با شکست مواجه شد")
         {
-            return new OPTResult<T>
+            return new OPTResultOld<T>
             {
                 IsSucceeded = false,
                 Message = message

@@ -39,4 +39,6 @@ namespace App.Contracts.Object.Chat
         public bool IsOnline { get; set; }
         public DateTime? LastSeen { get; set; }
     }
+
+
 }

@@ -8,6 +8,7 @@ using MyFrameWork.AppTool;
 using Domain.Objects.Base;
 using Domain.Objects.Chat;
 using SixLabors.ImageSharp.Processing;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Object.Chat
 {
@@ -33,11 +34,11 @@ namespace App.Object.Chat
             _statusService = statusService;
         }
 
-        public async Task<ApiResult<MessageView>> SendMessageAsync(SendMessageDto dto, int senderId)
+        public async Task<StatusResult> SendMessageAsync(SendMessageDto dto, int senderId)
         {
             var receiver = await _userRep.GetAsync(dto.ReceiverId);
             if (receiver == null)
-                return ApiResult<MessageView>.Failed("گیرنده یافت نشد.", 404);
+                return ResultFactory.Status(ResultStatusEnum.NotFound,"گیرنده یافت نشد.");
 
             var message = new Message
             {
@@ -66,10 +67,10 @@ namespace App.Object.Chat
             view.SenderName = (await _userRep.GetAsync(senderId))?.FullName ?? "من";
             view.IsMine = true;
 
-            return ApiResult<MessageView>.Success(view, "پیام با موفقیت ارسال شد.");
+            return ResultFactory.Status(ResultStatusEnum.Success, "پیام با موفقیت ارسال شد.");
         }
 
-        public async Task<ApiResult<List<MessageView>>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId)
+        public async Task<ListDataResult<MessageView>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId)
         {
             var messages = await _messageRep.GetChatHistoryAsync(currentUserId, otherUserId, pagination);
             var views = _mapper.Map<List<MessageView>>(messages);
@@ -85,10 +86,10 @@ namespace App.Object.Chat
                 v.IsMine = v.SenderId == currentUserId;
             }
 
-            return ApiResult<List<MessageView>>.Success(views);
+            return ResultFactory.List<MessageView>(ResultStatusEnum.Accepted,views ,messages.Count,pagination);
         }
 
-        public async Task<ApiResult<List<ChatListItem>>> GetChatListAsync(int userId)
+        public async Task<ListDataResult<ChatListItem>> GetChatListAsync(int userId)
         {
             var sent = await _messageRep.GetFilteredAsync(m => m.SenderId == userId);
             var received = await _messageRep.GetFilteredAsync(m => m.ReceiverId == userId);
@@ -118,23 +119,23 @@ namespace App.Object.Chat
                 })
                 .ToList();
 
-            return ApiResult<List<ChatListItem>>.Success(grouped);
+            return ResultFactory.List<ChatListItem>(ResultStatusEnum.Success,grouped);
         }
 
-        public async Task<ApiResult> MarkAsReadAsync(int senderId, int receiverId)
+        public async Task<StatusResult> MarkAsReadAsync(int senderId, int receiverId)
         {
             await _messageRep.MarkAsReadAsync(receiverId, senderId);
             await _messageRep.SaveChangesAsync();
-            return ApiResult.Success("پیام‌ها به عنوان خوانده‌شده علامت‌گذاری شدند.");
+            return ResultFactory.Status(ResultStatusEnum.Success,"پیام‌ها به عنوان خوانده‌شده علامت‌گذاری شدند.");
         }
 
-        public async Task<ApiResult<int>> GetUnreadCountAsync(int receiverId)
+        public async Task<SingleDataResult<int>> GetUnreadCountAsync(int receiverId)
         {
             var count = await _messageRep.GetUnreadCountAsync(receiverId, 0);
-            return ApiResult<int>.Success(count);
+            return ResultFactory.Single<int>(ResultStatusEnum.Success,count);
         }
 
-        public async Task<ApiResult<int>> GetTotalUnreadCountAsync(int receiverId)
+        public async Task<SingleDataResult<int>> GetTotalUnreadCountAsync(int receiverId)
         {
             var unreadMessages = await _messageRep.GetFilteredAsync(m =>
                 m.ReceiverId == receiverId &&
@@ -142,7 +143,7 @@ namespace App.Object.Chat
                 !m.IsDeletedForReceiver
             );
 
-            return ApiResult<int>.Success(unreadMessages.Count);
+            return ResultFactory.Single<int>(ResultStatusEnum.Success,unreadMessages.Count);
         }
     }
 }

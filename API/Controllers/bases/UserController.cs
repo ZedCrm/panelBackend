@@ -5,6 +5,7 @@ using App.Contracts.Object.Base.Users;
 using App.Object.Base.auth;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace API.Controllers.bases
 {
@@ -26,63 +27,63 @@ namespace API.Controllers.bases
         /*======================================================*/
         [RequirePermission("User.View")]
         [HttpPost("/api/User/GetAll")]
-        public async Task<ActionResult<ApiResult<List<UsersView>>>> GetAll([FromBody] Pagination pagination)
+        public async Task<ActionResult<ListDataResult<UsersView>>> GetAll([FromBody] Pagination pagination)
             => await _usersApp.GetAll(pagination);
 
         [RequirePermission("User.View")]
         [HttpGet("/api/User/GetById")]
-        public async Task<ActionResult<ApiResult<UsersUpdate>>> GetById([FromQuery] int id)
+        public async Task<ActionResult<SingleDataResult<UsersUpdate>>> GetById([FromQuery] int id)
             => await _usersApp.GetById(id);
 
         [RequirePermission("User.Create")]
         [HttpPost("/api/User/create")]
-        public async Task<ActionResult<ApiResult>> Create([FromForm] UsersCreat userCreate)
+        public async Task<ActionResult<StatusResult>> Create([FromForm] UsersCreat userCreate)
             => await _usersApp.CreateAsync(userCreate);
 
         [RequirePermission("User.Edit")]
         [HttpPost("/api/User/update")]
-        public async Task<ActionResult<ApiResult>> Update([FromForm] UsersUpdate userUpdate)
+        public async Task<ActionResult<StatusResult>> Update([FromForm] UsersUpdate userUpdate)
             => await _usersApp.UpdateAsync(userUpdate);
 
         [RequirePermission("User.Delete")]
         [HttpPost("/api/User/delete")]
-        public async Task<ActionResult<ApiResult>> Delete([FromBody] List<int> ids)
+        public async Task<ActionResult<StatusResult>> Delete([FromBody] List<int> ids)
             => await _usersApp.DeleteBy(ids);
 
         /*======================================================*/
         /*                  متدهای اختصاصی                      */
         /*======================================================*/
         [HttpPost("/api/User/keepalive")]
-        public async Task<ActionResult<ApiResult>> KeepAlive()
+        public async Task<ActionResult<StatusResult>> KeepAlive()
         {
             var userId = GetCurrentUserId();
             if (userId <= 0)
-                return Unauthorized(ApiResult.Failed("کاربر معتبر نیست.", 401));
+                return Unauthorized(ResultFactory.Status(ResultStatusEnum.Unauthorized,"کاربر معتبر نیست."));
 
             return await _usersApp.KeepAlive(userId);
         }
 
         [RequirePermission("User.Create")]
         [HttpGet("/api/user/getcreateform")]
-        public async Task<ActionResult<ApiResult<UserCreateFormData>>> GetCreateForm()
+        public async Task<ActionResult<SingleDataResult<UserCreateFormData>>> GetCreateForm()
             => await _usersApp.CreateForm();
 
 
 
 
         [HttpGet("/api/user/permissions")]
-        public async Task<ActionResult<ApiResult<List<string>>>> GetUserPermissions()
+        public async Task<ActionResult<ListDataResult<string>>> GetUserPermissions()
         {
             var userId = GetCurrentUserId();  // از BaseController می‌گیری
-            if (userId <= 0) return Unauthorized(ApiResult.Failed("کاربر معتبر نیست.", 401));
+            if (userId <= 0) return Unauthorized(ResultFactory.Status(ResultStatusEnum.Unauthorized,"کاربر معتبر نیست."));
 
             var permissions = await _permissionService.GetUserPermissionsAsync(userId);  
-            return ApiResult<List<string>>.Success(permissions);
+            return ResultFactory.List<string>(ResultStatusEnum.Success,permissions);
         }
 
         [HttpGet("/api/user/getlist")]
 
-        public async Task<ApiResult<List<UserList>>> GetList(){
+        public async Task<ListDataResult<UserList>> GetList(){
 
             return await _usersApp.GetList();
 

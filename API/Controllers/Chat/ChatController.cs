@@ -5,6 +5,7 @@ using API.utility;
 using App.Contracts.Object.Chat;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 
 namespace API.Controllers
@@ -30,38 +31,38 @@ namespace API.Controllers
                 : throw new UnauthorizedAccessException("User ID not found in token.");
 
         [HttpPost("send")]
-        public async Task<IActionResult> SendMessage([FromForm] SendMessageDto dto)
+        public async Task<ActionResult<StatusResult>> SendMessage([FromForm] SendMessageDto dto)
         {
             var result = await _chatApp.SendMessageAsync(dto, CurrentUserId);
-            return result.ToActionResult();
+            return result;
         }
 
         [HttpGet("history/{otherUserId}")]
-        public async Task<IActionResult> GetChatHistory(int otherUserId, [FromQuery] Pagination pagination)
+        public async Task<ActionResult<ListDataResult<MessageView>>> GetChatHistory(int otherUserId, [FromQuery] Pagination pagination)
         {
             var result = await _chatApp.GetChatHistoryAsync(otherUserId, pagination, CurrentUserId);
-            return result.ToActionResult();
+            return result;
         }
 
         [HttpGet("list")]
-        public async Task<IActionResult> GetChatList()
+        public async Task<ActionResult<ListDataResult<ChatListItem>>> GetChatList()
         {
             var result = await _chatApp.GetChatListAsync(CurrentUserId);
-            return result.ToActionResult();
+            return result;
         }
 
         [HttpPost("mark-as-read/{senderId}")]
-        public async Task<IActionResult> MarkAsRead(int senderId)
+        public async Task<ActionResult<StatusResult>> MarkAsRead(int senderId)
         {
             var result = await _chatApp.MarkAsReadAsync(senderId, CurrentUserId);
-            return result.ToActionResult();
+            return result;
         }
 
         [HttpGet("unread-count")]
-        public async Task<IActionResult> GetTotalUnreadCount()
+        public async Task<ActionResult<SingleDataResult<int>>> GetTotalUnreadCount()
         {
             var result = await _chatApp.GetTotalUnreadCountAsync(CurrentUserId);
-            return result.ToActionResult();
+            return result;
         }
     }
 }

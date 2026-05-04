@@ -1,7 +1,9 @@
-﻿namespace App.Contracts.Object.Base
+﻿using MyFrameWork.AppTool.ResultType;
+
+namespace App.Contracts.Object.Base
 {
     public interface IPersonApp
     {
-        Task<List<PersonView>> PersonViews();
+        Task<ListDataResult<PersonView>> PersonViews();
     }
 }

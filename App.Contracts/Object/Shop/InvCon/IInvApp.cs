@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Contracts.Object.Shop.InvCon
 {
@@ -10,11 +11,11 @@ namespace App.Contracts.Object.Shop.InvCon
     {
 
 
-        public Task<ApiResult<List<InvView>>> GetAll(Pagination pagination);
-        public Task<ApiResult<InvUpdate>> GetById(int id);
-        public Task<ApiResult> Create(InvCreate dto);
-        public Task<ApiResult> DeleteBy(List<int> ids);
-        public Task<ApiResult> Update(InvUpdate dto);
+        public Task<ListDataResult<InvView>> GetAll(Pagination pagination);
+        public Task<SingleDataResult<InvUpdate>> GetById(int id);
+        public Task<StatusResult> Create(InvCreate dto);
+        public Task<StatusResult> DeleteBy(List<int> ids);
+        public Task<StatusResult> Update(InvUpdate dto);
 
 
     }

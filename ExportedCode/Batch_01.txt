@@ -8,7 +8,7 @@ namespace API.Attributes
     {
         public string Permission { get; }
         public RequirePermissionAttribute(string permission)
-        {
+        {sssssssssssssssssssssss
             Permission = permission;
         }
     }

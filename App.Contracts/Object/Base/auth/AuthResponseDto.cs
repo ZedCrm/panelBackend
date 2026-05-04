@@ -32,7 +32,7 @@ namespace App.Contracts.Object.Base.auth
 
       public interface IAuthApp
     {
-         Task<SingleDataResult<AuthResponseDto>>  RegisterAsync(RegisterRequestDto dto);
+         Task<StatusResult>  RegisterAsync(RegisterRequestDto dto);
         Task<SingleDataResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
         
     }

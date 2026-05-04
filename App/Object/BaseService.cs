@@ -4,6 +4,7 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 using System.Linq.Expressions;
 
 namespace App.Object
@@ -32,28 +33,28 @@ namespace App.Object
         }
 
         // GET ALL + Pagination
-        public virtual async Task<ApiResult<List<TDto>>> GetAll(Pagination pagination)
+        public virtual async Task<ListDataResult<TDto>> GetAll(Pagination pagination)
         {
             var entities = await _repository.GetAsync(pagination);
             var dtos = _mapper.Map<List<TDto>>(entities);
             var total = await _repository.CountAsync();
 
-            return ApiResult<List<TDto>>.PagedSuccess(dtos, total, pagination.PageNumber, pagination.PageSize);
+            return ResultFactory.List(ResultStatusEnum.Success,dtos, total, pagination);
         }
 
         // GET BY ID
-        public virtual async Task<ApiResult<TUpdate>> GetById(int id)
+        public virtual async Task<SingleDataResult<TUpdate>> GetById(int id)
         {
             var entity = await _repository.GetAsync(id);
             if (entity == null)
-                return ApiResult<TUpdate>.Failed(MessageApp.NotFound, 404);
+                return ResultFactory.Single<TUpdate>(ResultStatusEnum.NotFound,null,MessageApp.NotFound);
 
             var dto = _mapper.Map<TUpdate>(entity);
-            return ApiResult<TUpdate>.Success(dto);
+            return ResultFactory.Single(ResultStatusEnum.Success,dto);
         }
 
         // CREATE
-        public virtual async Task<ApiResult> Create(TCreate createDto)
+        public virtual async Task<StatusResult> Create(TCreate createDto)
         {
             var entity = _mapper.Map<TEntity>(createDto);
 
@@ -62,19 +63,19 @@ namespace App.Object
             await _repository.SaveChangesAsync();
             await AfterCreate(entity, createDto);
 
-            return ApiResult.Success("رکورد با موفقیت ایجاد شد.");
+            return ResultFactory.Status(ResultStatusEnum.Success,"رکورد با موفقیت ایجاد شد.");
         }
 
         // UPDATE
-        public virtual async Task<ApiResult> Update(TUpdate updateDto)
+        public virtual async Task<StatusResult> Update(TUpdate updateDto)
         {
             var idProp = updateDto.GetType().GetProperty("Id")?.GetValue(updateDto);
             if (idProp is not int id || id <= 0)
-                return ApiResult.Failed("شناسه معتبر نیست.", 400);
+                return ResultFactory.Status(ResultStatusEnum.ValidationFailed,"شناسه معتبر نیست.");
 
             var entity = await _repository.GetAsync(id);
             if (entity == null)
-                return ApiResult.Failed(MessageApp.NotFound, 404);
+                return ResultFactory.Status(ResultStatusEnum.NotFound,MessageApp.NotFound);
 
             _mapper.Map(updateDto, entity);
 
@@ -83,24 +84,24 @@ namespace App.Object
             await _repository.SaveChangesAsync();
             await AfterUpdate(entity, updateDto);
 
-            return ApiResult.Success("رکورد با موفقیت به‌روزرسانی شد.");
+            return ResultFactory.Status(ResultStatusEnum.Success,"رکورد با موفقیت به‌روزرسانی شد.");
         }
 
         // DELETE
-        public virtual async Task<ApiResult> DeleteBy(List<int> ids)
+        public virtual async Task<StatusResult> DeleteBy(List<int> ids)
         {
             if (!ids.Any())
-                return ApiResult.Failed("هیچ شناسه‌ای انتخاب نشده است.", 400);
+                return ResultFactory.Status(ResultStatusEnum.ValidationFailed ,"هیچ شناسه‌ای انتخاب نشده است.");
 
             var entities = await _repository.GetByIdsAsync(ids);
             if (!entities.Any())
-                return ApiResult.Failed(MessageApp.NotFound, 404);
+                return ResultFactory.Status(ResultStatusEnum.NotFound ,MessageApp.NotFound);
 
             foreach (var entity in entities)
                 _repository.Delete(entity);
 
             await _repository.SaveChangesAsync();
-            return ApiResult.Success("رکورد(ها) با موفقیت حذف شدند.");
+            return ResultFactory.Status(ResultStatusEnum.Success ,"رکورد(ها) با موفقیت حذف شدند.");
         }
 
         // HOOKS — برای override در فرزند

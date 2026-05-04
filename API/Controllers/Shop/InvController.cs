@@ -5,6 +5,7 @@ using App.Contracts.Object.Shop.InvCon;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace API.Controllers.Shop
 {
@@ -20,39 +21,39 @@ namespace API.Controllers.Shop
 
         [HttpPost("/api/inv/GetAll")]
         [RequirePermission("ViewProduct")]
-        public async Task<ActionResult<ApiResult<List<InvView>>>> Index([FromBody] Pagination pagination)
+        public async Task<ActionResult<ListDataResult<InvView>>> Index([FromBody] Pagination pagination)
         {
             return await _invApp.GetAll(pagination);
         }
 
         [HttpGet("/api/inv/GetById")]
         [RequirePermission("InvView")]
-        public async Task<ActionResult<ApiResult<InvUpdate>>> GetById([FromQuery] int id)
+        public async Task<ActionResult<SingleDataResult<InvUpdate>>> GetById([FromQuery] int id)
         {
             return await _invApp.GetById(id);
         }
 
         [HttpPost("/api/inv/create")]
-        public async Task<ActionResult<ApiResult>> Create([FromBody] InvCreate invCreate)
+        public async Task<ActionResult<StatusResult>> Create([FromBody] InvCreate invCreate)
         {
             return await _invApp.Create(invCreate);
         }
 
         [HttpPost("/api/inv/delete")]
-        public async Task<ActionResult<ApiResult>> Delete([FromBody] List<int> ids)
+        public async Task<ActionResult<StatusResult>> Delete([FromBody] List<int> ids)
         {
             return await _invApp.DeleteBy(ids);
         }
 
         [HttpDelete("/api/inv/deletebyid")]
-        public async Task<ActionResult<ApiResult>> DeleteById([FromQuery] int id)
+        public async Task<ActionResult<StatusResult>> DeleteById([FromQuery] int id)
         {
             // متد DeleteBy لیستی می‌گیرد؛ یک آی‌دی را هم به صورت لیست ارسال می‌کنیم
             return await _invApp.DeleteBy(new List<int> { id });
         }
 
         [HttpPost("/api/inv/update")]
-        public async Task<ActionResult<ApiResult>> Update([FromBody] InvUpdate invUpdate)
+        public async Task<ActionResult<StatusResult>> Update([FromBody] InvUpdate invUpdate)
         {
             return await _invApp.Update(invUpdate);
         }

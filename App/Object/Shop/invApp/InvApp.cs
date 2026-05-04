@@ -4,6 +4,7 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Object.Shop.InvApp
 {
@@ -20,11 +21,11 @@ namespace App.Object.Shop.InvApp
             _mapper = mapper;
         }
 
-        public Task<ApiResult<List<InvView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<ApiResult<InvUpdate>> GetById(int id)                 => base.GetByIdAsync(id);
-        public Task<ApiResult> Create(InvCreate dto)                      => base.CreateAsync(dto);
-        public Task<ApiResult> DeleteBy(List<int> ids)                    => base.DeleteAsync(ids);
-        public Task<ApiResult> Update(InvUpdate dto)                      => base.UpdateAsync(dto);
+        public Task<ListDataResult<InvView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
+        public Task<SingleDataResult<InvUpdate>> GetById(int id)                 => base.GetByIdAsync(id);
+        public Task<StatusResult> Create(InvCreate dto)                      => base.CreateAsync(dto);
+        public Task<StatusResult> DeleteBy(List<int> ids)                    => base.DeleteAsync(ids);
+        public Task<StatusResult> Update(InvUpdate dto)                      => base.UpdateAsync(dto);
     }
 
     public interface IInvRep : IBaseRep<Inv, int> { }

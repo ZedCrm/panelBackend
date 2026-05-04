@@ -1,16 +1,12 @@
 // App/Object/Base/Users/UsersApp.cs
 using App.Contracts.Object.Base.Users;
-using App.Object.Base;
 using App.utility;
 using AutoMapper;
 using Domain.Objects.Base;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace App.Object.Base.Users
 {
@@ -37,34 +33,34 @@ namespace App.Object.Base.Users
         }
 
         /*=== اینترفیس IUsersApp ===*/
-        public Task<ApiResult<List<UsersView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<ApiResult<UsersUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<ApiResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
+        public Task<ListDataResult<UsersView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
+        public Task<SingleDataResult<UsersUpdate>> GetById(int id) => base.GetByIdAsync(id);
+        public Task<StatusResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
 
         /*=== متدهای اختصاصی ===*/
-        public async Task<ApiResult<UserCreateFormData>> CreateForm()
+        public async Task<SingleDataResult<UserCreateFormData>> CreateForm()
         {
             var roles = await _roleRep.GetAsync();
-            return ApiResult<UserCreateFormData>.Success(
+            return ResultFactory.Single<UserCreateFormData>( ResultStatusEnum.Success,
                 new UserCreateFormData
                 {
                     Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
                 });
         }
 
-        public async Task<ApiResult> KeepAlive(int userId)
+        public async Task<StatusResult> KeepAlive(int userId)
         {
             _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
-            return ApiResult.Success("وضعیت آنلاین شد.");
+            return ResultFactory.Status(ResultStatusEnum.Accepted ,"وضعیت آنلاین شد.");
         }
 
         /*=== اوررایدهای ضروری (Business + فایل + وضعیت) ===*/
-        public override async Task<ApiResult> CreateAsync(UsersCreat dto)
+        public override async Task<StatusResult> CreateAsync(UsersCreat dto)
         {
             if (await _userRepository.ExistAsync(u => u.Email == dto.Email))
-                return ApiResult.Failed("ایمیل قبلاً استفاده شده است.", 400);
+                return ResultFactory.Status(ResultStatusEnum.Conflict ,"ایمیل قبلاً استفاده شده است.");
             if (await _userRepository.ExistAsync(u => u.Username == dto.Username))
-                return ApiResult.Failed("نام کاربری قبلاً استفاده شده است.", 400);
+                return ResultFactory.Status(ResultStatusEnum.Conflict ,"نام کاربری قبلاً استفاده شده است.");
 
             var user = _mapper.Map<User>(dto);
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
@@ -96,18 +92,18 @@ namespace App.Object.Base.Users
             await _userRepository.CreateAsync(user);
             await _userRepository.SaveChangesAsync();
             _statusService.UpdateStatus(user.Id, UserStatus.Offline);
-            return ApiResult.Success(message: $"کاربر {dto.FullName} با موفقیت ایجاد شد.");
+            return ResultFactory.Status(ResultStatusEnum.Accepted ,$"کاربر {dto.FullName} با موفقیت ایجاد شد.");
         }
 
-        public override async Task<ApiResult> UpdateAsync(UsersUpdate dto)
+        public override async Task<StatusResult> UpdateAsync(UsersUpdate dto)
         {
             if (await _userRepository.ExistAsync(u => u.Email == dto.Email && u.Id != dto.Id))
-                return ApiResult.Failed("ایمیل قبلاً استفاده شده است.", 400);
+                return ResultFactory.Status(ResultStatusEnum.Conflict ,"ایمیل قبلاً استفاده شده است.");
             if (await _userRepository.ExistAsync(u => u.Username == dto.Username && u.Id != dto.Id))
-                return ApiResult.Failed("نام کاربری قبلاً استفاده شده است.", 400);
+                return ResultFactory.Status(ResultStatusEnum.Conflict ,"نام کاربری قبلاً استفاده شده است.");
 
             var user = await _userRepository.GetAsync(dto.Id);
-            if (user == null) return ApiResult.Failed(MessageApp.NotFound, 404);
+            if (user == null) return ResultFactory.Status(ResultStatusEnum.NotFound,MessageApp.NotFound);
 
 
             var oldPasswordHash = user.PasswordHash;
@@ -139,10 +135,10 @@ namespace App.Object.Base.Users
 
             await _userRepository.UpdateAsync(user);
             await _userRepository.SaveChangesAsync();
-            return ApiResult.Success(message: "کاربر با موفقیت به‌روزرسانی شد.");
+            return ResultFactory.Status(ResultStatusEnum.Success ,"کاربر با موفقیت به‌روزرسانی شد.");
         }
 
-        public override async Task<ApiResult<List<UsersView>>> GetAllAsync(Pagination pagination)
+        public override async Task<ListDataResult<UsersView>> GetAllAsync(Pagination pagination)
         {
             var users = await _userRepository.GetAsync(pagination);
             var vms = _mapper.Map<List<UsersView>>(users);
@@ -155,23 +151,22 @@ namespace App.Object.Base.Users
             }
 
             var total = await _userRepository.CountAsync();
-            return ApiResult<List<UsersView>>.PagedSuccess(vms, total,
-                                                           pagination.PageNumber,
-                                                           pagination.PageSize);
+            return ResultFactory.List<UsersView>(ResultStatusEnum.Accepted,vms, total,
+                                                           pagination);
         }
 
-        public override async Task<ApiResult> DeleteAsync(List<int> ids)
+        public override async Task<StatusResult> DeleteAsync(List<int> ids)
         {
             var res = await base.DeleteAsync(ids);
-            if (res.IsSucceeded) ids.ForEach(id => _statusService.UpdateStatus(id, UserStatus.Offline));
+            if (res.IsSuccess) ids.ForEach(id => _statusService.UpdateStatus(id, UserStatus.Offline));
             return res;
         }
 
-        public async Task<ApiResult<List<UserList>>> GetList()
+        public async Task<ListDataResult<UserList>> GetList()
         {
             var users = await _repo.GetAsync();
           var res =  _mapper.Map<List<UserList>>(users);
-          return  ApiResult<List<UserList>>.Success(res);
+          return  ResultFactory.List(ResultStatusEnum.Accepted ,res);
 
         }
     }

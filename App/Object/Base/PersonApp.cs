@@ -1,4 +1,6 @@
 ﻿using App.Contracts.Object.Base;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,11 +16,11 @@ namespace App.Object.Base
         {
             _ctx = personRep;
         }
-        public async Task<List<PersonView>> personViews()
+        public async Task<ListDataResult<PersonView>> personViews()
         {
             var persons = await _ctx.GetAsync();
 
-            return  persons.Select(c => new PersonView
+            var data =  persons.Select(c => new PersonView
             {
                 Id = c.Id,
                 Name = c.Name,
@@ -27,9 +29,12 @@ namespace App.Object.Base
 
             }).ToList();
 
+
+           return ResultFactory.List<PersonView>(ResultStatusEnum.Success , data , 0 ,new Pagination{});
+
         }
 
-        public Task<List<PersonView>> PersonViews()
+        public Task<ListDataResult<PersonView>> PersonViews()
         {
             throw new NotImplementedException();
         }

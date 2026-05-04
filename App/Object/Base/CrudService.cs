@@ -2,10 +2,7 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects;
 using MyFrameWork.AppTool;
-using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Threading.Tasks;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Object.Base
 {
@@ -24,51 +21,51 @@ namespace App.Object.Base
             _mapper = mapper;
         }
 
-        public virtual async Task<ApiResult<List<TDto>>> GetAllAsync(Pagination pagination)
+        public virtual async Task<ListDataResult<TDto>> GetAllAsync(Pagination pagination)
         {
             var entities = await _repo.GetAsync(pagination);
             var data   = _mapper.Map<List<TDto>>(entities);
             var total  = await _repo.CountAsync();
-            return ApiResult<List<TDto>>.PagedSuccess(data, total, pagination.PageNumber, pagination.PageSize);
+            return ResultFactory.List<TDto>(ResultStatusEnum.Success ,data ,total, pagination );
         }
 
-        public virtual async Task<ApiResult<TUpdate>> GetByIdAsync(TKey id)
+        public virtual async Task<SingleDataResult<TUpdate>> GetByIdAsync(TKey id)
         {
             var entity = await _repo.GetAsync(id);
             return entity == null
-                ? ApiResult<TUpdate>.Failed(MessageApp.NotFound, 404)
-                : ApiResult<TUpdate>.Success(_mapper.Map<TUpdate>(entity));
+                ? ResultFactory.Single<TUpdate>(ResultStatusEnum.NotFound,null ,MessageApp.NotFound)
+                : ResultFactory.Single(ResultStatusEnum.Success,_mapper.Map<TUpdate>(entity));
         }
 
-        public virtual async Task<ApiResult> CreateAsync(TCreate dto)
+        public virtual async Task<StatusResult> CreateAsync(TCreate dto)
         {
-            var validation = ModelValidator.ValidateToOpt(dto);
-            if (!validation.IsSucceeded) return ApiResult.Failed(validation.Message);
+            var validation = ModelValidator.ValidateToStatusResult(dto);
+            if (!validation.IsSuccess) return validation;
 
             var entity = _mapper.Map<TEntity>(dto);
             await _repo.CreateAsync(entity);
             await _repo.SaveChangesAsync();
-            return ApiResult.Success(MessageApp.CustomSuccess("افزودن"));
+            return ResultFactory.Status(ResultStatusEnum.Success,MessageApp.CustomSuccess("افزودن"));
         }
 
-        public virtual async Task<ApiResult> UpdateAsync(TUpdate dto)
+        public virtual async Task<StatusResult> UpdateAsync(TUpdate dto)
         {
-            var validation = ModelValidator.ValidateToOpt(dto);
-            if (!validation.IsSucceeded) return ApiResult.Failed(validation.Message);
+            var validation = ModelValidator.ValidateToStatusResult(dto);
+            if (!validation.IsSuccess) return validation;
 
             var id = (TKey)typeof(TUpdate).GetProperty("Id")!.GetValue(dto)!;
             var entity = await _repo.GetAsync(id);
-            if (entity == null) return ApiResult.Failed(MessageApp.NotFound, 404);
+            if (entity == null) return ResultFactory.Status(ResultStatusEnum.NotFound,MessageApp.NotFound);
 
             _mapper.Map(dto, entity);
             await _repo.UpdateAsync(entity);
             await _repo.SaveChangesAsync();
-            return ApiResult.Success(MessageApp.CustomSuccess("ویرایش"));
+            return ResultFactory.Status(ResultStatusEnum.Success ,MessageApp.CustomSuccess("ویرایش"));
         }
 
-        public virtual async Task<ApiResult> DeleteAsync(List<TKey> ids)
+        public virtual async Task<StatusResult> DeleteAsync(List<TKey> ids)
         {
-            if (ids == null || !ids.Any()) return ApiResult.Failed("هیچ شناسه‌ای ارسال نشده است.");
+            if (ids == null || !ids.Any()) return ResultFactory.Status(ResultStatusEnum.BadRequest,"هیچ شناسه‌ای ارسال نشده است.");
 
             var entities = await _repo.GetByIdsAsync(ids);
             var deletable = new List<TEntity>();
@@ -90,7 +87,7 @@ namespace App.Object.Base
             if (deletable.Count > 0) msg += $"{deletable.Count} رکورد حذف شد. ";
             if (used.Count > 0) msg += $"{used.Count} مورد به دلیل استفاده حذف نشد.";
 
-            return ApiResult.Success(msg.Trim());
+            return ResultFactory.Status(ResultStatusEnum.Success,msg.Trim());
         }
     }
 }

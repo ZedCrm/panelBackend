@@ -1,25 +1,55 @@
 namespace MyFrameWork.AppTool.ResultType
 {
+    public enum ResultStatusEnum
+{
+    // Success
+    Success = 1,
+    Created = 2,
+    Accepted = 3,
+    
+    // Client Errors (بیزینس)
+    BadRequest = 100,
+    ValidationFailed = 101,
+    NotFound = 102,
+    Unauthorized = 103,
+    Forbidden = 104,
+    Conflict = 105,
+    
+    // Server Errors (فنی)
+    InternalError = 500,
+    ServiceUnavailable = 501,
+    DatabaseError = 502,
+    ThirdPartyError = 503
+}
+
+
+
 public  class StatusResult{
 
-    public int Status { get; set; }
+    public ResultStatusEnum Status { get; set; }  
     
-    public List<string>? Messeges { get; set; }
+    public IEnumerable<string>? Messages { get; set; }
+     public bool IsSuccess => 
+        Status == ResultStatusEnum.Success || 
+        Status == ResultStatusEnum.Created || 
+        Status == ResultStatusEnum.Accepted;
+    
 
-    public StatusResult(int statusid,List<string>? messeges)
+    public StatusResult(ResultStatusEnum statusid,IEnumerable<string>? messages)
     {
-        this.Status = statusid ; this.Messeges = messeges;
+        this.Status = statusid ; this.Messages = messages;
         
     }
+    
 
 }
 
 
-    public  class  SingleDataResult<T> : StatusResult where T : class
+    public  class  SingleDataResult<T> : StatusResult 
     {
 
         public T?   SingleData{ get; set; }
-        public SingleDataResult(int statusid, List<string>? messeges , T? singleData) : base(statusid, messeges)
+        public SingleDataResult(ResultStatusEnum statusid, IEnumerable<string>? messages , T? singleData) : base(statusid, messages)
         {
                 this.SingleData = singleData;
 
@@ -38,19 +68,19 @@ public  class StatusResult{
         public int? PageNumber { get; set; }
         public int? PageSize { get; set; }
 
-        public ListDataResult(int statusid, List<string>? messeges, List<T>? data, int? totalRecords,  int? pageNumber, int? pageSize) : base(statusid, messeges)
+        public ListDataResult(ResultStatusEnum statusid,IEnumerable<string>? messages , List<T>? data, int? totalRecords, Pagination pagination ) : base(statusid, messages)
         {
               Data = data;
         TotalRecords = totalRecords;
-        PageNumber = pageNumber;
-        PageSize = pageSize;
+        PageNumber = pagination.PageNumber;
+        PageSize = pagination.PageSize;
         }
     }
 
     public   class FileResult : StatusResult
 {
          public string? FilePath  { get; set; }
-        public  FileResult(int statusid, List<string>? messeges , string filePath) : base(statusid, messeges)
+        public  FileResult(ResultStatusEnum statusid, IEnumerable<string>? messeges , string filePath) : base(statusid, messeges)
         {
             FilePath = filePath ;
         }
@@ -63,28 +93,36 @@ public  class StatusResult{
 public static class ResultFactory
 {
     // ایجاد StatusResult ساده
-    public static StatusResult Status(int statusId, params string[] messages)
-        => new StatusResult(statusId, messages.ToList());
+    public static StatusResult Status(ResultStatusEnum statusId, params string[] Messages)
+        => new StatusResult(statusId, Messages.ToList());
 
     // ایجاد SingleDataResult
-    public static SingleDataResult<T> Single<T>(int statusId, T data, params string[] messages)
-        where T : class
-        => new SingleDataResult<T>(statusId, messages.ToList(), data);
+    public static SingleDataResult<T> Single<T>(ResultStatusEnum statusId, T data, params string[] Messages)
+        
+        => new SingleDataResult<T>(statusId, Messages.ToList(), data);
 
     // ایجاد ListDataResult
     public static ListDataResult<T> List<T>(
-        int statusId,
+        ResultStatusEnum statusId,
         List<T> data,
         int totalRecords,
-        int pageNumber,
-        int pageSize,
-        params string[] messages
+        Pagination pagination ,
+        params string[] message
     ) where T : class
-        => new ListDataResult<T>(statusId, messages.ToList(), data, totalRecords, pageNumber, pageSize);
+        => new ListDataResult<T>(statusId, message, data, totalRecords, pagination);
 
+
+
+
+            public static ListDataResult<T> List<T>(
+        ResultStatusEnum statusId,
+        List<T> data,
+        params string[] message
+    ) where T : class
+        => new ListDataResult<T>(statusId, message, data,0,new Pagination());
     // ایجاد FileResult
-    public static FileResult File(int statusId, string filePath, params string[] messages)
-        => new FileResult(statusId, messages.ToList(), filePath);
+    public static FileResult File(ResultStatusEnum statusId, string filePath, params string[] Messages)
+        => new FileResult(statusId, Messages.ToList(), filePath);
 }
 
 

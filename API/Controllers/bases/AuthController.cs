@@ -7,6 +7,7 @@ using App.Contracts.Object.Base.auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace API.Controllers.bases
 {
@@ -24,22 +25,22 @@ namespace API.Controllers.bases
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<ApiResult<AuthResponseDto>>> Login([FromBody] LoginRequestDto request)
+        public async Task<ActionResult<SingleDataResult<AuthResponseDto>>> Login([FromBody] LoginRequestDto request)
         {
             var result = await _authApp.LoginAsync(request);
-            if (result.Status == 200)
+            if (!result.IsSuccess)
                 return BadRequest(result);
 
             return Ok(result);
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register(RegisterRequestDto dto)
+        public async Task<ActionResult<StatusResult>> Register(RegisterRequestDto dto)
         {
             var result = await _authApp.RegisterAsync(dto);
-            if (result.Status == 200)
-                return BadRequest(result.Messeges);
-            return Ok(result.SingleData);
+            if (!result.IsSuccess)
+                return BadRequest(result.Messages);
+            return Ok(result);
         }
     }
 }

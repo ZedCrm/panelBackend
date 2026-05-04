@@ -1,15 +1,16 @@
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 
 namespace App.Contracts.Object.Shop.CountTypeCon
 {
     public interface ICountTypeApp
     {
-        public Task<ApiResult<List<CountTypeView>>> GetAll(Pagination pagination);
-        public Task<ApiResult<CountTypeView>> GetById(int id);
-        public Task<ApiResult> Create(CountTypeCreate dto);
-        public Task<ApiResult> DeleteBy(List<int> ids);
-        public Task<ApiResult> Update(CountTypeView dto);
+        public Task<ListDataResult<CountTypeView>> GetAll(Pagination pagination);
+        public Task<SingleDataResult<CountTypeView>> GetById(int id);
+        public Task<StatusResult> Create(CountTypeCreate dto);
+        public Task<StatusResult> DeleteBy(List<int> ids);
+        public Task<StatusResult> Update(CountTypeView dto);
     
 
     }

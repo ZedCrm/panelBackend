@@ -21,15 +21,15 @@ namespace App.Object.Base.Auth
 {
     var user = await _userRepository.GetByUsernameAsync(request.Username);
     if (user == null)
-        return ResultFactory.Single<AuthResponseDto>(404 ,null,"کاربری با این نام کاربری یافت نشد." );
+        return ResultFactory.Single<AuthResponseDto>(ResultStatusEnum.NotFound ,null ,"کاربر یافت نشد");
 
     var isPasswordCorrect = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
     if (!isPasswordCorrect)
-        return ResultFactory.Single<AuthResponseDto>(404,null,"رمز عبور اشتباه است.");
+        return ResultFactory.Single<AuthResponseDto>(ResultStatusEnum.NotFound,null,"رمز عبور اشتباه است.");
 
     var token = _tokenService.GenerateToken(user);
 
-    return ResultFactory.Single<AuthResponseDto>(200,new AuthResponseDto
+    return ResultFactory.Single<AuthResponseDto>(ResultStatusEnum.Accepted,new AuthResponseDto
     {
         UserId = user.Id,
         Username = user.Username,
@@ -38,10 +38,10 @@ namespace App.Object.Base.Auth
     });
 }
 
-      public async Task<SingleDataResult<AuthResponseDto>> RegisterAsync(RegisterRequestDto request)
+      public async Task<StatusResult> RegisterAsync(RegisterRequestDto request)
 {
     if (await _userRepository.ExistsByUsername(request.Username))
-        return ResultFactory.Single<AuthResponseDto>(400,null,"ایمیل وارد شده قبلاً ثبت شده است.");
+        return ResultFactory.Status(ResultStatusEnum.Conflict,null,"ایمیل وارد شده قبلاً ثبت شده است.");
 
     var user = new User
     {
@@ -53,12 +53,7 @@ namespace App.Object.Base.Auth
     await _userRepository.AddAsync(user);
     var token = _tokenService.GenerateToken(user);
 
-    return ResultFactory.Single<AuthResponseDto>(200,new AuthResponseDto
-    {
-        Username = user.Username,
-        FullName = user.FullName,
-        Token = token
-    });
+    return ResultFactory.Status(ResultStatusEnum.Accepted);
 }
     }
     public interface IUserRepository 
