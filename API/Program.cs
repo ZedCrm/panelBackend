@@ -1,6 +1,7 @@
 using API.Hubs;
 using API.Middleware;
 using API.Services;
+using API.utility;
 using App.Contracts.Object.Base.auth;
 using App.Object.Base.Users;
 using App.utility;

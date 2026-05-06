@@ -2545,118 +2545,7 @@ namespace Infrastructure
 }
 
 ===== FILE: MyFrameWork\AppTool\ApiResult.cs =====
-// MyFrameWork/AppTool/ApiResult.cs
-using System;
-using System.Collections.Generic;
 
-namespace MyFrameWork.AppTool
-{
-    // Ù†Ø³Ø®Ù‡ Ù¾Ø§ÛŒÙ‡ â€” Ø¨Ø±Ø§ÛŒ Ø¹Ù…Ù„ÛŒØ§Øª Ø¨Ø¯ÙˆÙ† Ø¯ÛŒØªØ§ (Ù…Ø«Ù„ MarkAsRead)
-    public class ApiResult
-    {
-        public bool IsSucceeded { get; set; } = true;
-        public int StatusCode { get; set; } = 200;
-        public string? Message { get; set; }
-        public List<string>? Errors { get; set; }
-
-        // ØµÙØ­Ù‡â€ŒØ¨Ù†Ø¯ÛŒ
-        public int? TotalRecords { get; set; }
-        public int? TotalPages { get; set; }
-        public int? PageNumber { get; set; }
-        public int? PageSize { get; set; }
-
-        // --- Factory Methods ---
-        public static ApiResult Success(string? message = null, int? statusCode = null)
-            => new()
-            {
-                IsSucceeded = true,
-                Message = message ?? MessageApp.AcceptOpt,
-                StatusCode = statusCode ?? 200
-            };
-
-        public static ApiResult Failed(string? error = null, int? statusCode = null, List<string>? errors = null)
-            => new()
-            {
-                IsSucceeded = false,
-                Message = error ?? MessageApp.FailOpt,
-                StatusCode = statusCode ?? 400,
-                Errors = errors?.Count > 0
-                    ? errors
-                    : (string.IsNullOrWhiteSpace(error)
-                        ? new List<string> { MessageApp.FailOpt }
-                        : new List<string> { error })
-            };
-    }
-
-    // Ù†Ø³Ø®Ù‡ Ú˜Ù†Ø±ÛŒÚ© â€” Ø¨Ø±Ø§ÛŒ Ù‡Ù…Ù‡ Ù¾Ø§Ø³Ø®â€ŒÙ‡Ø§ÛŒ Ø¯Ø§Ø±Ø§ÛŒ Ø¯ÛŒØªØ§
-    public class ApiResult<T> : ApiResult
-    {
-        public T? Data { get; set; }
-
-        // Success Ø¨Ø§ Ø¯ÛŒØªØ§
-        public static ApiResult<T> Success(T data, string? message = null, int? statusCode = null)
-            => new()
-            {
-                Data = data,
-                IsSucceeded = true,
-                Message = message ?? MessageApp.AcceptOpt,
-                StatusCode = statusCode ?? 200
-            };
-
-
-        // Success Ø¨Ø§ Ø¯ÛŒØªØ§
-        public static ApiResult<List<T>> Success(List<T> data, string? message = null, int? statusCode = null)
-            => new()
-            {
-                Data = data,
-                IsSucceeded = true,
-                Message = message ?? MessageApp.AcceptOpt,
-                StatusCode = statusCode ?? 200
-            };
-        // Paged Success
-        public static ApiResult<T> PagedSuccess(
-            T data,
-            int totalRecords,
-            int pageNumber,
-            int pageSize,
-            string? message = null,
-            int? statusCode = null)
-        {
-            var totalPages = pageSize > 0 ? (int)Math.Ceiling(totalRecords / (double)pageSize) : 0;
-
-            return new ApiResult<T>
-            {
-                Data = data,
-                IsSucceeded = true,
-                Message = message ?? MessageApp.AcceptOpt,
-                StatusCode = statusCode ?? 200,
-                TotalRecords = totalRecords,
-                TotalPages = totalPages,
-                PageNumber = pageNumber,
-                PageSize = pageSize
-            };
-        }
-
-        // Failed
-        public new static ApiResult<T> Failed(string? error = null, int? statusCode = null, List<string>? errors = null)
-            => new()
-            {
-                IsSucceeded = false,
-                Message = error ?? MessageApp.FailOpt,
-                StatusCode = statusCode ?? 400,
-                Errors = errors?.Count > 0
-                    ? errors
-                    : (string.IsNullOrWhiteSpace(error)
-                        ? new List<string> { MessageApp.FailOpt }
-                        : new List<string> { error })
-            };
-    }
-
-
-
-
-    
-}
 
 ===== FILE: MyFrameWork\AppTool\MessageApp.cs =====
 using System;
@@ -2758,22 +2647,22 @@ using System.Threading.Tasks;
 
 namespace MyFrameWork.AppTool
 {
-    public class OPT
+    public class OPTOld
     {
         public bool IsSucceeded { get; set; }
         public  string Message { get; set; }
-        public OPT()
+        public OPTOld()
         {
             IsSucceeded = true;
         }
 
-        public OPT Succeeded(string message = "عملیات با موفقیت انجام شد")
+        public OPTOld Succeeded(string message = "عملیات با موفقیت انجام شد")
         {
             IsSucceeded = true;
             Message = message;
             return this;
         }
-        public OPT Failed(string message)
+        public OPTOld Failed(string message)
         {
             IsSucceeded = false;
             Message = message;
@@ -2789,7 +2678,7 @@ using System.Collections.Generic;
 
 namespace MyFrameWork.AppTool
 {
-    public class OPTResult<T> where T : class
+    public class OPTResultOld<T> where T : class
     {
         public bool IsSucceeded { get; set; }   // وضعیت موفقیت عملیات
         public string? Message { get; set; }     // پیام عملیات
@@ -2801,15 +2690,15 @@ namespace MyFrameWork.AppTool
         public int? PageSize { get; set; }       // تعداد آیتم در هر صفحه
 
         // متد سازنده پیش‌فرض
-        public OPTResult()
+        public OPTResultOld()
         {
             IsSucceeded = true;
         }
 
         // ساخت نتیجه موفق برای لیست داده‌ها
-        public static OPTResult<T> Success(List<T> data, string message = "عملیات با موفقیت انجام شد")
+        public static OPTResultOld<T> Success(List<T> data, string message = "عملیات با موفقیت انجام شد")
         {
-            return new OPTResult<T>
+            return new OPTResultOld<T>
             {
                 IsSucceeded = true,
                 Message = message,
@@ -2818,9 +2707,9 @@ namespace MyFrameWork.AppTool
         }
 
         // ساخت نتیجه موفق برای یک داده تکی
-        public static OPTResult<T> Success(T singleData, string message = "عملیات با موفقیت انجام شد")
+        public static OPTResultOld<T> Success(T singleData, string message = "عملیات با موفقیت انجام شد")
         {
-            return new OPTResult<T>
+            return new OPTResultOld<T>
             {
                 IsSucceeded = true,
                 Message = message,
@@ -2830,9 +2719,9 @@ namespace MyFrameWork.AppTool
 
 
         // ساخت نتیجه موفق با پیام و بدون داده
-        public static OPTResult<T> Success(string message = "عملیات با موفقیت انجام شد")
+        public static OPTResultOld<T> Success(string message = "عملیات با موفقیت انجام شد")
         {
-            return new OPTResult<T>
+            return new OPTResultOld<T>
             {
                 IsSucceeded = true,
                 Message = message
@@ -2844,9 +2733,9 @@ namespace MyFrameWork.AppTool
 
 
         // ساخت نتیجه ناموفق با پیام خطا
-        public static OPTResult<T> Failed(string message = "عملیات با شکست مواجه شد")
+        public static OPTResultOld<T> Failed(string message = "عملیات با شکست مواجه شد")
         {
-            return new OPTResult<T>
+            return new OPTResultOld<T>
             {
                 IsSucceeded = false,
                 Message = message
@@ -2916,6 +2805,138 @@ namespace MyFrameWork.AppTool
 }
 
 
+===== FILE: MyFrameWork\AppTool\ResultType.cs =====
+namespace MyFrameWork.AppTool.ResultType
+{
+    public enum ResultStatusEnum
+{
+    // Success
+    Success = 1,
+    Created = 2,
+    Accepted = 3,
+    
+    // Client Errors (Ø¨ÛŒØ²ÛŒÙ†Ø³)
+    BadRequest = 100,
+    ValidationFailed = 101,
+    NotFound = 102,
+    Unauthorized = 103,
+    Forbidden = 104,
+    Conflict = 105,
+    
+    // Server Errors (ÙÙ†ÛŒ)
+    InternalError = 500,
+    ServiceUnavailable = 501,
+    DatabaseError = 502,
+    ThirdPartyError = 503
+}
+
+
+
+public  class StatusResult{
+
+    public ResultStatusEnum Status { get; set; }  
+    
+    public IEnumerable<string>? Messages { get; set; }
+     public bool IsSuccess => 
+        Status == ResultStatusEnum.Success || 
+        Status == ResultStatusEnum.Created || 
+        Status == ResultStatusEnum.Accepted;
+    
+
+    public StatusResult(ResultStatusEnum statusid,IEnumerable<string>? messages)
+    {
+        this.Status = statusid ; this.Messages = messages;
+        
+    }
+    
+
+}
+
+
+    public  class  SingleDataResult<T> : StatusResult 
+    {
+
+        public T?   SingleData{ get; set; }
+        public SingleDataResult(ResultStatusEnum statusid, IEnumerable<string>? messages , T? singleData) : base(statusid, messages)
+        {
+                this.SingleData = singleData;
+
+        }
+
+        
+    }
+
+
+    public  class ListDataResult<T> : StatusResult where T : class
+    {
+        
+
+        public List<T>? Data { get; set; }
+        public int? TotalRecords { get; set; }
+        public int? PageNumber { get; set; }
+        public int? PageSize { get; set; }
+
+        public ListDataResult(ResultStatusEnum statusid,IEnumerable<string>? messages , List<T>? data, int? totalRecords, Pagination pagination ) : base(statusid, messages)
+        {
+              Data = data;
+        TotalRecords = totalRecords;
+        PageNumber = pagination.PageNumber;
+        PageSize = pagination.PageSize;
+        }
+    }
+
+    public   class FileResult : StatusResult
+{
+         public string? FilePath  { get; set; }
+        public  FileResult(ResultStatusEnum statusid, IEnumerable<string>? messeges , string filePath) : base(statusid, messeges)
+        {
+            FilePath = filePath ;
+        }
+
+       
+
+   
+}
+
+public static class ResultFactory
+{
+    // Ø§ÛŒØ¬Ø§Ø¯ StatusResult Ø³Ø§Ø¯Ù‡
+    public static StatusResult Status(ResultStatusEnum statusId, params string[] Messages)
+        => new StatusResult(statusId, Messages.ToList());
+
+    // Ø§ÛŒØ¬Ø§Ø¯ SingleDataResult
+    public static SingleDataResult<T> Single<T>(ResultStatusEnum statusId, T data, params string[] Messages)
+        
+        => new SingleDataResult<T>(statusId, Messages.ToList(), data);
+
+    // Ø§ÛŒØ¬Ø§Ø¯ ListDataResult
+    public static ListDataResult<T> List<T>(
+        ResultStatusEnum statusId,
+        List<T> data,
+        int totalRecords,
+        Pagination pagination ,
+        params string[] message
+    ) where T : class
+        => new ListDataResult<T>(statusId, message, data, totalRecords, pagination);
+
+
+
+
+            public static ListDataResult<T> List<T>(
+        ResultStatusEnum statusId,
+        List<T> data,
+        params string[] message
+    ) where T : class
+        => new ListDataResult<T>(statusId, message, data,0,new Pagination());
+    // Ø§ÛŒØ¬Ø§Ø¯ FileResult
+    public static FileResult File(ResultStatusEnum statusId, string filePath, params string[] Messages)
+        => new FileResult(statusId, Messages.ToList(), filePath);
+}
+
+
+
+}
+
 ===== FILE: MyFrameWork\AppTool\SelectSourceAttribute.cs =====
 using System;
 
@@ -2965,6 +2986,12 @@ namespace MyFrameWork.AppTool
     }
 }
 
+
+===== FILE: MyFrameWork\AppTool\Wrapper.cs =====
+    public class IntWrapper
+    {
+    public int Value { get; set; }
+    }
 
 ===== FILE: MyFrameWork\Class1.cs =====
 using System;

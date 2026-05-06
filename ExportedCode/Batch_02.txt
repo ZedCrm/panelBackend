@@ -3,10 +3,7 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects;
 using MyFrameWork.AppTool;
-using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Threading.Tasks;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Object.Base
 {
@@ -25,51 +22,51 @@ namespace App.Object.Base
             _mapper = mapper;
         }
 
-        public virtual async Task<ApiResult<List<TDto>>> GetAllAsync(Pagination pagination)
+        public virtual async Task<ListDataResult<TDto>> GetAllAsync(Pagination pagination)
         {
             var entities = await _repo.GetAsync(pagination);
             var data   = _mapper.Map<List<TDto>>(entities);
             var total  = await _repo.CountAsync();
-            return ApiResult<List<TDto>>.PagedSuccess(data, total, pagination.PageNumber, pagination.PageSize);
+            return ResultFactory.List<TDto>(ResultStatusEnum.Success ,data ,total, pagination );
         }
 
-        public virtual async Task<ApiResult<TUpdate>> GetByIdAsync(TKey id)
+        public virtual async Task<SingleDataResult<TUpdate>> GetByIdAsync(TKey id)
         {
             var entity = await _repo.GetAsync(id);
             return entity == null
-                ? ApiResult<TUpdate>.Failed(MessageApp.NotFound, 404)
-                : ApiResult<TUpdate>.Success(_mapper.Map<TUpdate>(entity));
+                ? ResultFactory.Single<TUpdate>(ResultStatusEnum.NotFound,null ,MessageApp.NotFound)
+                : ResultFactory.Single(ResultStatusEnum.Success,_mapper.Map<TUpdate>(entity));
         }
 
-        public virtual async Task<ApiResult> CreateAsync(TCreate dto)
+        public virtual async Task<StatusResult> CreateAsync(TCreate dto)
         {
-            var validation = ModelValidator.ValidateToOpt(dto);
-            if (!validation.IsSucceeded) return ApiResult.Failed(validation.Message);
+            var validation = ModelValidator.ValidateToStatusResult(dto);
+            if (!validation.IsSuccess) return validation;
 
             var entity = _mapper.Map<TEntity>(dto);
             await _repo.CreateAsync(entity);
             await _repo.SaveChangesAsync();
-            return ApiResult.Success(MessageApp.CustomSuccess("Ø§ÙØ²ÙˆØ¯Ù†"));
+            return ResultFactory.Status(ResultStatusEnum.Success,MessageApp.CustomSuccess("Ø§ÙØ²ÙˆØ¯Ù†"));
         }
 
-        public virtual async Task<ApiResult> UpdateAsync(TUpdate dto)
+        public virtual async Task<StatusResult> UpdateAsync(TUpdate dto)
         {
-            var validation = ModelValidator.ValidateToOpt(dto);
-            if (!validation.IsSucceeded) return ApiResult.Failed(validation.Message);
+            var validation = ModelValidator.ValidateToStatusResult(dto);
+            if (!validation.IsSuccess) return validation;
 
             var id = (TKey)typeof(TUpdate).GetProperty("Id")!.GetValue(dto)!;
             var entity = await _repo.GetAsync(id);
-            if (entity == null) return ApiResult.Failed(MessageApp.NotFound, 404);
+            if (entity == null) return ResultFactory.Status(ResultStatusEnum.NotFound,MessageApp.NotFound);
 
             _mapper.Map(dto, entity);
             await _repo.UpdateAsync(entity);
             await _repo.SaveChangesAsync();
-            return ApiResult.Success(MessageApp.CustomSuccess("ÙˆÛŒØ±Ø§ÛŒØ´"));
+            return ResultFactory.Status(ResultStatusEnum.Success ,MessageApp.CustomSuccess("ÙˆÛŒØ±Ø§ÛŒØ´"));
         }
 
-        public virtual async Task<ApiResult> DeleteAsync(List<TKey> ids)
+        public virtual async Task<StatusResult> DeleteAsync(List<TKey> ids)
         {
-            if (ids == null || !ids.Any()) return ApiResult.Failed("Ù‡ÛŒÚ† Ø´Ù†Ø§Ø³Ù‡â€ŒØ§ÛŒ Ø§Ø±Ø³Ø§Ù„ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.");
+            if (ids == null || !ids.Any()) return ResultFactory.Status(ResultStatusEnum.BadRequest,"Ù‡ÛŒÚ† Ø´Ù†Ø§Ø³Ù‡â€ŒØ§ÛŒ Ø§Ø±Ø³Ø§Ù„ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.");
 
             var entities = await _repo.GetByIdsAsync(ids);
             var deletable = new List<TEntity>();
@@ -91,7 +88,7 @@ namespace App.Object.Base
             if (deletable.Count > 0) msg += $"{deletable.Count} Ø±Ú©ÙˆØ±Ø¯ Ø­Ø°Ù Ø´Ø¯. ";
             if (used.Count > 0) msg += $"{used.Count} Ù…ÙˆØ±Ø¯ Ø¨Ù‡ Ø¯Ù„ÛŒÙ„ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø­Ø°Ù Ù†Ø´Ø¯.";
 
-            return ApiResult.Success(msg.Trim());
+            return ResultFactory.Status(ResultStatusEnum.Success,msg.Trim());
         }
     }
 }
@@ -110,6 +107,8 @@ namespace App.Object.Base
 
 ===== FILE: App\Object\Base\PersonApp.cs =====
 using App.Contracts.Object.Base;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -125,11 +124,11 @@ namespace App.Object.Base
         {
             _ctx = personRep;
         }
-        public async Task<List<PersonView>> personViews()
+        public async Task<ListDataResult<PersonView>> personViews()
         {
             var persons = await _ctx.GetAsync();
 
-            return  persons.Select(c => new PersonView
+            var data =  persons.Select(c => new PersonView
             {
                 Id = c.Id,
                 Name = c.Name,
@@ -138,9 +137,12 @@ namespace App.Object.Base
 
             }).ToList();
 
+
+           return ResultFactory.List<PersonView>(ResultStatusEnum.Success , data , 0 ,new Pagination{});
+
         }
 
-        public Task<List<PersonView>> PersonViews()
+        public Task<ListDataResult<PersonView>> PersonViews()
         {
             throw new NotImplementedException();
         }
@@ -176,6 +178,7 @@ using MyFrameWork.AppTool;
 using Domain.Objects.Base;
 using Domain.Objects.Chat;
 using SixLabors.ImageSharp.Processing;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Object.Chat
 {
@@ -201,11 +204,11 @@ namespace App.Object.Chat
             _statusService = statusService;
         }
 
-        public async Task<ApiResult<MessageView>> SendMessageAsync(SendMessageDto dto, int senderId)
+        public async Task<StatusResult> SendMessageAsync(SendMessageDto dto, int senderId)
         {
             var receiver = await _userRep.GetAsync(dto.ReceiverId);
             if (receiver == null)
-                return ApiResult<MessageView>.Failed("Ú¯ÛŒØ±Ù†Ø¯Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯.", 404);
+                return ResultFactory.Status(ResultStatusEnum.NotFound,"Ú¯ÛŒØ±Ù†Ø¯Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯.");
 
             var message = new Message
             {
@@ -234,10 +237,10 @@ namespace App.Object.Chat
             view.SenderName = (await _userRep.GetAsync(senderId))?.FullName ?? "Ù…Ù†";
             view.IsMine = true;
 
-            return ApiResult<MessageView>.Success(view, "Ù¾ÛŒØ§Ù… Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯.");
+            return ResultFactory.Status(ResultStatusEnum.Success, "Ù¾ÛŒØ§Ù… Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯.");
         }
 
-        public async Task<ApiResult<List<MessageView>>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId)
+        public async Task<ListDataResult<MessageView>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId)
         {
             var messages = await _messageRep.GetChatHistoryAsync(currentUserId, otherUserId, pagination);
             var views = _mapper.Map<List<MessageView>>(messages);
@@ -253,10 +256,10 @@ namespace App.Object.Chat
                 v.IsMine = v.SenderId == currentUserId;
             }
 
-            return ApiResult<List<MessageView>>.Success(views);
+            return ResultFactory.List<MessageView>(ResultStatusEnum.Accepted,views ,messages.Count,pagination);
         }
 
-        public async Task<ApiResult<List<ChatListItem>>> GetChatListAsync(int userId)
+        public async Task<ListDataResult<ChatListItem>> GetChatListAsync(int userId)
         {
             var sent = await _messageRep.GetFilteredAsync(m => m.SenderId == userId);
             var received = await _messageRep.GetFilteredAsync(m => m.ReceiverId == userId);
@@ -286,23 +289,23 @@ namespace App.Object.Chat
                 })
                 .ToList();
 
-            return ApiResult<List<ChatListItem>>.Success(grouped);
+            return ResultFactory.List<ChatListItem>(ResultStatusEnum.Success,grouped);
         }
 
-        public async Task<ApiResult> MarkAsReadAsync(int senderId, int receiverId)
+        public async Task<StatusResult> MarkAsReadAsync(int senderId, int receiverId)
         {
             await _messageRep.MarkAsReadAsync(receiverId, senderId);
             await _messageRep.SaveChangesAsync();
-            return ApiResult.Success("Ù¾ÛŒØ§Ù…â€ŒÙ‡Ø§ Ø¨Ù‡ Ø¹Ù†ÙˆØ§Ù† Ø®ÙˆØ§Ù†Ø¯Ù‡â€ŒØ´Ø¯Ù‡ Ø¹Ù„Ø§Ù…Øªâ€ŒÚ¯Ø°Ø§Ø±ÛŒ Ø´Ø¯Ù†Ø¯.");
+            return ResultFactory.Status(ResultStatusEnum.Success,"Ù¾ÛŒØ§Ù…â€ŒÙ‡Ø§ Ø¨Ù‡ Ø¹Ù†ÙˆØ§Ù† Ø®ÙˆØ§Ù†Ø¯Ù‡â€ŒØ´Ø¯Ù‡ Ø¹Ù„Ø§Ù…Øªâ€ŒÚ¯Ø°Ø§Ø±ÛŒ Ø´Ø¯Ù†Ø¯.");
         }
 
-        public async Task<ApiResult<int>> GetUnreadCountAsync(int receiverId)
+        public async Task<SingleDataResult<int>> GetUnreadCountAsync(int receiverId)
         {
             var count = await _messageRep.GetUnreadCountAsync(receiverId, 0);
-            return ApiResult<int>.Success(count);
+            return ResultFactory.Single<int>(ResultStatusEnum.Success,count);
         }
 
-        public async Task<ApiResult<int>> GetTotalUnreadCountAsync(int receiverId)
+        public async Task<SingleDataResult<int>> GetTotalUnreadCountAsync(int receiverId)
         {
             var unreadMessages = await _messageRep.GetFilteredAsync(m =>
                 m.ReceiverId == receiverId &&
@@ -310,7 +313,7 @@ namespace App.Object.Chat
                 !m.IsDeletedForReceiver
             );
 
-            return ApiResult<int>.Success(unreadMessages.Count);
+            return ResultFactory.Single<int>(ResultStatusEnum.Success,unreadMessages.Count);
         }
     }
 }
@@ -322,6 +325,7 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -341,11 +345,11 @@ namespace App.Object.Shop.CountTypeApp
         }
 
         /*=== CRUD ÛŒÚ©â€ŒØ®Ø·ÛŒ ===*/
-        public Task<ApiResult<List<CountTypeView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<ApiResult<CountTypeView>> GetById(int id)                   => base.GetByIdAsync(id);
-        public Task<ApiResult> Create(CountTypeCreate dto)                      => base.CreateAsync(dto);
-        public Task<ApiResult> DeleteBy(List<int> ids)                          => base.DeleteAsync(ids);
-        public Task<ApiResult> Update(CountTypeView dto)                        => base.UpdateAsync(dto);
+        public Task<ListDataResult<CountTypeView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
+        public Task<SingleDataResult<CountTypeView>> GetById(int id)                   => base.GetByIdAsync(id);
+        public Task<StatusResult> Create(CountTypeCreate dto)                      => base.CreateAsync(dto);
+        public Task<StatusResult> DeleteBy(List<int> ids)                          => base.DeleteAsync(ids);
+        public Task<StatusResult> Update(CountTypeView dto)                        => base.UpdateAsync(dto);
     }
 
     public interface ICountTypeRep : IBaseRep<CountType, int> { }
@@ -358,6 +362,7 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Object.Shop.InvApp
 {
@@ -374,11 +379,11 @@ namespace App.Object.Shop.InvApp
             _mapper = mapper;
         }
 
-        public Task<ApiResult<List<InvView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<ApiResult<InvUpdate>> GetById(int id)                 => base.GetByIdAsync(id);
-        public Task<ApiResult> Create(InvCreate dto)                      => base.CreateAsync(dto);
-        public Task<ApiResult> DeleteBy(List<int> ids)                    => base.DeleteAsync(ids);
-        public Task<ApiResult> Update(InvUpdate dto)                      => base.UpdateAsync(dto);
+        public Task<ListDataResult<InvView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
+        public Task<SingleDataResult<InvUpdate>> GetById(int id)                 => base.GetByIdAsync(id);
+        public Task<StatusResult> Create(InvCreate dto)                      => base.CreateAsync(dto);
+        public Task<StatusResult> DeleteBy(List<int> ids)                    => base.DeleteAsync(ids);
+        public Task<StatusResult> Update(InvUpdate dto)                      => base.UpdateAsync(dto);
     }
 
     public interface IInvRep : IBaseRep<Inv, int> { }
@@ -391,6 +396,7 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
@@ -411,14 +417,14 @@ namespace App.Object.Shop.ProductApp
         }
 
         /*=== CRUD یک‌خطی ===*/
-        public Task<ApiResult<List<ProductView>>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<ApiResult<ProductUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<ApiResult> Create(ProductCreate dto) => base.CreateAsync(dto);
-        public Task<ApiResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
-        public Task<ApiResult> Update(ProductUpdate dto) => base.UpdateAsync(dto);
+        public Task<ListDataResult<ProductView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
+        public Task<SingleDataResult<ProductUpdate>> GetById(int id) => base.GetByIdAsync(id);
+        public Task<StatusResult> Create(ProductCreate dto) => base.CreateAsync(dto);
+        public Task<StatusResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
+        public Task<StatusResult> Update(ProductUpdate dto) => base.UpdateAsync(dto);
 
         /*=== متد اختصاصی ===*/
-        public async Task<ApiResult<List<ProductView>>> SearchProducts(ProductSearchCriteria criteria)
+        public async Task<ListDataResult<ProductView>> SearchProducts(ProductSearchCriteria criteria)
         {
             Expression<Func<Product, bool>> filter = p => true;
 
@@ -435,9 +441,8 @@ namespace App.Object.Shop.ProductApp
             var views = _mapper.Map<List<ProductView>>(data);
             var total = await _productRep.CountAsync(filter);
 
-            return ApiResult<List<ProductView>>.PagedSuccess(views, total,
-                                                             criteria.PageNumber,
-                                                             criteria.PageSize);
+            return ResultFactory.List( ResultStatusEnum.Accepted, views, total,
+                                                             criteria);
         }
     }
 
@@ -451,6 +456,7 @@ using App.utility;
 using AutoMapper;
 using Domain.Objects;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 using System.Linq.Expressions;
 
 namespace App.Object
@@ -479,28 +485,28 @@ namespace App.Object
         }
 
         // GET ALL + Pagination
-        public virtual async Task<ApiResult<List<TDto>>> GetAll(Pagination pagination)
+        public virtual async Task<ListDataResult<TDto>> GetAll(Pagination pagination)
         {
             var entities = await _repository.GetAsync(pagination);
             var dtos = _mapper.Map<List<TDto>>(entities);
             var total = await _repository.CountAsync();
 
-            return ApiResult<List<TDto>>.PagedSuccess(dtos, total, pagination.PageNumber, pagination.PageSize);
+            return ResultFactory.List(ResultStatusEnum.Success,dtos, total, pagination);
         }
 
         // GET BY ID
-        public virtual async Task<ApiResult<TUpdate>> GetById(int id)
+        public virtual async Task<SingleDataResult<TUpdate>> GetById(int id)
         {
             var entity = await _repository.GetAsync(id);
             if (entity == null)
-                return ApiResult<TUpdate>.Failed(MessageApp.NotFound, 404);
+                return ResultFactory.Single<TUpdate>(ResultStatusEnum.NotFound,null,MessageApp.NotFound);
 
             var dto = _mapper.Map<TUpdate>(entity);
-            return ApiResult<TUpdate>.Success(dto);
+            return ResultFactory.Single(ResultStatusEnum.Success,dto);
         }
 
         // CREATE
-        public virtual async Task<ApiResult> Create(TCreate createDto)
+        public virtual async Task<StatusResult> Create(TCreate createDto)
         {
             var entity = _mapper.Map<TEntity>(createDto);
 
@@ -509,19 +515,19 @@ namespace App.Object
             await _repository.SaveChangesAsync();
             await AfterCreate(entity, createDto);
 
-            return ApiResult.Success("Ø±Ú©ÙˆØ±Ø¯ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
+            return ResultFactory.Status(ResultStatusEnum.Success,"Ø±Ú©ÙˆØ±Ø¯ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
         }
 
         // UPDATE
-        public virtual async Task<ApiResult> Update(TUpdate updateDto)
+        public virtual async Task<StatusResult> Update(TUpdate updateDto)
         {
             var idProp = updateDto.GetType().GetProperty("Id")?.GetValue(updateDto);
             if (idProp is not int id || id <= 0)
-                return ApiResult.Failed("Ø´Ù†Ø§Ø³Ù‡ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", 400);
+                return ResultFactory.Status(ResultStatusEnum.ValidationFailed,"Ø´Ù†Ø§Ø³Ù‡ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.");
 
             var entity = await _repository.GetAsync(id);
             if (entity == null)
-                return ApiResult.Failed(MessageApp.NotFound, 404);
+                return ResultFactory.Status(ResultStatusEnum.NotFound,MessageApp.NotFound);
 
             _mapper.Map(updateDto, entity);
 
@@ -530,24 +536,24 @@ namespace App.Object
             await _repository.SaveChangesAsync();
             await AfterUpdate(entity, updateDto);
 
-            return ApiResult.Success("Ø±Ú©ÙˆØ±Ø¯ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
+            return ResultFactory.Status(ResultStatusEnum.Success,"Ø±Ú©ÙˆØ±Ø¯ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
         }
 
         // DELETE
-        public virtual async Task<ApiResult> DeleteBy(List<int> ids)
+        public virtual async Task<StatusResult> DeleteBy(List<int> ids)
         {
             if (!ids.Any())
-                return ApiResult.Failed("Ù‡ÛŒÚ† Ø´Ù†Ø§Ø³Ù‡â€ŒØ§ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.", 400);
+                return ResultFactory.Status(ResultStatusEnum.ValidationFailed ,"Ù‡ÛŒÚ† Ø´Ù†Ø§Ø³Ù‡â€ŒØ§ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.");
 
             var entities = await _repository.GetByIdsAsync(ids);
             if (!entities.Any())
-                return ApiResult.Failed(MessageApp.NotFound, 404);
+                return ResultFactory.Status(ResultStatusEnum.NotFound ,MessageApp.NotFound);
 
             foreach (var entity in entities)
                 _repository.Delete(entity);
 
             await _repository.SaveChangesAsync();
-            return ApiResult.Success("Ø±Ú©ÙˆØ±Ø¯(Ù‡Ø§) Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø­Ø°Ù Ø´Ø¯Ù†Ø¯.");
+            return ResultFactory.Status(ResultStatusEnum.Success ,"Ø±Ú©ÙˆØ±Ø¯(Ù‡Ø§) Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø­Ø°Ù Ø´Ø¯Ù†Ø¯.");
         }
 
         // HOOKS â€” Ø¨Ø±Ø§ÛŒ override Ø¯Ø± ÙØ±Ø²Ù†Ø¯
@@ -680,55 +686,207 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Threading.Tasks;
-using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.utility
 {
- public static class ModelValidator
+    public static class ModelValidator
     {
-        public static OPT ValidateToOpt<T>(T model)
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ù…Ø¯Ù„ Ùˆ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†Ø¯Ù† Ù†ØªÛŒØ¬Ù‡ Ø¨Ù‡ ØµÙˆØ±Øª StatusResult
+        /// </summary>
+        public static StatusResult ValidateToStatusResult<T>(T model)
         {
+            if (model == null)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    "Model cannot be null"
+                );
+            }
+
             var context = new ValidationContext(model, serviceProvider: null, items: null);
             var results = new List<ValidationResult>();
 
-            Validator.TryValidateObject(model, context, results, validateAllProperties: true);
+            bool isValid = Validator.TryValidateObject(
+                model, 
+                context, 
+                results, 
+                validateAllProperties: true
+            );
 
-            if (results.Any())
+            if (!isValid && results.Any())
             {
-                return new OPT
-                {
-                    IsSucceeded = false,
-                    Message = string.Join(" | ", results.Select(r => r.ErrorMessage))
-                };
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    results.Select(r => r.ErrorMessage).ToArray()
+                );
             }
 
-            return new OPT { IsSucceeded = true }; // Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ø¯ÙˆÙ† Ø®Ø·Ø§
+            return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
-        public static OPTResult<T> ValidateToOptResult<T>(T model) where T : class
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ù…Ø¯Ù„ Ùˆ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†Ø¯Ù† Ù†ØªÛŒØ¬Ù‡ Ø¨Ù‡ ØµÙˆØ±Øª SingleDataResult
+        /// Ø¯Ø± ØµÙˆØ±Øª Ù…ÙˆÙÙ‚ÛŒØªØŒ Ø®ÙˆØ¯ Ù…Ø¯Ù„ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†Ø¯Ù‡ Ù…ÛŒâ€ŒØ´ÙˆØ¯
+        /// </summary>
+        public static SingleDataResult<T> ValidateToSingleResult<T>(T model)
         {
+            if (model == null)
+            {
+                return ResultFactory.Single<T>(
+                    ResultStatusEnum.ValidationFailed,
+                    default,
+                    "Model cannot be null"
+                );
+            }
+
             var context = new ValidationContext(model, serviceProvider: null, items: null);
             var results = new List<ValidationResult>();
 
-            Validator.TryValidateObject(model, context, results, validateAllProperties: true);
+            bool isValid = Validator.TryValidateObject(
+                model, 
+                context, 
+                results, 
+                validateAllProperties: true
+            );
 
-            if (results.Any())
+            if (!isValid && results.Any())
             {
-                return new OPTResult<T>
-                {
-                    IsSucceeded = false,
-                    Message = string.Join(" | ", results.Select(r => r.ErrorMessage)),
-                    Data = default
-                };
+                return ResultFactory.Single<T>(
+                    ResultStatusEnum.ValidationFailed,
+                    default,
+                    results.Select(r => r.ErrorMessage).ToArray()
+                );
             }
 
-            return new OPTResult<T>
+            return ResultFactory.Single(
+                ResultStatusEnum.Success,
+                model
+            );
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ù…Ø¯Ù„ Ùˆ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†Ø¯Ù† Ù†ØªÛŒØ¬Ù‡ Ø¨Ù‡ ØµÙˆØ±Øª Ø¯Ù„Ø®ÙˆØ§Ù‡ Ø¨Ø§ Ø§Ù…Ú©Ø§Ù† Ø§Ø±Ø³Ø§Ù„ Ø¯ÛŒØªØ§ÛŒ Ø³ÙØ§Ø±Ø´ÛŒ
+        /// </summary>
+        public static SingleDataResult<TOutput> ValidateAndMap<TInput, TOutput>(
+            TInput model, 
+            Func<TInput, TOutput> onSuccessMapping)
+        {
+            if (model == null)
             {
-                IsSucceeded = true,
-               
-               
-            };
+                return ResultFactory.Single<TOutput>(
+                    ResultStatusEnum.ValidationFailed,
+                    default,
+                    "Model cannot be null"
+                );
+            }
+
+            var context = new ValidationContext(model, serviceProvider: null, items: null);
+            var results = new List<ValidationResult>();
+
+            bool isValid = Validator.TryValidateObject(
+                model, 
+                context, 
+                results, 
+                validateAllProperties: true
+            );
+
+            if (!isValid && results.Any())
+            {
+                return ResultFactory.Single<TOutput>(
+                    ResultStatusEnum.ValidationFailed,
+                    default,
+                    results.Select(r => r.ErrorMessage).ToArray()
+                );
+            }
+
+            var output = onSuccessMapping(model);
+            return ResultFactory.Single(
+                ResultStatusEnum.Success,
+                output
+            );
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø¢Ø³Ù†Ú©Ø±ÙˆÙ† Ù…Ø¯Ù„
+        /// </summary>
+        public static async Task<StatusResult> ValidateToStatusResultAsync<T>(
+            T model, 
+            Func<T, Task<bool>>? additionalValidation = null)
+        {
+            if (model == null)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    "Model cannot be null"
+                );
+            }
+
+            var context = new ValidationContext(model, serviceProvider: null, items: null);
+            var results = new List<ValidationResult>();
+
+            bool isValid = Validator.TryValidateObject(
+                model, 
+                context, 
+                results, 
+                validateAllProperties: true
+            );
+
+            if (!isValid && results.Any())
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    results.Select(r => r.ErrorMessage).ToArray()
+                );
+            }
+
+            // Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø§Ø¶Ø§ÙÛŒ ØªÙˆØ³Ø· Ú©Ø§Ù„Ø±
+            if (additionalValidation != null)
+            {
+                var isAdditionalValid = await additionalValidation(model);
+                if (!isAdditionalValid)
+                {
+                    return ResultFactory.Status(
+                        ResultStatusEnum.ValidationFailed,
+                        "Additional validation failed"
+                    );
+                }
+            }
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        /// <summary>
+        /// Ø¨Ø±Ø±Ø³ÛŒ Ù…ÛŒâ€ŒÚ©Ù†Ø¯ Ú©Ù‡ Ø¢ÛŒØ§ Ù…Ø¯Ù„ Ù…Ø¹ØªØ¨Ø± Ø§Ø³Øª ÛŒØ§ Ø®ÛŒØ± (Ø¨Ø¯ÙˆÙ† Ø§ÛŒØ¬Ø§Ø¯ Ø¢Ø¨Ø¬Ú©Øª Ù†ØªÛŒØ¬Ù‡)
+        /// </summary>
+        public static bool IsValid<T>(T model, out List<string> errors)
+        {
+            errors = new List<string>();
+
+            if (model == null)
+            {
+                errors.Add("Model cannot be null");
+                return false;
+            }
+
+            var context = new ValidationContext(model, serviceProvider: null, items: null);
+            var results = new List<ValidationResult>();
+
+            bool isValid = Validator.TryValidateObject(
+                model, 
+                context, 
+                results, 
+                validateAllProperties: true
+            );
+
+            if (!isValid && results.Any())
+            {
+                errors.AddRange(results.Select(r => r.ErrorMessage));
+                return false;
+            }
+
+            return true;
         }
     }
 }
@@ -739,49 +897,282 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.utility
 {
     public static class ValidationUtility
-{
-
-     private static readonly OPT opt = new OPT();
-
-
-    public static OPT ValidateNotEmpty(string value, string fieldName)
     {
-        if (string.IsNullOrWhiteSpace(value))
-            return opt.Failed($"{fieldName} Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø®Ø§Ù„ÛŒ Ø¨Ø§Ø´Ø¯.");
-        return opt.Succeeded();
-    }
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø®Ø§Ù„ÛŒ Ù†Ø¨ÙˆØ¯Ù† Ù…Ù‚Ø¯Ø§Ø±
+        /// </summary>
+        public static StatusResult ValidateNotEmpty(string value, string fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø®Ø§Ù„ÛŒ Ø¨Ø§Ø´Ø¯."
+                );
+            }
+            
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
 
-    public static OPT ValidateLength(string value, string fieldName, int minLength, int maxLength)
-    {
-        if (value.Length < minLength || value.Length > maxLength)
-            return opt.Failed($"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minLength} ØªØ§ {maxLength} Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.");
-        return opt.Succeeded();
-    }
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø·ÙˆÙ„ Ø±Ø´ØªÙ‡
+        /// </summary>
+        public static StatusResult ValidateLength(string value, string fieldName, int minLength, int maxLength)
+        {
+            if (value == null)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø®Ø§Ù„ÛŒ Ø¨Ø§Ø´Ø¯."
+                );
+            }
 
-    public static OPT ValidateRange(decimal value, string fieldName, decimal minValue, decimal maxValue)
-    {
-        if (value < minValue || value > maxValue)
-            return opt.Failed($"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minValue} ØªØ§ {maxValue} Ø¨Ø§Ø´Ø¯.");
-        return opt.Succeeded();
-    }
+            if (value.Length < minLength || value.Length > maxLength)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minLength} ØªØ§ {maxLength} Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯."
+                );
+            }
+            
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
 
-   public static async Task<OPT> ValidateUniqueAsync<T, TKey>(
-    IBaseRep<T, TKey> repository, 
-    Expression<Func<T, bool>> predicate, 
-    string errorMessage)
-    where T : Domain.Objects.BaseDomain
-{
-    var exists = await repository.ExistAsync(predicate);
-    if (exists)
-        return opt.Failed(errorMessage);
-    return opt.Succeeded();
-}
-}
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ù…Ø­Ø¯ÙˆØ¯Ù‡ Ø¹Ø¯Ø¯ÛŒ
+        /// </summary>
+        public static StatusResult ValidateRange(decimal value, string fieldName, decimal minValue, decimal maxValue)
+        {
+            if (value < minValue || value > maxValue)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minValue} ØªØ§ {maxValue} Ø¨Ø§Ø´Ø¯."
+                );
+            }
+            
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ù…Ø­Ø¯ÙˆØ¯Ù‡ Ø¹Ø¯Ø¯ÛŒ Ø¨Ø±Ø§ÛŒ int
+        /// </summary>
+        public static StatusResult ValidateRange(int value, string fieldName, int minValue, int maxValue)
+        {
+            if (value < minValue || value > maxValue)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minValue} ØªØ§ {maxValue} Ø¨Ø§Ø´Ø¯."
+                );
+            }
+            
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ù…Ø­Ø¯ÙˆØ¯Ù‡ Ø¹Ø¯Ø¯ÛŒ Ø¨Ø±Ø§ÛŒ double
+        /// </summary>
+        public static StatusResult ValidateRange(double value, string fieldName, double minValue, double maxValue)
+        {
+            if (value < minValue || value > maxValue)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minValue} ØªØ§ {maxValue} Ø¨Ø§Ø´Ø¯."
+                );
+            }
+            
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ ÛŒÚ©ØªØ§ Ø¨ÙˆØ¯Ù† Ù…Ù‚Ø¯Ø§Ø± Ø¯Ø± Ø¯ÛŒØªØ§Ø¨ÛŒØ³
+        /// </summary>
+        public static async Task<StatusResult> ValidateUniqueAsync<T, TKey>(
+            IBaseRep<T, TKey> repository,
+            Expression<Func<T, bool>> predicate,
+            string errorMessage)
+            where T : Domain.Objects.BaseDomain
+        {
+            if (repository == null)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    "Ø±ÛŒÙ¾Ø§Ø²ÛŒØªÙˆØ±ÛŒ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª."
+                );
+            }
+
+            var exists = await repository.ExistAsync(predicate);
+            if (exists)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    errorMessage
+                );
+            }
+            
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ ÛŒÚ©ØªØ§ Ø¨ÙˆØ¯Ù† Ø¨Ø§ Ø§Ù…Ú©Ø§Ù† Ø§Ø±Ø³Ø§Ù„ Ù¾ÛŒØ§Ù… Ù¾ÛŒØ´â€ŒÙØ±Ø¶
+        /// </summary>
+        public static async Task<StatusResult> ValidateUniqueAsync<T, TKey>(
+            IBaseRep<T, TKey> repository,
+            Expression<Func<T, bool>> predicate,
+            string fieldName,
+            string value)
+            where T : Domain.Objects.BaseDomain
+        {
+            var errorMessage = $"{fieldName} Ø¨Ø§ Ù…Ù‚Ø¯Ø§Ø± '{value}' Ù‚Ø¨Ù„Ø§Ù‹ Ø¯Ø± Ø³ÛŒØ³ØªÙ… Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.";
+            return await ValidateUniqueAsync(repository, predicate, errorMessage);
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø§Ù„Ú¯ÙˆÛŒ Ø§ÛŒÙ…ÛŒÙ„
+        /// </summary>
+        public static StatusResult ValidateEmail(string email, string fieldName = "Ø§ÛŒÙ…ÛŒÙ„")
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø®Ø§Ù„ÛŒ Ø¨Ø§Ø´Ø¯."
+                );
+            }
+
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                if (addr.Address != email)
+                {
+                    return ResultFactory.Status(
+                        ResultStatusEnum.ValidationFailed,
+                        $"{fieldName} Ù…Ø¹ØªØ¨Ø± Ù†Ù…ÛŒâ€ŒØ¨Ø§Ø´Ø¯."
+                    );
+                }
+            }
+            catch
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ù…Ø¹ØªØ¨Ø± Ù†Ù…ÛŒâ€ŒØ¨Ø§Ø´Ø¯."
+                );
+            }
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø§Ù„Ú¯ÙˆÛŒ ØªÙ„ÙÙ† Ù‡Ù…Ø±Ø§Ù‡ Ø§ÛŒØ±Ø§Ù†
+        /// </summary>
+        public static StatusResult ValidateMobilePhone(string mobile, string fieldName = "ØªÙ„ÙÙ† Ù‡Ù…Ø±Ø§Ù‡")
+        {
+            if (string.IsNullOrWhiteSpace(mobile))
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø®Ø§Ù„ÛŒ Ø¨Ø§Ø´Ø¯."
+                );
+            }
+
+            // Ø§Ù„Ú¯ÙˆÛŒ Ø³Ø§Ø¯Ù‡ Ø¨Ø±Ø§ÛŒ Ø´Ù…Ø§Ø±Ù‡ Ù…ÙˆØ¨Ø§ÛŒÙ„ Ø§ÛŒØ±Ø§Ù†
+            var mobilePattern = @"^09[0-9]{9}$";
+            if (!System.Text.RegularExpressions.Regex.IsMatch(mobile, mobilePattern))
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ù…Ø¹ØªØ¨Ø± Ù†Ù…ÛŒâ€ŒØ¨Ø§Ø´Ø¯. Ø´Ù…Ø§Ø±Ù‡ Ø¨Ø§ÛŒØ¯ Ø¨Ø§ 09 Ø´Ø±ÙˆØ¹ Ø´Ø¯Ù‡ Ùˆ 11 Ø±Ù‚Ù… Ø¨Ø§Ø´Ø¯."
+                );
+            }
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø§Ù„Ú¯ÙˆÛŒ Ú©Ø¯ Ù…Ù„ÛŒ Ø§ÛŒØ±Ø§Ù†
+        /// </summary>
+        public static StatusResult ValidateNationalCode(string nationalCode, string fieldName = "Ú©Ø¯ Ù…Ù„ÛŒ")
+        {
+            if (string.IsNullOrWhiteSpace(nationalCode))
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø®Ø§Ù„ÛŒ Ø¨Ø§Ø´Ø¯."
+                );
+            }
+
+            // Ø§Ù„Ú¯ÙˆÛŒ Ø³Ø§Ø¯Ù‡ Ø¨Ø±Ø§ÛŒ Ú©Ø¯ Ù…Ù„ÛŒ
+            var nationalCodePattern = @"^\d{10}$";
+            if (!System.Text.RegularExpressions.Regex.IsMatch(nationalCode, nationalCodePattern))
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    $"{fieldName} Ø¨Ø§ÛŒØ¯ 10 Ø±Ù‚Ù… Ø¨Ø§Ø´Ø¯."
+                );
+            }
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ú†Ù†Ø¯Ú¯Ø§Ù†Ù‡ (ØªØ±Ú©ÛŒØ¨ Ú†Ù†Ø¯ Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ)
+        /// </summary>
+        public static StatusResult ValidateAll(params StatusResult[] validationResults)
+        {
+            var errors = new List<string>();
+            
+            foreach (var result in validationResults)
+            {
+                if (!result.IsSuccess && result.Messages != null)
+                {
+                    errors.AddRange(result.Messages);
+                }
+            }
+
+            if (errors.Any())
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    errors.ToArray()
+                );
+            }
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        /// <summary>
+        /// Ø¨Ø±Ø±Ø³ÛŒ Ù…ÛŒâ€ŒÚ©Ù†Ø¯ Ú©Ù‡ Ø¢ÛŒØ§ Ù‡Ù…Ù‡ Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒâ€ŒÙ‡Ø§ Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯Ù‡â€ŒØ§Ù†Ø¯
+        /// </summary>
+        public static bool IsAllValid(params StatusResult[] validationResults)
+        {
+            return validationResults.All(r => r.IsSuccess);
+        }
+
+        /// <summary>
+        /// Ø¯Ø±ÛŒØ§ÙØª Ù„ÛŒØ³Øª Ø®Ø·Ø§Ù‡Ø§ Ø§Ø² Ú†Ù†Ø¯ÛŒÙ† Ù†ØªÛŒØ¬Ù‡ Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ
+        /// </summary>
+        public static List<string> GetErrors(params StatusResult[] validationResults)
+        {
+            var errors = new List<string>();
+            
+            foreach (var result in validationResults)
+            {
+                if (!result.IsSuccess && result.Messages != null)
+                {
+                    errors.AddRange(result.Messages);
+                }
+            }
+            
+            return errors;
+        }
+    }
 }
 
 ===== FILE: App\IBaseRep.cs =====
@@ -886,6 +1277,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Domain.Objects.Base;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Contracts.Object.Base.auth
 {
@@ -913,8 +1305,8 @@ namespace App.Contracts.Object.Base.auth
 
       public interface IAuthApp
     {
-         Task<ApiResult<AuthResponseDto>>  RegisterAsync(RegisterRequestDto dto);
-        Task<ApiResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
+         Task<StatusResult>  RegisterAsync(RegisterRequestDto dto);
+        Task<SingleDataResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
         
     }
 
@@ -959,19 +1351,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Contracts.Object.Base.Users
 {
 public interface IUsersApp
     {
-Task<ApiResult<List<UsersView>>>             GetAll(Pagination pagination);
-        Task<ApiResult<UsersUpdate>>         GetById(int id);
-        Task<ApiResult>                      CreateAsync(UsersCreat dto);
-        Task<ApiResult>                      UpdateAsync(UsersUpdate dto);
-        Task<ApiResult>                      DeleteBy(List<int> ids);
-        Task<ApiResult<UserCreateFormData>>  CreateForm();
-        Task<ApiResult>                      KeepAlive(int userId);
-        Task<ApiResult<List<UserList>>>      GetList();
+Task<ListDataResult<UsersView>>             GetAll(Pagination pagination);
+        Task<SingleDataResult<UsersUpdate>>         GetById(int id);
+        Task<StatusResult>                      CreateAsync(UsersCreat dto);
+        Task<StatusResult>                      UpdateAsync(UsersUpdate dto);
+        Task<StatusResult>                      DeleteBy(List<int> ids);
+        Task<SingleDataResult<UserCreateFormData>>  CreateForm();
+        Task<StatusResult>                      KeepAlive(int userId);
+        Task<ListDataResult<UserList>>      GetList();
     }
 }
 
@@ -1061,11 +1454,13 @@ namespace App.Contracts.Object.Base.Users
 }
 
 ===== FILE: App.Contracts\Object\Base\IPersonApp.cs =====
+using MyFrameWork.AppTool.ResultType;
+
 namespace App.Contracts.Object.Base
 {
     public interface IPersonApp
     {
-        Task<List<PersonView>> PersonViews();
+        Task<ListDataResult<PersonView>> PersonViews();
     }
 }
 
@@ -1102,17 +1497,20 @@ namespace App.Contracts.Object.Base
 ===== FILE: App.Contracts\Object\Chat\IChatApp.cs =====
 // App.Contracts/Object/Chat/IChatApp.cs
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 namespace App.Contracts.Object.Chat
 {
     public interface IChatApp
     {
-        Task<ApiResult<MessageView>> SendMessageAsync(SendMessageDto dto, int senderId);
-        Task<ApiResult<List<MessageView>>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId);
-        Task<ApiResult<List<ChatListItem>>> GetChatListAsync(int userId);
-        Task<ApiResult> MarkAsReadAsync(int senderId, int receiverId);
-        Task<ApiResult<int>> GetTotalUnreadCountAsync(int receiverId);
+        Task<StatusResult> SendMessageAsync(SendMessageDto dto, int senderId);
+        Task<ListDataResult<MessageView>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId);
+        Task<ListDataResult<ChatListItem>> GetChatListAsync(int userId);
+        Task<StatusResult> MarkAsReadAsync(int senderId, int receiverId);
+        Task<SingleDataResult<int>> GetTotalUnreadCountAsync(int receiverId);
     }
+
+
 }
 
 ===== FILE: App.Contracts\Object\Chat\SendMessageDto.cs =====
@@ -1157,6 +1555,8 @@ namespace App.Contracts.Object.Chat
         public bool IsOnline { get; set; }
         public DateTime? LastSeen { get; set; }
     }
+
+
 }
 
 ===== FILE: App.Contracts\Object\Shop\CountTypeCon\CountTypeView.cs =====
@@ -1204,17 +1604,18 @@ namespace App.Contracts.Object.Shop.CountTypeCon
 
 ===== FILE: App.Contracts\Object\Shop\CountTypeCon\ICountTypeApp.cs =====
 using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 
 
 namespace App.Contracts.Object.Shop.CountTypeCon
 {
     public interface ICountTypeApp
     {
-        public Task<ApiResult<List<CountTypeView>>> GetAll(Pagination pagination);
-        public Task<ApiResult<CountTypeView>> GetById(int id);
-        public Task<ApiResult> Create(CountTypeCreate dto);
-        public Task<ApiResult> DeleteBy(List<int> ids);
-        public Task<ApiResult> Update(CountTypeView dto);
+        public Task<ListDataResult<CountTypeView>> GetAll(Pagination pagination);
+        public Task<SingleDataResult<CountTypeView>> GetById(int id);
+        public Task<StatusResult> Create(CountTypeCreate dto);
+        public Task<StatusResult> DeleteBy(List<int> ids);
+        public Task<StatusResult> Update(CountTypeView dto);
     
 
     }

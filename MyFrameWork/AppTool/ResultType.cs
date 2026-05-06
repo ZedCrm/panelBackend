@@ -127,4 +127,49 @@ public static class ResultFactory
 
 
 
+
+    public static class ResultHelper
+    {
+        // ========== موفقیت ==========
+        public static StatusResult Success(string message = "عملیات با موفقیت انجام شد")
+            => ResultFactory.Status(ResultStatusEnum.Success, message);
+
+        public static StatusResult Created(string message = "با موفقیت ایجاد شد")
+            => ResultFactory.Status(ResultStatusEnum.Created, message);
+
+        public static StatusResult Accepted(string message = "درخواست پذیرفته شد")
+            => ResultFactory.Status(ResultStatusEnum.Accepted, message);
+
+        // ========== خطاهای کلاینت (4xx) ==========
+        public static StatusResult BadRequest(string message)
+            => ResultFactory.Status(ResultStatusEnum.BadRequest, message);
+
+        public static StatusResult NotFound(string entityName, object? id = null)
+        {
+            var msg = id == null 
+                ? $"{entityName} یافت نشد" 
+                : $"{entityName} با شناسه {id} یافت نشد";
+            return ResultFactory.Status(ResultStatusEnum.NotFound, msg);
+        }
+
+        public static StatusResult Unauthorized(string message = "لطفاً وارد سیستم شوید")
+            => ResultFactory.Status(ResultStatusEnum.Unauthorized, message);
+
+        public static StatusResult Forbidden(string permission)
+            => ResultFactory.Status(ResultStatusEnum.Forbidden, $"شما دسترسی '{permission}' را ندارید");
+
+        public static StatusResult Conflict(string fieldName, string value)
+            => ResultFactory.Status(ResultStatusEnum.Conflict, $"{fieldName} '{value}' قبلاً ثبت شده است");
+
+        public static StatusResult ValidationFailed(params string[] errors)
+            => ResultFactory.Status(ResultStatusEnum.ValidationFailed, errors);
+
+        // ========== خطاهای سرور (5xx) ==========
+        public static StatusResult InternalError(string message = "خطای داخلی سرور رخ داده است")
+            => ResultFactory.Status(ResultStatusEnum.InternalError, message);
+
+        public static StatusResult DatabaseError(string message = "خطا در ارتباط با پایگاه داده")
+            => ResultFactory.Status(ResultStatusEnum.DatabaseError, message);
+    }
+
 }

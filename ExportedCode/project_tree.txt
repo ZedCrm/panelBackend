@@ -141,8 +141,10 @@ MyFrameWork
 |   +-- OPTResult.cs
 |   +-- Pagination.cs
 |   +-- PredicateBuilder.cs
+|   +-- ResultType.cs
 |   +-- SelectSourceAttribute.cs
 |   +-- Validator.cs
+|   +-- Wrapper.cs
 +-- Class1.cs
 NuGet.config
 package-lock.json
