@@ -1,12 +1,17 @@
-﻿using System.Security.Claims;
+﻿using App.Contracts.Object.Base.auth;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace API.Controllers
 {
 
     [ApiController]
-    public class BaseController : ControllerBase
+    public class BaseController: ControllerBase 
     {
+
+
+
+
         protected int GetCurrentUserId()
         {
             var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
@@ -16,5 +21,8 @@ namespace API.Controllers
             }
             return userId;
         }
+
+
+
     }
 }

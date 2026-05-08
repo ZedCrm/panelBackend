@@ -1,8 +1,9 @@
-// Infrastructure/data/seed/PermissionSeeder.cs
+﻿using System.Reflection;
 using App.Contracts.Object.Base.auth;
 using ConfApp;
 using Domain.Objects.Base;
 using Microsoft.EntityFrameworkCore;
+
 
 namespace Infrastructure.data.seed
 {
@@ -19,22 +20,23 @@ namespace Infrastructure.data.seed
 
         public async Task SeedAsync()
         {
-            var permissionNames = _permissionDiscovery.GetAllPermissionNames();
+            var permissionNames = _permissionDiscovery.GetAllPermissionNames(); // شامل مجوزهای ضمنی هم هست
 
             foreach (var name in permissionNames)
             {
                 if (!await _context.Permissions.AnyAsync(p => p.Name == name && !p.IsDeleted))
                 {
+                    string controllerName = name.Contains('.') ? name.Split('.')[0] : "General";
                     _context.Permissions.Add(new Permission
                     {
                         Name = name,
-                        Category = 1,
+                        Category = controllerName,
                         CreateDate = DateTime.Now
                     });
                 }
             }
-
             await _context.SaveChangesAsync();
         }
+
     }
 }

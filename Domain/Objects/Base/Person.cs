@@ -1,16 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Objects.Base
 {
-    public class Person :BaseDomain
+    [Table("Persons")]
+    public class Person : BaseDomain
     {
-       
+        [Required]
+        [MaxLength(250)]
         public string Name { get; set; }
+
+        [Required]
+        [MaxLength(250)]
         public string Family { get; set; }
+
         public int Age { get; set; }
     }
 }

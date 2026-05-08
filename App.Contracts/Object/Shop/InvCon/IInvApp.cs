@@ -7,15 +7,8 @@ using MyFrameWork.AppTool.ResultType;
 
 namespace App.Contracts.Object.Shop.InvCon
 {
-    public interface IInvApp
+    public interface IInvApp : ICrudService<InvView, InvCreate, InvUpdate, int>
     {
-
-
-        public Task<ListDataResult<InvView>> GetAll(Pagination pagination);
-        public Task<SingleDataResult<InvUpdate>> GetById(int id);
-        public Task<StatusResult> Create(InvCreate dto);
-        public Task<StatusResult> DeleteBy(List<int> ids);
-        public Task<StatusResult> Update(InvUpdate dto);
 
 
     }

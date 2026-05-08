@@ -8,8 +8,7 @@ namespace ConfApp.Mapping.Chat
     {
         public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<ChatGroupMember> builder)
         {
-            builder.ToTable("ChatGroupMembers");
-            builder.HasKey(x => x.Id);
+ 
 
             builder.HasOne(m => m.Group)
                    .WithMany(g => g.Members)

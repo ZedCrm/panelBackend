@@ -17,7 +17,7 @@ namespace ConfApp
     public abstract class BaseRep<T, TKey> : IBaseRep<T, TKey> where T : BaseDomain
     {
         #region constructor
-        private readonly MyContext _ctx;
+        protected readonly MyContext _ctx;
         public BaseRep(MyContext ctx)
         {
             _ctx = ctx;
@@ -27,12 +27,12 @@ namespace ConfApp
 
 
 
-        public async Task<int> CountAsync()
+        public virtual async Task<int> CountAsync()
         {
             return await _ctx.Set<T>().Where(e => !e.IsDeleted).CountAsync();
         }
 
-     public async Task<bool> HasRelationsAsync(T entity)
+     public virtual  async Task<bool> HasRelationsAsync(T entity)
 {
     var entityType = _ctx.Model.FindEntityType(typeof(T));
     if (entityType == null)
@@ -98,7 +98,7 @@ namespace ConfApp
 
 
 
-        public async Task CreateAsync(T entity)
+        public virtual async Task CreateAsync(T entity)
         {
             entity.CreateDate = DateTime.Now;
             await _ctx.AddAsync(entity);
@@ -106,7 +106,7 @@ namespace ConfApp
 
 
 
-        public void Delete(T entity)
+        public virtual  void Delete(T entity)
         {
             entity.UpdateDate = DateTime.Now;
             entity.IsDeleted = true;
@@ -115,7 +115,7 @@ namespace ConfApp
 
 
 
-        public void DeleteById(TKey id)
+        public virtual void DeleteById(TKey id)
         {
             var TforDelete = this.Get(id);
 
@@ -129,12 +129,12 @@ namespace ConfApp
 
 
 
-        public async Task<bool> ExistAsync(Expression<Func<T, bool>> expression)
+        public virtual async Task<bool> ExistAsync(Expression<Func<T, bool>> expression)
         {
             return await _ctx.Set<T>().AnyAsync(expression);
         }
 
-        public async Task<T> GetAsync(TKey id)
+        public virtual  async Task<T> GetAsync(TKey id)
         {
 
 
@@ -143,12 +143,12 @@ namespace ConfApp
 
         }
 
-        public async Task<List<T>> GetAsync()
+        public virtual async Task<List<T>> GetAsync()
         {
             return await _ctx.Set<T>().Where(e => !e.IsDeleted).AsNoTracking().ToListAsync();
         }
 
-        public async Task<List<T>> GetAsync(Pagination pagination)
+        public virtual async Task<List<T>> GetAsync(Pagination pagination)
         {
             var query = _ctx.Set<T>().Where(e => !e.IsDeleted).AsQueryable();
 
@@ -182,7 +182,7 @@ namespace ConfApp
 
 
 
-        public async Task<List<T>> GetFilteredAsync(Expression<Func<T, bool>> filter = null, ProductSearchCriteria pagination = null)
+        public virtual async Task<List<T>> GetFilteredAsync(Expression<Func<T, bool>> filter = null, ProductSearchCriteria pagination = null)
         {
 
             IQueryable<T> query = _ctx.Set<T>().Where(e => !e.IsDeleted);
@@ -227,38 +227,38 @@ namespace ConfApp
 
 
 
-        public async Task SaveChangesAsync()
+        public virtual async Task SaveChangesAsync()
         {
             await _ctx.SaveChangesAsync();
         }
 
-        public void Dispose()
+        public virtual  void Dispose()
         {
             Console.WriteLine($"MyContext disposed at {DateTime.Now}");
             _ctx?.Dispose();
         }
 
-        public T Get(TKey id)
+        public virtual  T Get(TKey id)
         {
             return _ctx.Set<T>().Find(id);
         }
 
-        public Task DeleteByIDAsinc(TKey id)
+        public virtual  Task DeleteByIDAsinc(TKey id)
         {
             throw new NotImplementedException();
         }
 
-        public async Task<int> CountAsync(Expression<Func<T, bool>> filter)
+        public virtual  async Task<int> CountAsync(Expression<Func<T, bool>> filter)
         {
             return await _ctx.Set<T>().Where(e => !e.IsDeleted).Where(filter).CountAsync();
         }
 
 
-        public Task<List<T>> GetByIdsAsync(List<TKey> ids)
+        public virtual Task<List<T>> GetByIdsAsync(List<TKey> ids)
         {
             return _ctx.Set<T>().Where(e => ids.Contains((TKey)(object)e.Id)).ToListAsync();
         }
-        public void DeleteRange(List<T> entities)
+        public virtual  void DeleteRange(List<T> entities)
         {
             foreach (var entity in entities)
             {
@@ -268,7 +268,7 @@ namespace ConfApp
             _ctx.UpdateRange(entities);
         }
 
-        public Task<bool> UpdateAsync(T entity)
+        public virtual  Task<bool> UpdateAsync(T entity)
         {
             entity.UpdateDate = DateTime.Now;
             _ctx.Update(entity);

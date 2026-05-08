@@ -6,7 +6,7 @@ using MyFrameWork.AppTool.ResultType;
 
 namespace App.Object.Base
 {
-    public abstract class CrudService<TEntity, TDto, TCreate, TUpdate, TKey>
+    public abstract class CrudService<TEntity, TDto, TCreate, TUpdate, TKey> : ICrudService<TDto, TCreate, TUpdate, TKey>
         where TEntity : BaseDomain
         where TDto : class
         where TCreate : class

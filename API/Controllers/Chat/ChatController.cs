@@ -1,15 +1,17 @@
 // API/Controllers/ChatController.cs
-using System.Security.Claims;
 using API.Attributes;
 using API.utility;
 using App.Contracts.Object.Chat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
+using System.Security.Claims;
 
 
 namespace API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     [RequirePermission("Chat.Access")]

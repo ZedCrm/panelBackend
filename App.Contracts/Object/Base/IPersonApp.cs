@@ -2,8 +2,8 @@
 
 namespace App.Contracts.Object.Base
 {
-    public interface IPersonApp
+    public interface IPersonApp : ICrudService<PersonView,PersonCreate ,PersonUpdate , int>
     {
-        Task<ListDataResult<PersonView>> PersonViews();
+       
     }
 }

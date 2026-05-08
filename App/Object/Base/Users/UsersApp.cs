@@ -1,5 +1,6 @@
 // App/Object/Base/Users/UsersApp.cs
 using App.Contracts.Object.Base.Users;
+using App.Object.Base.Roles;
 using App.utility;
 using AutoMapper;
 using Domain.Objects.Base;
@@ -44,7 +45,7 @@ namespace App.Object.Base.Users
             return ResultFactory.Single<UserCreateFormData>( ResultStatusEnum.Success,
                 new UserCreateFormData
                 {
-                    Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
+                    Roles = roles.Select(r => new RoleViewForUser { Id = r.Id, Name = r.Name }).ToList()
                 });
         }
 

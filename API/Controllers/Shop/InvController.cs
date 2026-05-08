@@ -11,51 +11,14 @@ namespace API.Controllers.Shop
 {
     [Route("[controller]")]
     [Authorize]
-    public class InvController : BaseController
+    public class InvController :  GenericController<InvView , InvCreate, InvUpdate,int>
     {
-        private readonly IInvApp _invApp;
-        public InvController(IInvApp invApp)
+      
+        public InvController(IInvApp invApp) : base(invApp)
         {
-            _invApp = invApp;
+           
         }
 
-        [HttpPost("/api/inv/GetAll")]
-        [RequirePermission("ViewProduct")]
-        public async Task<ActionResult<ListDataResult<InvView>>> Index([FromBody] Pagination pagination)
-        {
-            return await _invApp.GetAll(pagination);
-        }
 
-        [HttpGet("/api/inv/GetById")]
-        [RequirePermission("InvView")]
-        public async Task<ActionResult<SingleDataResult<InvUpdate>>> GetById([FromQuery] int id)
-        {
-            return await _invApp.GetById(id);
-        }
-
-        [HttpPost("/api/inv/create")]
-        public async Task<ActionResult<StatusResult>> Create([FromBody] InvCreate invCreate)
-        {
-            return await _invApp.Create(invCreate);
-        }
-
-        [HttpPost("/api/inv/delete")]
-        public async Task<ActionResult<StatusResult>> Delete([FromBody] List<int> ids)
-        {
-            return await _invApp.DeleteBy(ids);
-        }
-
-        [HttpDelete("/api/inv/deletebyid")]
-        public async Task<ActionResult<StatusResult>> DeleteById([FromQuery] int id)
-        {
-            // متد DeleteBy لیستی می‌گیرد؛ یک آی‌دی را هم به صورت لیست ارسال می‌کنیم
-            return await _invApp.DeleteBy(new List<int> { id });
-        }
-
-        [HttpPost("/api/inv/update")]
-        public async Task<ActionResult<StatusResult>> Update([FromBody] InvUpdate invUpdate)
-        {
-            return await _invApp.Update(invUpdate);
-        }
     }
 }

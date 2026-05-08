@@ -72,10 +72,10 @@ namespace App.Contracts.Object.Base.Users
     }
     public class UserCreateFormData
     {
-        public List<RoleView> Roles { get; set; } = new();
+        public List<RoleViewForUser> Roles { get; set; } = new();
     }
 
-    public class RoleView
+    public class RoleViewForUser
     {
         public int Id { get; set; }
         public string Name { get; set; } = default!;

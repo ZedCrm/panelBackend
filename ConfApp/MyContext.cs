@@ -1,4 +1,5 @@
 ﻿using ConfApp.Mapping;
+using ConfApp.Mapping.Chat;
 using Domain.Objects.Base;
 using Domain.Objects.Chat;
 using Domain.Objects.Shop;
@@ -35,7 +36,7 @@ namespace ConfApp
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
 
-            var assembly = typeof(PersonMapping).Assembly;
+            var assembly = typeof(ChatGroupMapping).Assembly;
             modelBuilder.ApplyConfigurationsFromAssembly(assembly);
             base.OnModelCreating(modelBuilder);
         }

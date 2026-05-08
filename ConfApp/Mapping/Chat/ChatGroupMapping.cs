@@ -8,11 +8,6 @@ namespace ConfApp.Mapping.Chat
     {
         public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<ChatGroup> builder)
         {
-            builder.ToTable("ChatGroups");
-            builder.HasKey(x => x.Id);
-
-            builder.Property(x => x.Name).IsRequired().HasMaxLength(100);
-            builder.Property(x => x.ImageUrl).HasMaxLength(500);
 
             builder.HasOne(g => g.Creator)
                    .WithMany(u => u.CreatedGroups)

@@ -62,59 +62,63 @@ namespace API.Controllers.bases
     }
 }
 
-===== FILE: API\Controllers\bases\UserController.cs =====
-// API\Controllers\bases\UserController.cs
-using API.Attributes;
+===== FILE: API\Controllers\bases\RoleController.cs =====
 using App.Contracts.Object.Base.auth;
-using App.Contracts.Object.Base.Users;
-using App.Object.Base.auth;
+using App.Contracts.Object.Base.Roles;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
 
 namespace API.Controllers.bases
 {
-    [ApiExplorerSettings(IgnoreApi = true)] 
+    public class RoleController : GenericController<RoleView ,RoleCreate, RoleUpdate, int>
+    {
+        private readonly IRoleApp roleApp;
+        private readonly IPermissionService permissionService;
+
+        public RoleController(IRoleApp roleApp, IPermissionService permissionService) : base(roleApp)
+        {
+            this.roleApp = roleApp;
+            this.permissionService = permissionService;
+        }
+
+
+
+
+       
+    }
+}
+
+
+===== FILE: API\Controllers\bases\UserController.cs =====
+// API\Controllers\bases\UserController.cs
+using API.Attributes;
+using App.Contracts.Object.Base.auth;
+using App.Contracts.Object.Base.Users;
+using App.Contracts.Object.Shop.InvCon;
+using App.Object.Base.auth;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+
+namespace API.Controllers.bases
+{
+
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class UserController : BaseController
+    public class UserController : GenericController<UsersView, UsersCreat, UsersUpdate, int>
     {
         private readonly IUsersApp _usersApp;
         private readonly IPermissionService _permissionService;
-        public UserController(IUsersApp usersApp , IPermissionService permissionService) 
+        public UserController(IUsersApp usersApp , IPermissionService permissionService) : base(usersApp) 
         { 
             _usersApp = usersApp ;
          _permissionService = permissionService;
          }
 
-        /*======================================================*/
-        /*                     Ù…ØªØ¯Ù‡Ø§ÛŒ CRUD                      */
-        /*======================================================*/
-        [RequirePermission("User.View")]
-        [HttpPost("/api/User/GetAll")]
-        public async Task<ActionResult<ListDataResult<UsersView>>> GetAll([FromBody] Pagination pagination)
-            => await _usersApp.GetAll(pagination);
-
-        [RequirePermission("User.View")]
-        [HttpGet("/api/User/GetById")]
-        public async Task<ActionResult<SingleDataResult<UsersUpdate>>> GetById([FromQuery] int id)
-            => await _usersApp.GetById(id);
-
-        [RequirePermission("User.Create")]
-        [HttpPost("/api/User/create")]
-        public async Task<ActionResult<StatusResult>> Create([FromForm] UsersCreat userCreate)
-            => await _usersApp.CreateAsync(userCreate);
-
-        [RequirePermission("User.Edit")]
-        [HttpPost("/api/User/update")]
-        public async Task<ActionResult<StatusResult>> Update([FromForm] UsersUpdate userUpdate)
-            => await _usersApp.UpdateAsync(userUpdate);
-
-        [RequirePermission("User.Delete")]
-        [HttpPost("/api/User/delete")]
-        public async Task<ActionResult<StatusResult>> Delete([FromBody] List<int> ids)
-            => await _usersApp.DeleteBy(ids);
-
+     
         /*======================================================*/
         /*                  Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ                      */
         /*======================================================*/
@@ -158,17 +162,19 @@ namespace API.Controllers.bases
 
 ===== FILE: API\Controllers\Chat\ChatController.cs =====
 // API/Controllers/ChatController.cs
-using System.Security.Claims;
 using API.Attributes;
 using API.utility;
 using App.Contracts.Object.Chat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
+using System.Security.Claims;
 
 
 namespace API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     [RequirePermission("Chat.Access")]
@@ -228,6 +234,7 @@ namespace API.Controllers
 
 ===== FILE: API\Controllers\Shop\CountTypeController.cs =====
 using App.Contracts.Object.Shop.CountTypeCon;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
@@ -236,56 +243,12 @@ using System.Threading.Tasks;
 
 namespace API.Controllers.Shop
 {
-    public class CountTypeController : BaseController
+
+    [Authorize]
+    public class CountTypeController : GenericController<CountTypeView, CountTypeCreate, CountTypeView, int>
     {
-        private readonly ICountTypeApp _countTypeApp;
-
-        public CountTypeController(ICountTypeApp countTypeApp)
+        public CountTypeController(ICountTypeApp app) : base(app)
         {
-            _countTypeApp = countTypeApp;
-        }
-
-        [HttpPost("/api/CountType/GetAll")]
-        public async Task<ActionResult<ListDataResult<CountTypeView>>> Index([FromBody] Pagination pagination)
-        {
-            return await _countTypeApp.GetAll(pagination);
-        }
-
-        [HttpGet("/api/CountType/GetById")]
-        public async Task<ActionResult<SingleDataResult<CountTypeView>>> GetById([FromQuery] int id)
-        {
-            return await _countTypeApp.GetById(id);
-        }
-
-        [HttpPost("/api/CountType/create")]
-        public async Task<ActionResult<StatusResult>> Create([FromBody] CountTypeCreate dto)
-        {
-            return await _countTypeApp.Create(dto);
-        }
-
-        [HttpPost("/api/CountType/delete")]
-        public async Task<ActionResult<StatusResult>> Delete([FromBody] List<int> ids)
-        {
-            return await _countTypeApp.DeleteBy(ids);
-        }
-
-        [HttpDelete("/api/CountType/deletebyid")]
-        public async Task<ActionResult<StatusResult>> DeleteById([FromQuery] int id)
-        {
-            return await _countTypeApp.DeleteBy(new List<int> { id });
-        }
-
-        [HttpPost("/api/CountType/update")]
-        public async Task<ActionResult<StatusResult>> Update([FromBody] CountTypeView dto)
-        {
-            return await _countTypeApp.Update(dto);
-        }
-
-        [HttpGet("/api/counttype/CountTypelist")]
-        public async Task<ActionResult<ListDataResult<CountTypeView>>> CountTypeList()
-        {
-            var pagination = new Pagination { PageNumber = 1, PageSize = 1000 };
-            return await _countTypeApp.GetAll(pagination);
         }
     }
 }
@@ -304,57 +267,21 @@ namespace API.Controllers.Shop
 {
     [Route("[controller]")]
     [Authorize]
-    public class InvController : BaseController
+    public class InvController :  GenericController<InvView , InvCreate, InvUpdate,int>
     {
-        private readonly IInvApp _invApp;
-        public InvController(IInvApp invApp)
+      
+        public InvController(IInvApp invApp) : base(invApp)
         {
-            _invApp = invApp;
+           
         }
 
-        [HttpPost("/api/inv/GetAll")]
-        [RequirePermission("ViewProduct")]
-        public async Task<ActionResult<ListDataResult<InvView>>> Index([FromBody] Pagination pagination)
-        {
-            return await _invApp.GetAll(pagination);
-        }
 
-        [HttpGet("/api/inv/GetById")]
-        [RequirePermission("InvView")]
-        public async Task<ActionResult<SingleDataResult<InvUpdate>>> GetById([FromQuery] int id)
-        {
-            return await _invApp.GetById(id);
-        }
-
-        [HttpPost("/api/inv/create")]
-        public async Task<ActionResult<StatusResult>> Create([FromBody] InvCreate invCreate)
-        {
-            return await _invApp.Create(invCreate);
-        }
-
-        [HttpPost("/api/inv/delete")]
-        public async Task<ActionResult<StatusResult>> Delete([FromBody] List<int> ids)
-        {
-            return await _invApp.DeleteBy(ids);
-        }
-
-        [HttpDelete("/api/inv/deletebyid")]
-        public async Task<ActionResult<StatusResult>> DeleteById([FromQuery] int id)
-        {
-            // Ù…ØªØ¯ DeleteBy Ù„ÛŒØ³ØªÛŒ Ù…ÛŒâ€ŒÚ¯ÛŒØ±Ø¯Ø› ÛŒÚ© Ø¢ÛŒâ€ŒØ¯ÛŒ Ø±Ø§ Ù‡Ù… Ø¨Ù‡ ØµÙˆØ±Øª Ù„ÛŒØ³Øª Ø§Ø±Ø³Ø§Ù„ Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ…
-            return await _invApp.DeleteBy(new List<int> { id });
-        }
-
-        [HttpPost("/api/inv/update")]
-        public async Task<ActionResult<StatusResult>> Update([FromBody] InvUpdate invUpdate)
-        {
-            return await _invApp.Update(invUpdate);
-        }
     }
 }
 
 ===== FILE: API\Controllers\Shop\ProductController.cs =====
 using API.Attributes;
+using App.Contracts.Object.Shop.InvCon;
 using App.Contracts.Object.Shop.ProductCon;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -367,23 +294,13 @@ namespace API.Controllers.Shop
     /// کنترلر مربوط به مدیریت محصولات در سیستم
     /// </summary>
     [Authorize]
-    public class ProductController : BaseController
+    public class ProductController :   GenericController<ProductView, ProductCreate, ProductUpdate, int>
     {
         private readonly IProductApp _productApp;
 
-        public ProductController(IProductApp productApp)
+        public ProductController(IProductApp productApp) : base(productApp) 
         {
             _productApp = productApp;
-        }
-
-        /// <summary>
-        /// دریافت لیست محصولات با صفحه‌بندی
-        /// </summary>
-        [RequirePermission("ViewProduct")]
-        [HttpPost("/api/product/GetAll")]
-        public async Task<ActionResult<ListDataResult<ProductView>>> Index([FromBody] Pagination pagination)
-        {
-            return await _productApp.GetAll(pagination);
         }
 
         /// <summary>
@@ -395,54 +312,25 @@ namespace API.Controllers.Shop
             return await _productApp.SearchProducts(productSearch);
         }
 
-        /// <summary>
-        /// ایجاد محصول جدید
-        /// </summary>
-        [HttpPost("/api/product/create")]
-        public async Task<ActionResult<StatusResult>> Create([FromBody] ProductCreate product)
-        {
-            return await _productApp.Create(product);
-        }
-
-        /// <summary>
-        /// حذف محصولات بر اساس لیست آیدی‌ها
-        /// </summary>
-        [HttpPost("/api/product/delete")]
-        public async Task<ActionResult<StatusResult>> Delete([FromBody] List<int> ids)
-        {
-            return await _productApp.DeleteBy(ids);
-        }
-
-        /// <summary>
-        /// دریافت اطلاعات یک محصول بر اساس آیدی
-        /// </summary>
-        [HttpGet("/api/product/GetById")]
-        public async Task<ActionResult<SingleDataResult<ProductUpdate>>> GetById([FromQuery] int id)
-        {
-            return await _productApp.GetById(id);
-        }
-
-        /// <summary>
-        /// به‌روزرسانی اطلاعات محصول
-        /// </summary>
-        [HttpPost("/api/product/update")]
-        public async Task<ActionResult<StatusResult>> Update([FromBody] ProductUpdate product)
-        {
-            return await _productApp.Update(product);
-        }
+    
     }
 }
 
 ===== FILE: API\Controllers\BaseController.cs =====
-using System.Security.Claims;
+using App.Contracts.Object.Base.auth;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace API.Controllers
 {
 
     [ApiController]
-    public class BaseController : ControllerBase
+    public class BaseController: ControllerBase 
     {
+
+
+
+
         protected int GetCurrentUserId()
         {
             var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
@@ -452,9 +340,72 @@ namespace API.Controllers
             }
             return userId;
         }
+
+
+
     }
 }
 
+
+===== FILE: API\Controllers\GenericController.cs =====
+using API.Attributes;
+using API.utility;
+using Microsoft.AspNetCore.Mvc;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+
+namespace API.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public abstract class GenericController<TDto, TCreate, TUpdate, TKey> : BaseController
+        where TDto : class
+        where TCreate : class
+        where TUpdate : class
+    {
+        private readonly ICrudService<TDto, TCreate, TUpdate, TKey> _service;
+
+        protected GenericController(ICrudService<TDto, TCreate, TUpdate, TKey> service)
+        {
+            _service = service;
+        }
+
+        [HttpPost("GetAll")]
+        public virtual async Task<ActionResult<ListDataResult<TDto>>> GetAll([FromBody] Pagination pagination)
+        {
+            var result = await _service.GetAllAsync(pagination);
+            return result;   // ✅ implicit conversion
+        }
+
+        [HttpGet("GetById")]
+        public virtual async Task<ActionResult<SingleDataResult<TUpdate>>> GetById([FromQuery] TKey id)
+        {
+            var result = await _service.GetByIdAsync(id);
+            return result;
+        }
+
+        [HttpPost("Create")]
+        public virtual async Task<ActionResult<StatusResult>> Create([FromBody] TCreate dto)
+        {
+            var result = await _service.CreateAsync(dto);
+            return result;
+        }
+
+        [HttpPost("Update")]
+        public virtual async Task<ActionResult<StatusResult>> Update([FromBody] TUpdate dto)
+        {
+            var result = await _service.UpdateAsync(dto);
+            return result;
+        }
+
+        [HttpPost("Delete")]
+        public virtual async Task<ActionResult<StatusResult>> Delete([FromBody] List<TKey> ids)
+        {
+            var result = await _service.DeleteAsync(ids);
+            return result;
+        }
+    }
+}
 
 ===== FILE: API\Controllers\MetadataController.cs =====
 using System;
@@ -738,52 +689,83 @@ namespace API.Middleware
             _logger = logger;
         }
 
-  public async Task InvokeAsync(HttpContext context, IPermissionService permissionService)
-{
-    var endpoint = context.GetEndpoint();
-    var authorizeAttribute = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>();
-
-    // Ø§Ú¯Ø± Ø§Ú©Ø´Ù† Ù†ÛŒØ§Ø² Ø¨Ù‡ Ù„Ø§Ú¯ÛŒÙ† Ù†Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ù‡
-    if (authorizeAttribute == null)
-    {
-        await _next(context);
-        return;
-    }
-
-    // 1. Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª
-    if (!context.User.Identity?.IsAuthenticated ?? true)
-    {
-        context.Response.StatusCode = 401;
-        await context.Response.WriteAsync("Ø¯Ø³ØªØ±Ø³ÛŒ ØºÛŒØ±Ù…Ø¬Ø§Ø²: ØªÙˆÚ©Ù† Ù†Ø§Ù…Ø¹ØªØ¨Ø±.");
-        return;
-    }
-
-    // 2. Ø§Ø³ØªØ®Ø±Ø§Ø¬ userId
-    var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    if (!int.TryParse(userIdClaim, out int userId))
-    {
-        context.Response.StatusCode = 401;
-        await context.Response.WriteAsync("ØªÙˆÚ©Ù† Ù†Ø§Ù…Ø¹ØªØ¨Ø±: Ø´Ù†Ø§Ø³Ù‡ Ú©Ø§Ø±Ø¨Ø± ÛŒØ§ÙØª Ù†Ø´Ø¯.");
-        return;
-    }
-
-    context.Items["UserId"] = userId;
-
-    // 3. Ø§Ø³ØªØ®Ø±Ø§Ø¬ Ù¾Ø±Ù…ÛŒØ´Ù† Ù…ÙˆØ±Ø¯ Ù†ÛŒØ§Ø² Ø§Ø² Attribute Ø³ÙØ§Ø±Ø´ÛŒ
-    var requirePermissionAttribute = endpoint?.Metadata.GetMetadata<RequirePermissionAttribute>();
-    if (requirePermissionAttribute != null)
-    {
-        bool hasPermission = await permissionService.HasPermissionAsync(userId, requirePermissionAttribute.Permission);
-        if (!hasPermission)
+        public async Task InvokeAsync(HttpContext context, IPermissionService permissionService)
         {
-            context.Response.StatusCode = 403;
-            await context.Response.WriteAsync($"Ø¯Ø³ØªØ±Ø³ÛŒ Ù…Ù…Ù†ÙˆØ¹: Ø´Ù…Ø§ Ø§Ø¬Ø§Ø²Ù‡ '{requirePermissionAttribute.Permission}' Ø±Ø§ Ù†Ø¯Ø§Ø±ÛŒØ¯.");
-            return;
-        }
-    }
+            var endpoint = context.GetEndpoint();
+            var authorizeAttribute = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>();
 
-    await _next(context);
-}
+            // Ø§Ú¯Ø± Ø§Ú©Ø´Ù† Ù†ÛŒØ§Ø² Ø¨Ù‡ Ù„Ø§Ú¯ÛŒÙ† Ù†Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯
+            if (authorizeAttribute == null)
+            {
+                await _next(context);
+                return;
+            }
+
+            // 1. Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª
+            if (!context.User.Identity?.IsAuthenticated ?? true)
+            {
+                context.Response.StatusCode = 401;
+                await context.Response.WriteAsync("Ø¯Ø³ØªØ±Ø³ÛŒ ØºÛŒØ±Ù…Ø¬Ø§Ø²: ØªÙˆÚ©Ù† Ù†Ø§Ù…Ø¹ØªØ¨Ø±.");
+                return;
+            }
+
+            // 2. Ø§Ø³ØªØ®Ø±Ø§Ø¬ userId
+            var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdClaim, out int userId))
+            {
+                context.Response.StatusCode = 401;
+                await context.Response.WriteAsync("ØªÙˆÚ©Ù† Ù†Ø§Ù…Ø¹ØªØ¨Ø±: Ø´Ù†Ø§Ø³Ù‡ Ú©Ø§Ø±Ø¨Ø± ÛŒØ§ÙØª Ù†Ø´Ø¯.");
+                return;
+            }
+
+            context.Items["UserId"] = userId;
+
+            // 3. Ø±ÙˆØ´ Û³: Ø§Ø³ØªØ®Ø±Ø§Ø¬ Ù…Ø¬ÙˆØ² Ø§Ø² RouteData (Ø¨Ø¯ÙˆÙ† Ù†ÛŒØ§Ø² Ø¨Ù‡ RequirePermissionAttribute)
+            var routeData = context.GetRouteData();
+            var controllerName = routeData?.Values["controller"]?.ToString();
+            var actionName = routeData?.Values["action"]?.ToString();
+
+            string requiredPermission = null;
+
+            if (!string.IsNullOrEmpty(controllerName) && !string.IsNullOrEmpty(actionName))
+            {
+                requiredPermission = actionName switch
+                {
+                    "GetAll" or "GetById" => $"{controllerName}.View",
+                    "Create" => $"{controllerName}.Create",
+                    "Update" => $"{controllerName}.Update",
+                    "Delete" => $"{controllerName}.Delete",
+                    _ => null   // Ø³Ø§ÛŒØ± Ø§Ú©Ø´Ù†â€ŒÙ‡Ø§ Ø¨Ø¯ÙˆÙ† Ø¨Ø±Ø±Ø³ÛŒ Ù…Ø¬ÙˆØ² (ÛŒØ§ Ù…ÛŒâ€ŒØªÙˆØ§Ù†ÛŒ deny Ú©Ù†ÛŒ)
+                };
+            }
+
+            // Ø§Ú¯Ø± Ù…Ø¬ÙˆØ²ÛŒ ØªØ¹Ø±ÛŒÙ Ø´Ø¯Ù‡ Ø¨ÙˆØ¯ØŒ Ø¢Ù† Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†
+            if (!string.IsNullOrEmpty(requiredPermission))
+            {
+                bool hasPermission = await permissionService.HasPermissionAsync(userId, requiredPermission);
+                if (!hasPermission)
+                {
+                    context.Response.StatusCode = 403;
+                    await context.Response.WriteAsync("Ø´Ù…Ø§ Ø¯Ø³ØªØ±Ø³ÛŒ Ù„Ø§Ø²Ù… Ø±Ø§ Ù†Ø¯Ø§Ø±ÛŒØ¯");
+                    return;
+                }
+            }
+
+            // (Ø§Ø®ØªÛŒØ§Ø±ÛŒ) Ø§Ú¯Ø± Ù…ÛŒâ€ŒØ®ÙˆØ§Ù‡ÛŒ RequirePermissionAttribute Ù‡Ù…Ú†Ù†Ø§Ù† Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ Ø´ÙˆØ¯ØŒ Ù…ÛŒâ€ŒØªÙˆØ§Ù†ÛŒ Ø¢Ù† Ø±Ø§ Ù†ÛŒØ² Ú†Ú© Ú©Ù†ÛŒ
+            var requirePermissionAttribute = endpoint?.Metadata.GetMetadata<RequirePermissionAttribute>();
+            if (requirePermissionAttribute != null)
+            {
+                bool hasPermission = await permissionService.HasPermissionAsync(userId, requirePermissionAttribute.Permission);
+                if (!hasPermission)
+                {
+                    context.Response.StatusCode = 403;
+                    await context.Response.WriteAsync($"Ø¯Ø³ØªØ±Ø³ÛŒ Ù…Ù…Ù†ÙˆØ¹: Ø´Ù…Ø§ Ø§Ø¬Ø§Ø²Ù‡ '{requirePermissionAttribute.Permission}' Ø±Ø§ Ù†Ø¯Ø§Ø±ÛŒØ¯.");
+                    return;
+                }
+            }
+
+            await _next(context);
+        }
     }
 
     // Extension Ø¨Ø±Ø§ÛŒ Ø«Ø¨Øª Middleware
@@ -795,7 +777,6 @@ namespace API.Middleware
         }
     }
 }
-
 
 ===== FILE: API\Properties\launchSettings.json =====
 {
@@ -858,6 +839,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using API.Attributes;
+using API.Controllers; // Ø¨Ø±Ø§ÛŒ Ø¯Ø³ØªØ±Ø³ÛŒ Ø¨Ù‡ GenericController
 using App.Contracts.Object.Base.auth;
 using Microsoft.AspNetCore.Mvc;
 
@@ -868,19 +850,19 @@ namespace API.Services
         public IEnumerable<string> GetAllPermissionNames()
         {
             var permissions = new HashSet<string>();
-            var assembly = Assembly.GetExecutingAssembly(); // ÙÙ‚Ø· Ø§Ø³Ù…Ø¨Ù„ÛŒ API
+            var assembly = Assembly.GetExecutingAssembly();
 
             var controllers = assembly.GetTypes()
                 .Where(t => typeof(ControllerBase).IsAssignableFrom(t) && !t.IsAbstract);
 
             foreach (var controller in controllers)
             {
-                // Ù¾Ø±Ù…ÛŒØ´Ù†â€ŒÙ‡Ø§ÛŒ Ø±ÙˆÛŒ Ú©Ù„Ø§Ø³
+                // 1. Ù…Ø¬ÙˆØ²Ù‡Ø§ÛŒ ØµØ±ÛŒØ­ Ø±ÙˆÛŒ Ú©Ù„Ø§Ø³
                 var classAttrs = controller.GetCustomAttributes<RequirePermissionAttribute>(true);
                 foreach (var attr in classAttrs)
                     permissions.Add(attr.Permission);
 
-                // Ù¾Ø±Ù…ÛŒØ´Ù†â€ŒÙ‡Ø§ÛŒ Ø±ÙˆÛŒ Ù…ØªØ¯Ù‡Ø§
+                // 2. Ù…Ø¬ÙˆØ²Ù‡Ø§ÛŒ ØµØ±ÛŒØ­ Ø±ÙˆÛŒ Ù…ØªØ¯Ù‡Ø§
                 var methods = controller.GetMethods(BindingFlags.Public | BindingFlags.Instance);
                 foreach (var method in methods)
                 {
@@ -888,158 +870,49 @@ namespace API.Services
                     foreach (var attr in methodAttrs)
                         permissions.Add(attr.Permission);
                 }
+
+                // 3. Ù…Ø¬ÙˆØ²Ù‡Ø§ÛŒ Ø¶Ù…Ù†ÛŒ Ø¨Ø±Ø§ÛŒ Ú©Ù†ØªØ±Ù„Ø±Ù‡Ø§ÛŒÛŒ Ú©Ù‡ Ø§Ø² GenericController Ø§Ø±Ø« Ø¨Ø±Ø¯Ù‡â€ŒØ§Ù†Ø¯
+                if (IsDerivedFromGenericController(controller))
+                {
+                    string controllerName = GetControllerBaseName(controller);
+
+                    // Ù…Ø¬ÙˆØ²Ù‡Ø§ÛŒ Ø§Ø³ØªØ§Ù†Ø¯Ø§Ø±Ø¯ CRUD
+                    permissions.Add($"{controllerName}.View");
+                    permissions.Add($"{controllerName}.Create");
+                    permissions.Add($"{controllerName}.Update");
+                    permissions.Add($"{controllerName}.Delete");
+                }
             }
 
             return permissions;
         }
-    }
-}
-
-===== FILE: API\utility\ApiResultExtensions.cs =====
-using Microsoft.AspNetCore.Mvc;
-using MyFrameWork.AppTool.ResultType;
-using FileResult = MyFrameWork.AppTool.ResultType.FileResult;
-
-namespace API.utility
-{
-    public static class ApiResultExtensions
-    {
-        /// <summary>
-        /// ØªØ¨Ø¯ÛŒÙ„ StatusResult Ø¨Ù‡ ActionResult
-        /// </summary>
-        public static IActionResult ToActionResult(this StatusResult result)
-        {
-            if (result == null) 
-                return new StatusCodeResult(500);
-
-            var statusCode = GetHttpStatusCode(result.Status);
-            
-            var content = new
-            {
-                success = result.IsSuccess,
-                message = result.Messages?.FirstOrDefault(),
-                errors = !result.IsSuccess ? result.Messages : null,
-                data = (object?)null,
-                pagination = (object?)null
-            };
-
-            return statusCode >= 200 && statusCode < 300
-                ? new OkObjectResult(content) { StatusCode = statusCode }
-                : new ObjectResult(content) { StatusCode = statusCode };
-        }
 
         /// <summary>
-        /// ØªØ¨Ø¯ÛŒÙ„ SingleDataResult Ø¨Ù‡ ActionResult
+        /// Ø¨Ø±Ø±Ø³ÛŒ Ù…ÛŒâ€ŒÚ©Ù†Ø¯ Ø¢ÛŒØ§ Ú©Ù†ØªØ±Ù„Ø± Ø§Ø² GenericController Ù…Ø´ØªÙ‚ Ø´Ø¯Ù‡ Ø§Ø³Øª.
         /// </summary>
-        public static IActionResult ToActionResult<T>(this SingleDataResult<T> result)
+        private bool IsDerivedFromGenericController(Type controllerType)
         {
-            if (result == null) 
-                return new StatusCodeResult(500);
-
-            var statusCode = GetHttpStatusCode(result.Status);
-            
-            var content = new
+            var baseType = controllerType.BaseType;
+            while (baseType != null && baseType != typeof(object))
             {
-                success = result.IsSuccess,
-                message = result.Messages?.FirstOrDefault(),
-                errors = !result.IsSuccess ? result.Messages : null,
-                data = result.SingleData,
-                pagination = (object?)null
-            };
-
-            return statusCode >= 200 && statusCode < 300
-                ? new OkObjectResult(content) { StatusCode = statusCode }
-                : new ObjectResult(content) { StatusCode = statusCode };
-        }
-
-        /// <summary>
-        /// ØªØ¨Ø¯ÛŒÙ„ ListDataResult Ø¨Ù‡ ActionResult
-        /// </summary>
-        public static IActionResult ToActionResult<T>(this ListDataResult<T> result) where T : class
-        {
-            if (result == null) 
-                return new StatusCodeResult(500);
-
-            var statusCode = GetHttpStatusCode(result.Status);
-            
-            var content = new
-            {
-                success = result.IsSuccess,
-                message = result.Messages?.FirstOrDefault(),
-                errors = !result.IsSuccess ? result.Messages : null,
-                data = result.Data,
-                pagination = new
-                {
-                    totalRecords = result.TotalRecords,
-                    pageNumber = result.PageNumber,
-                    pageSize = result.PageSize
-                }
-            };
-
-            return statusCode >= 200 && statusCode < 300
-                ? new OkObjectResult(content) { StatusCode = statusCode }
-                : new ObjectResult(content) { StatusCode = statusCode };
-        }
-
-        /// <summary>
-        /// ØªØ¨Ø¯ÛŒÙ„ FileResult Ø¨Ù‡ ActionResult
-        /// </summary>
-        public static IActionResult ToActionResult(this FileResult result)
-        {
-            if (result == null) 
-                return new StatusCodeResult(500);
-
-            if (!result.IsSuccess)
-            {
-                var statusCode = GetHttpStatusCode(result.Status);
-                var content = new
-                {
-                    success = false,
-                    message = result.Messages?.FirstOrDefault(),
-                    errors = result.Messages,
-                    data = (object?)null
-                };
-                return new ObjectResult(content) { StatusCode = statusCode };
+                // GenericController Ø¯Ø§Ø±Ø§ÛŒ 4 Ù†ÙˆØ¹ Ù¾Ø§Ø±Ø§Ù…ØªØ± Ø§Ø³Øª â†’ Ø¨Ø§ÛŒØ¯ 3 Ú©Ø§Ù…Ø§ Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯
+                if (baseType.IsGenericType &&
+                    baseType.GetGenericTypeDefinition() == typeof(GenericController<,,,>))
+                    return true;
+                baseType = baseType.BaseType;
             }
-
-            // Ø¯Ø± ØµÙˆØ±Øª Ù…ÙˆÙÙ‚ÛŒØªØŒ ÙØ§ÛŒÙ„ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†Ø¯Ù‡ Ù…ÛŒâ€ŒØ´ÙˆØ¯
-            if (!string.IsNullOrEmpty(result.FilePath) && System.IO.File.Exists(result.FilePath))
-            {
-                var fileBytes = System.IO.File.ReadAllBytes(result.FilePath);
-                return new FileContentResult(fileBytes, "application/octet-stream");
-            }
-
-            return new NotFoundObjectResult(new { success = false, message = "ÙØ§ÛŒÙ„ ÛŒØ§ÙØª Ù†Ø´Ø¯" });
+            return false;
         }
 
         /// <summary>
-        /// Ù…ØªØ¯ Ú©Ù…Ú©ÛŒ Ø¨Ø±Ø§ÛŒ ØªØ¨Ø¯ÛŒÙ„ ResultStatusEnum Ø¨Ù‡ HttpStatusCode
+        /// Ù†Ø§Ù… Ù¾Ø§ÛŒÙ‡ Ú©Ù†ØªØ±Ù„Ø± (Ø­Ø°Ù Ù¾Ø³ÙˆÙ†Ø¯ "Controller") Ø±Ø§ Ø¨Ø±Ù…ÛŒâ€ŒÚ¯Ø±Ø¯Ø§Ù†Ø¯.
         /// </summary>
-        private static int GetHttpStatusCode(ResultStatusEnum status)
+        private string GetControllerBaseName(Type controllerType)
         {
-            return status switch
-            {
-                // Success responses
-                ResultStatusEnum.Success => 200,
-                ResultStatusEnum.Created => 201,
-                ResultStatusEnum.Accepted => 202,
-                
-                // Client error responses
-                ResultStatusEnum.BadRequest => 400,
-                ResultStatusEnum.ValidationFailed => 400,
-                ResultStatusEnum.NotFound => 404,
-                ResultStatusEnum.Unauthorized => 401,
-                ResultStatusEnum.Forbidden => 403,
-                ResultStatusEnum.Conflict => 409,
-                
-                // Server error responses
-                ResultStatusEnum.InternalError => 500,
-                ResultStatusEnum.ServiceUnavailable => 503,
-                ResultStatusEnum.DatabaseError => 500,
-                ResultStatusEnum.ThirdPartyError => 502,
-                
-                _ => 500
-            };
+            string name = controllerType.Name;
+            if (name.EndsWith("Controller", StringComparison.OrdinalIgnoreCase))
+                return name.Substring(0, name.Length - 10);
+            return name;
         }
     }
 }
@@ -1139,6 +1012,101 @@ namespace API.utility
     }
 }
 
+===== FILE: API\utility\RequirePermissionForEntityAttribute.cs =====
+namespace API.utility
+{
+    public class RequirePermissionForEntityAttribute : Attribute
+    {
+        public Type EntityType { get; }
+        public string Action { get; }
+
+        public RequirePermissionForEntityAttribute(Type entityType, string action)
+        {
+            EntityType = entityType;
+            Action = action;
+        }
+    }
+}
+
+
+===== FILE: API\utility\ResultFilter.cs =====
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
+using MyFrameWork.AppTool.ResultType;
+
+namespace API.utility
+{
+    public class ResultFilter : IActionFilter
+    {
+        // این متد BEFORE اجرای اکشن صدا زده می‌شود
+        public void OnActionExecuting(ActionExecutingContext context)
+        {
+            // کاری نداریم - فقط بگذار خالی باشد
+            // (در آینده می‌توانی Validation خودکار اینجا بگذاری)
+        }
+
+        // این متد AFTER اجرای اکشن صدا زده می‌شود
+        public void OnActionExecuted(ActionExecutedContext context)
+        {
+            // اگر نتیجه از نوع ObjectResult باشد و مقدار آن StatusResult باشد
+            if (context.Result is ObjectResult objResult && objResult.Value is StatusResult statusResult)
+            {
+                // ساختار خروجی یکسان برای همه API‌ها
+                var response = new
+                {
+                    success = statusResult.IsSuccess,
+                    message = statusResult.Messages?.FirstOrDefault(),
+                    errors = statusResult.IsSuccess ? null : statusResult.Messages,
+                    data = GetData(objResult.Value),
+                    pagination = GetPagination(objResult.Value)
+                };
+
+                context.Result = new OkObjectResult(response);
+            }
+        }
+
+        private object? GetData(object? value)
+        {
+            if (value == null) return null;
+
+            // اگر SingleDataResult باشد
+            var singleType = value.GetType();
+            var singleDataProp = singleType.GetProperty("SingleData");
+            if (singleDataProp != null)
+                return singleDataProp.GetValue(value);
+
+            // اگر ListDataResult باشد
+            var dataProp = singleType.GetProperty("Data");
+            if (dataProp != null)
+                return dataProp.GetValue(value);
+
+            return null;
+        }
+
+        private object? GetPagination(object? value)
+        {
+            if (value == null) return null;
+
+            var type = value.GetType();
+            var pageNumberProp = type.GetProperty("PageNumber");
+            var pageSizeProp = type.GetProperty("PageSize");
+            var totalRecordsProp = type.GetProperty("TotalRecords");
+
+            if (pageNumberProp != null && pageSizeProp != null)
+            {
+                return new
+                {
+                    totalRecords = totalRecordsProp?.GetValue(value),
+                    pageNumber = pageNumberProp.GetValue(value),
+                    pageSize = pageSizeProp.GetValue(value)
+                };
+            }
+
+            return null;
+        }
+    }
+}
+
 ===== FILE: API\appsettings.Development.json =====
 {
   
@@ -1179,6 +1147,7 @@ namespace API.utility
 using API.Hubs;
 using API.Middleware;
 using API.Services;
+using API.utility;
 using App.Contracts.Object.Base.auth;
 using App.Object.Base.Users;
 using App.utility;
@@ -1350,6 +1319,17 @@ app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM API V1");
     c.RoutePrefix = "swagger";
+
+    // Ø¨Ø³ØªÙ† Ù¾ÛŒØ´â€ŒÙØ±Ø¶ Ù‡Ù…Ù‡ Ø¹Ù…Ù„ÛŒØ§Øªâ€ŒÙ‡Ø§ (Actions/Endpoints)
+    c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+
+    // Ø¨Ø³ØªÙ† Ù¾ÛŒØ´â€ŒÙØ±Ø¶ Ù‡Ù…Ù‡ Ù…Ø¯Ù„â€ŒÙ‡Ø§ (Schemas) â€“ Ù…Ù‚Ø¯Ø§Ø± -1 ÛŒØ¹Ù†ÛŒ Ø§ØµÙ„Ø§Ù‹ Ù†Ù…Ø§ÛŒØ´ Ù†Ø¯Ù‡
+    c.DefaultModelsExpandDepth(0);
+    c.EnableTryItOutByDefault();
+
+    c.DisplayOperationId();
+    c.DisplayRequestDuration();
+    c.HeadContent = "<style> .swagger-ui .topbar { background-color: #1976D2; } </style>";
 });
 
     // Seed permissions from controller attributes (development only)
@@ -1507,7 +1487,7 @@ app.Run();  // Start the application
 
 
 ===== FILE: API\user-status.json =====
-{"1013":{},"1014":{}}
+{"4":{},"1013":{},"1014":{}}
 
 ===== FILE: App\Object\Base\auth\UserContext\UserContext.cs =====
 
@@ -1702,250 +1682,117 @@ namespace App.Object.Base.auth
     }
 }
 
-===== FILE: App\Object\Base\Users\Roles\IRoleRep.cs =====
-using App;
-using Domain.Objects.Base;
-
-public interface IRoleRep :  IBaseRep<Role, int> {
-
-
-}
-
-===== FILE: App\Object\Base\Users\UsersApp.cs =====
-// App/Object/Base/Users/UsersApp.cs
-using App.Contracts.Object.Base.Users;
-using App.utility;
+===== FILE: App\Object\Base\Roles\RoleApp.cs =====
+using App.Contracts.Object.Base.Roles;
+using App.Object.Base.auth;
 using AutoMapper;
 using Domain.Objects.Base;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
-
-namespace App.Object.Base.Users
-{
-    public class UsersApp : CrudService<User, UsersView, UsersCreat, UsersUpdate, int>,
-                            IUsersApp
-    {
-        private readonly IMyUserRepository _userRepository;
-        private readonly IFileService _fileService;
-        private readonly UserStatusService _statusService;
-        private readonly IRoleRep _roleRep;
-
-        public UsersApp(
-            IMyUserRepository userRepository,
-            IMapper mapper,
-            IFileService fileService,
-            UserStatusService statusService,
-            IRoleRep roleRep)
-            : base(userRepository, mapper)
-        {
-            _userRepository = userRepository;
-            _fileService = fileService;
-            _statusService = statusService;
-            _roleRep = roleRep;
-        }
-
-        /*=== Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ IUsersApp ===*/
-        public Task<ListDataResult<UsersView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<SingleDataResult<UsersUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<StatusResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
-
-        /*=== Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ ===*/
-        public async Task<SingleDataResult<UserCreateFormData>> CreateForm()
-        {
-            var roles = await _roleRep.GetAsync();
-            return ResultFactory.Single<UserCreateFormData>( ResultStatusEnum.Success,
-                new UserCreateFormData
-                {
-                    Roles = roles.Select(r => new RoleView { Id = r.Id, Name = r.Name }).ToList()
-                });
-        }
-
-        public async Task<StatusResult> KeepAlive(int userId)
-        {
-            _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
-            return ResultFactory.Status(ResultStatusEnum.Accepted ,"ÙˆØ¶Ø¹ÛŒØª Ø¢Ù†Ù„Ø§ÛŒÙ† Ø´Ø¯.");
-        }
-
-        /*=== Ø§ÙˆØ±Ø±Ø§ÛŒØ¯Ù‡Ø§ÛŒ Ø¶Ø±ÙˆØ±ÛŒ (Business + ÙØ§ÛŒÙ„ + ÙˆØ¶Ø¹ÛŒØª) ===*/
-        public override async Task<StatusResult> CreateAsync(UsersCreat dto)
-        {
-            if (await _userRepository.ExistAsync(u => u.Email == dto.Email))
-                return ResultFactory.Status(ResultStatusEnum.Conflict ,"Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
-            if (await _userRepository.ExistAsync(u => u.Username == dto.Username))
-                return ResultFactory.Status(ResultStatusEnum.Conflict ,"Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
-
-            var user = _mapper.Map<User>(dto);
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid }).ToList();
-
-            if (dto.ProfilePicture != null)
-            {
-                var resizeOptions = new ResizeOptions
-                {
-                    Size = new Size(200, 200),
-                    Mode = ResizeMode.Max
-                };
-
-                user.ProfilePictureUrl = await _fileService.UploadAsync(
-                    file: dto.ProfilePicture,
-                    folderPath: "uploads/profiles",
-                    existingUrl: user.ProfilePictureUrl,
-                    resizeOptions: resizeOptions
-                );
-            }
-
-
-
-
-
-
-
-
-            await _userRepository.CreateAsync(user);
-            await _userRepository.SaveChangesAsync();
-            _statusService.UpdateStatus(user.Id, UserStatus.Offline);
-            return ResultFactory.Status(ResultStatusEnum.Accepted ,$"Ú©Ø§Ø±Ø¨Ø± {dto.FullName} Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
-        }
-
-        public override async Task<StatusResult> UpdateAsync(UsersUpdate dto)
-        {
-            if (await _userRepository.ExistAsync(u => u.Email == dto.Email && u.Id != dto.Id))
-                return ResultFactory.Status(ResultStatusEnum.Conflict ,"Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
-            if (await _userRepository.ExistAsync(u => u.Username == dto.Username && u.Id != dto.Id))
-                return ResultFactory.Status(ResultStatusEnum.Conflict ,"Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
-
-            var user = await _userRepository.GetAsync(dto.Id);
-            if (user == null) return ResultFactory.Status(ResultStatusEnum.NotFound,MessageApp.NotFound);
-
-
-            var oldPasswordHash = user.PasswordHash;
-
-            _mapper.Map(dto, user);
-            // Ø§Ú¯Ø± Ú©Ø§Ø±Ø¨Ø± Ø±Ù…Ø² Ø¬Ø¯ÛŒØ¯ Ù†ÙØ±Ø³ØªØ§Ø¯Ù‡ Ø¨ÙˆØ¯ØŒ Ù¾Ø³ÙˆØ±Ø¯ Ù‚Ø¨Ù„ÛŒ Ø±Ø§ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†
-            if (string.IsNullOrEmpty(dto.Password))
-                user.PasswordHash = oldPasswordHash;
-            else
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-
-            user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = dto.Id }).ToList();
-
-            if (dto.ProfilePicture != null)
-            {
-                var resizeOptions = new ResizeOptions
-                {
-                    Size = new Size(200, 200),
-                    Mode = ResizeMode.Max
-                };
-
-                user.ProfilePictureUrl = await _fileService.UploadAsync(
-                    file: dto.ProfilePicture,
-                    folderPath: "uploads/profiles",
-                    existingUrl: user.ProfilePictureUrl,
-                    resizeOptions: resizeOptions
-                );
-            }
-
-            await _userRepository.UpdateAsync(user);
-            await _userRepository.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success ,"Ú©Ø§Ø±Ø¨Ø± Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
-        }
-
-        public override async Task<ListDataResult<UsersView>> GetAllAsync(Pagination pagination)
-        {
-            var users = await _userRepository.GetAsync(pagination);
-            var vms = _mapper.Map<List<UsersView>>(users);
-
-            foreach (var vm in vms)
-            {
-                var (status, lastSeen) = _statusService.GetStatus(vm.Id);
-                vm.Status = status;
-                vm.LastSeen = lastSeen;
-            }
-
-            var total = await _userRepository.CountAsync();
-            return ResultFactory.List<UsersView>(ResultStatusEnum.Accepted,vms, total,
-                                                           pagination);
-        }
-
-        public override async Task<StatusResult> DeleteAsync(List<int> ids)
-        {
-            var res = await base.DeleteAsync(ids);
-            if (res.IsSuccess) ids.ForEach(id => _statusService.UpdateStatus(id, UserStatus.Offline));
-            return res;
-        }
-
-        public async Task<ListDataResult<UserList>> GetList()
-        {
-            var users = await _repo.GetAsync();
-          var res =  _mapper.Map<List<UserList>>(users);
-          return  ResultFactory.List(ResultStatusEnum.Accepted ,res);
-
-        }
-    }
-
-    public interface IMyUserRepository : IBaseRep<User, int> { }
-}
-
-===== FILE: App\Object\Base\Users\UserStatusService.cs =====
-using System.Collections.Concurrent;
-using System.IO;
-using System.Text.Json;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
-using Domain.Objects.Base;
 
-namespace App.Object.Base.Users
+namespace App.Object.Base.Roles
 {
-    public class UserStatusService
+    // App\Object\Base\Roles\RoleApp.cs
+    public class RoleApp : CrudService<Role, RoleView, RoleCreate, RoleUpdate, int>, IRoleApp
     {
-        private readonly ConcurrentDictionary<int, (UserStatus Status, DateTime? LastSeen)> _userStatuses = new();
-        private readonly string _statusFilePath = Path.Combine(Directory.GetCurrentDirectory(), "user-status.json");
+        private readonly IRoleRep _roleRep;
+        private readonly IPermissionRep _permissionRep; // دسترسی به جدول مجوزها
+        private readonly IMapper _mapper;
 
-        public UserStatusService()
+        public RoleApp(IRoleRep roleRep, IMapper mapper, IPermissionRep permissionRep)
+            : base(roleRep, mapper)
         {
-            LoadFromFile();  // Ù„ÙˆØ¯ Ù…ÙˆÙ‚Ø¹ startup
+            _roleRep = roleRep;
+            _mapper = mapper;
+            _permissionRep = permissionRep;
         }
 
-        public void UpdateStatus(int userId, UserStatus status, DateTime? lastSeen = null)
+        // دریافت تمام مجوزها برای استفاده در فرم
+        public async Task<List<PermissionView>> GetAllPermissionsAsync()
         {
-            _userStatuses[userId] = (status, lastSeen ?? DateTime.Now);
-            SaveToFile();  // Ù‡Ø± Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø³ÛŒÙˆ Ú©Ù† (Ø¨Ø±Ø§ÛŒ ØªØºÛŒÛŒØ±Ø§Øª Ø²ÛŒØ§Ø¯, Ø´Ø§ÛŒØ¯ debounce Ú©Ù† Ø§Ù…Ø§ Ø³Ø§Ø¯Ù‡)
+            var permissions = new List<PermissionView>();
+            return _mapper.Map<List<PermissionView>>(permissions);
         }
 
-        public (UserStatus, DateTime?) GetStatus(int userId)
+        // override CreateAsync برای ذخیره RolePermissions
+        public override async Task<StatusResult> CreateAsync(RoleCreate dto)
         {
-            return _userStatuses.TryGetValue(userId, out var status) ? status : (UserStatus.Offline, null);
-        }
-
-        public void CheckInactive()  // periodical call Ù…Ø«Ù„Ø§Ù‹ Ø¨Ø§ timer
-        {
-            var now = DateTime.Now;
-            foreach (var kvp in _userStatuses)
+            // اعتبارسنجی اولیه توسط ModelValidator در CrudService انجام می‌شود
+            var role = _mapper.Map<Role>(dto);
+            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission
             {
-                if (kvp.Value.LastSeen.HasValue && (now - kvp.Value.LastSeen.Value).TotalMinutes > 5 && kvp.Value.Status == UserStatus.Online)
-                {
-                    UpdateStatus(kvp.Key, UserStatus.Inactive, kvp.Value.LastSeen);
-                }
-            }
+                PermissionId = pid,
+                RoleId = role.Id // بعد از ذخیره role مقدار Id مشخص می‌شود
+            }).ToList();
+
+            await _roleRep.CreateAsync(role);
+            await _roleRep.SaveChangesAsync();
+            return ResultFactory.Status(ResultStatusEnum.Success, "نقش با موفقیت ایجاد شد.");
         }
 
-        private void LoadFromFile()
+        // override UpdateAsync برای بروزرسانی RolePermissions
+        public override async Task<StatusResult> UpdateAsync(RoleUpdate dto)
         {
-            if (File.Exists(_statusFilePath))
+            var role = await _roleRep.GetAsync(dto.Id);
+            if (role == null)
+                return ResultFactory.Status(ResultStatusEnum.NotFound, "نقش یافت نشد.");
+
+            _mapper.Map(dto, role); 
+
+            var existingPermissions = role.RolePermissions.ToList();
+            foreach (var rp in existingPermissions)
+                
+            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission
             {
-                var json = File.ReadAllText(_statusFilePath);
-                var data = JsonSerializer.Deserialize<Dictionary<int, (UserStatus, DateTime?)>>(json);
-                if (data != null)
-                    foreach (var kvp in data) _userStatuses[kvp.Key] = kvp.Value;
-            }
+                PermissionId = pid,
+                RoleId = role.Id
+            }).ToList();
+
+            await _roleRep.UpdateAsync(role);
+            await _roleRep.SaveChangesAsync();
+            return ResultFactory.Status(ResultStatusEnum.Success, "نقش با موفقیت بروزرسانی شد.");
         }
 
-        private void SaveToFile()
+       
+        public override async Task<SingleDataResult<RoleUpdate>> GetByIdAsync(int id)
         {
-            var json = JsonSerializer.Serialize(_userStatuses.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
-            File.WriteAllText(_statusFilePath, json);
+            var role = await _roleRep.GetAsync(id);
+            if (role == null)
+                return ResultFactory.Single<RoleUpdate>(ResultStatusEnum.NotFound, null, "نقش یافت نشد.");
+
+            var roleUpdate = _mapper.Map<RoleUpdate>(role);
+            roleUpdate.PermissionIds = role.RolePermissions?.Select(rp => rp.PermissionId).ToList();
+            return ResultFactory.Single(ResultStatusEnum.Success, roleUpdate);
+        }
+
+        
+        public override async Task<ListDataResult<RoleView>> GetAllAsync(Pagination pagination)
+        {
+            var roles = await _roleRep.GetAsync(pagination);
+            var roleViews = _mapper.Map<List<RoleView>>(roles);
+            // پر کردن لیست مجوزها برای هر نقش (بهتر است با Include در ریپازیتوری انجام شود)
+            foreach (var roleView in roleViews)
+            {
+                var role = roles.First(r => r.Id == roleView.Id);
+                roleView.Permissions = _mapper.Map<List<PermissionView>>(role.RolePermissions?.Select(rp => rp.Permission));
+            }
+            var total = await _roleRep.CountAsync();
+            return ResultFactory.List(ResultStatusEnum.Success, roleViews, total, pagination);
         }
     }
+
+
+
+    public interface IRoleRep : IBaseRep<Role, int>
+    {
+    }
+
+    
 }
+
 

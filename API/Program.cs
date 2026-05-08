@@ -173,6 +173,17 @@ app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM API V1");
     c.RoutePrefix = "swagger";
+
+    // بستن پیش‌فرض همه عملیات‌ها (Actions/Endpoints)
+    c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+
+    // بستن پیش‌فرض همه مدل‌ها (Schemas) – مقدار -1 یعنی اصلاً نمایش نده
+    c.DefaultModelsExpandDepth(0);
+    c.EnableTryItOutByDefault();
+
+    c.DisplayOperationId();
+    c.DisplayRequestDuration();
+    c.HeadContent = "<style> .swagger-ui .topbar { background-color: #1976D2; } </style>";
 });
 
     // Seed permissions from controller attributes (development only)

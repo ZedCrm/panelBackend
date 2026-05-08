@@ -8,11 +8,6 @@ namespace ConfApp.Mapping.Chat
     {
         public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<GroupMessage> builder)
         {
-            builder.ToTable("GroupMessages");
-            builder.HasKey(x => x.Id);
-
-            builder.Property(x => x.Content).HasMaxLength(2000);
-            builder.Property(x => x.FileUrl).HasMaxLength(500);
 
             builder.HasOne(m => m.Group)
                    .WithMany(g => g.Messages)

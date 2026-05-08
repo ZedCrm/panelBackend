@@ -26,7 +26,14 @@ namespace App.Object.Shop.CountTypeApp
         /*=== CRUD یک‌خطی ===*/
         public Task<ListDataResult<CountTypeView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
         public Task<SingleDataResult<CountTypeView>> GetById(int id)                   => base.GetByIdAsync(id);
-        public Task<StatusResult> Create(CountTypeCreate dto)                      => base.CreateAsync(dto);
+        public async  Task<StatusResult> Create(CountTypeCreate dto) {
+
+            var exist = await _rep.ExistAsync(c => c.Name == dto.Name);
+            if (exist) {return ResultFactory.Status(ResultStatusEnum.Conflict, MessageApp.DuplicateField(dto.Name)); }
+
+            return await base.CreateAsync(dto);
+
+        }
         public Task<StatusResult> DeleteBy(List<int> ids)                          => base.DeleteAsync(ids);
         public Task<StatusResult> Update(CountTypeView dto)                        => base.UpdateAsync(dto);
     }

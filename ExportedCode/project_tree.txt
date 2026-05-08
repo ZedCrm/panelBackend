@@ -4,6 +4,7 @@
 +-- Controllers
 |   +-- bases
 |   |   +-- AuthController.cs
+|   |   +-- RoleController.cs
 |   |   +-- UserController.cs
 |   +-- Chat
 |   |   +-- ChatController.cs
@@ -12,6 +13,7 @@
 |   |   +-- InvController.cs
 |   |   +-- ProductController.cs
 |   +-- BaseController.cs
+|   +-- GenericController.cs
 |   +-- MetadataController.cs
 +-- Hubs
 |   +-- ChatHub
@@ -23,8 +25,9 @@
 +-- Services
 |   +-- PermissionDiscoveryService.cs
 +-- utility
-|   +-- ApiResultExtensions.cs
 |   +-- FileService.cs
+|   +-- RequirePermissionForEntityAttribute.cs
+|   +-- ResultFilter.cs
 +-- appsettings.Development.json
 +-- appsettings.json
 +-- Program.cs
@@ -40,13 +43,12 @@ App
 |   |   |   +-- IPermissionRep.cs
 |   |   |   +-- PermissionService.cs
 |   |   |   +-- TokenApp.cs
+|   |   +-- Roles
+|   |   |   +-- RoleApp.cs
 |   |   +-- Users
-|   |   |   +-- Roles
-|   |   |   |   +-- IRoleRep.cs
 |   |   |   +-- UsersApp.cs
 |   |   |   +-- UserStatusService.cs
 |   |   +-- CrudService.cs
-|   |   +-- IPersonRep.cs
 |   |   +-- PersonApp.cs
 |   |   +-- MessageApp
 |   |   |   +-- IMessageRep.cs
@@ -70,6 +72,8 @@ App.Contracts
 |   |   |   +-- AuthResponseDto.cs
 |   |   |   +-- IPermissionDiscoveryService.cs
 |   |   |   +-- IPermissionService.cs
+|   |   |   +-- IRoleApp.cs
+|   |   |   +-- RoleView.cs
 |   |   |   +-- IUsersApp.cs
 |   |   |   +-- UsersDto.cs
 |   |   +-- IPersonApp.cs
@@ -85,22 +89,20 @@ App.Contracts
 |   |   +-- ProductCon
 |   |   |   +-- IProductApp.cs
 |   |   |   +-- ProductView.cs
+|   +-- ICrudService.cs
 ConfApp
 +-- Mapping
 |   |   +-- ChatGroupMapping.cs
 |   |   +-- ChatGroupMemberMapping.cs
 |   |   +-- GroupMessageMapping.cs
 |   |   +-- MessageMapping.cs
-|   +-- Inv
-|   |   +-- CountTypeMapping.cs
-|   |   +-- ProductMapping.cs
-|   +-- PersonMapping.cs
 +-- Rep
 |   |   +-- MyuserRepo.cs
 |   |   +-- PermissionRepository.cs
 |   |   +-- RoleRepo.cs
 |   |   +-- UserRep.cs
 |   |   +-- MessageRep.cs
+|   +-- Inv
 |   |   +-- CountTypeRep.cs
 |   |   +-- invRep.cs
 |   |   +-- ProductRep.cs
@@ -131,14 +133,16 @@ Infrastructure
 |   +-- 20251107184623_init.Designer.cs
 |   +-- 20251113075911_AddChatSchema_FixedCascade.cs
 |   +-- 20251113075911_AddChatSchema_FixedCascade.Designer.cs
+|   +-- 20260507183502_atrebute config.cs
+|   +-- 20260507183502_atrebute config.Designer.cs
+|   +-- 20260507184527_category permission change.cs
+|   +-- 20260507184527_category permission change.Designer.cs
 |   +-- MyContextModelSnapshot.cs
 +-- CRMBootstraper.cs
 MyFrameWork
 +-- AppTool
 |   +-- ApiResult.cs
 |   +-- MessageApp.cs
-|   +-- OPT.cs
-|   +-- OPTResult.cs
 |   +-- Pagination.cs
 |   +-- PredicateBuilder.cs
 |   +-- ResultType.cs

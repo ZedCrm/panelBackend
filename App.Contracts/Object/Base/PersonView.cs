@@ -7,10 +7,10 @@ using System.Threading.Tasks;
 
 namespace App.Contracts.Object.Base
 {
-    public class PersonView
+    public class PersonCreate
     {
-        [Required]
-        public int Id { get; set; }
+        
+       
 
         [Required]
         [StringLength(3)]
@@ -23,4 +23,21 @@ namespace App.Contracts.Object.Base
         [Required]
         public int age { get; set; }
     }
+
+
+
+    public class PersonView : PersonCreate
+    {
+
+        public int Id { get; set; }
+
+    }
+
+
+    public class PersonUpdate : PersonView
+    {
+
+    }
+
+
 }

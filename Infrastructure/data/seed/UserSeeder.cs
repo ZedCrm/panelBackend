@@ -19,7 +19,7 @@ public class UserSeeder
 
     public void Seed()
     {
-        if (!_context.Users.Any(u => u.Email == "test@example.com"))
+        if (!_context.Users.Any(u => u.Username == "test"))
         {
             var user = new User
             {

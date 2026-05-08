@@ -1,16 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Objects.Shop
 {
+    [Table("Inventories")]
     public class Inv : BaseDomain
     {
-        
+        [Required]
         public string Name { get; set; }
-        public Boolean Active  { get; set; }=true;
 
+        public bool Active { get; set; } = true;
     }
 }

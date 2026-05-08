@@ -2,54 +2,30 @@
 using API.Attributes;
 using App.Contracts.Object.Base.auth;
 using App.Contracts.Object.Base.Users;
+using App.Contracts.Object.Shop.InvCon;
 using App.Object.Base.auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
 
 namespace API.Controllers.bases
 {
-    [ApiExplorerSettings(IgnoreApi = true)] 
+
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class UserController : BaseController
+    public class UserController : GenericController<UsersView, UsersCreat, UsersUpdate, int>
     {
         private readonly IUsersApp _usersApp;
         private readonly IPermissionService _permissionService;
-        public UserController(IUsersApp usersApp , IPermissionService permissionService) 
+        public UserController(IUsersApp usersApp , IPermissionService permissionService) : base(usersApp) 
         { 
             _usersApp = usersApp ;
          _permissionService = permissionService;
          }
 
-        /*======================================================*/
-        /*                     متدهای CRUD                      */
-        /*======================================================*/
-        [RequirePermission("User.View")]
-        [HttpPost("/api/User/GetAll")]
-        public async Task<ActionResult<ListDataResult<UsersView>>> GetAll([FromBody] Pagination pagination)
-            => await _usersApp.GetAll(pagination);
-
-        [RequirePermission("User.View")]
-        [HttpGet("/api/User/GetById")]
-        public async Task<ActionResult<SingleDataResult<UsersUpdate>>> GetById([FromQuery] int id)
-            => await _usersApp.GetById(id);
-
-        [RequirePermission("User.Create")]
-        [HttpPost("/api/User/create")]
-        public async Task<ActionResult<StatusResult>> Create([FromForm] UsersCreat userCreate)
-            => await _usersApp.CreateAsync(userCreate);
-
-        [RequirePermission("User.Edit")]
-        [HttpPost("/api/User/update")]
-        public async Task<ActionResult<StatusResult>> Update([FromForm] UsersUpdate userUpdate)
-            => await _usersApp.UpdateAsync(userUpdate);
-
-        [RequirePermission("User.Delete")]
-        [HttpPost("/api/User/delete")]
-        public async Task<ActionResult<StatusResult>> Delete([FromBody] List<int> ids)
-            => await _usersApp.DeleteBy(ids);
-
+     
         /*======================================================*/
         /*                  متدهای اختصاصی                      */
         /*======================================================*/
