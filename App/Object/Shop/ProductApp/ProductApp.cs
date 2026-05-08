@@ -1,58 +1,42 @@
-﻿using App.Contracts.Object.Shop.ProductCon;
-using App.Object.Base;
+﻿// App/Object/Shop/ProductApp/ProductApp.cs
+using App.Contracts.Object.Shop.ProductCon;
 using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
-using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
+using ConfApp;
 
 namespace App.Object.Shop.ProductApp
 {
-    public class ProductApp : CrudService<Product, ProductView, ProductCreate, ProductUpdate, int>,
-                              IProductApp
+    public class ProductApp : CrudService<Product, ProductView, ProductCreate, ProductUpdate, int>, IProductApp
     {
-        private readonly IProductRep _productRep;
-        private readonly IMapper _mapper;
+        private readonly ProductBusinessService _productBusiness;
 
-        public ProductApp(IProductRep productRep, IMapper mapper)
-            : base(productRep, mapper)
+        public ProductApp(MyContext context, IMapper mapper, ProductBusinessService productBusiness)
+            : base(context, mapper)
         {
-            _productRep = productRep;
-            _mapper = mapper;
+            _productBusiness = productBusiness;
         }
 
-        /*=== CRUD یک‌خطی ===*/
-        public Task<ListDataResult<ProductView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<SingleDataResult<ProductUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<StatusResult> Create(ProductCreate dto) => base.CreateAsync(dto);
-        public Task<StatusResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
-        public Task<StatusResult> Update(ProductUpdate dto) => base.UpdateAsync(dto);
-
-        /*=== متد اختصاصی ===*/
-        public async Task<ListDataResult<ProductView>> SearchProducts(ProductSearchCriteria criteria)
+        public override async Task<StatusResult> CreateAsync(ProductCreate dto)
         {
-            Expression<Func<Product, bool>> filter = p => true;
+            var uniqueCheck = await _productBusiness.ValidateUniqueProductCodeAsync(dto.ProductCode);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
 
-            if (!string.IsNullOrWhiteSpace(criteria.Name))
-                filter = filter.And(p => p.Name.Contains(criteria.Name));
-
-            if (criteria.MinPrice.HasValue && criteria.MinPrice.Value != 0)
-                filter = filter.And(p => p.Price >= criteria.MinPrice.Value);
-
-            if (criteria.MaxPrice.HasValue && criteria.MaxPrice.Value != 0)
-                filter = filter.And(p => p.Price <= criteria.MaxPrice.Value);
-
-            var data = await _productRep.GetFilteredAsync(filter, criteria);
-            var views = _mapper.Map<List<ProductView>>(data);
-            var total = await _productRep.CountAsync(filter);
-
-            return ResultFactory.List( ResultStatusEnum.Accepted, views, total,
-                                                             criteria);
+            return await base.CreateAsync(dto);
         }
+
+        public override async Task<StatusResult> UpdateAsync(ProductUpdate dto)
+        {
+            var uniqueCheck = await _productBusiness.ValidateUniqueProductCodeAsync(dto.ProductCode, dto.Id);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
+
+            return await base.UpdateAsync(dto);
+        }
+
+        public Task<ListDataResult<ProductView>> SearchProducts(ProductSearchCriteria criteria)
+            => _productBusiness.SearchAsync(criteria);
     }
-
-    public interface IProductRep : IBaseRep<Product, int> { }
 }

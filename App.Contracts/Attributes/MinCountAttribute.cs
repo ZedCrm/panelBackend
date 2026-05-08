@@ -1,5 +1,4 @@
 // App.Contracts/Attributes/MinCountAttribute.cs
-using System;
 using System.Collections;
 using System.ComponentModel.DataAnnotations;
 
@@ -13,7 +12,7 @@ namespace App.Contracts.Attributes
         public MinCountAttribute(int minCount)
         {
             _minCount = minCount;
-            ErrorMessage = $"حداقل {{0}} مورد باید انتخاب شود.";
+            ErrorMessage = $"حداقل {minCount} مورد باید انتخاب شود.";
         }
 
         protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
@@ -25,10 +24,6 @@ namespace App.Contracts.Attributes
             {
                 if (list.Count < _minCount)
                     return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
-            }
-            else
-            {
-                return new ValidationResult("این فیلد باید یک لیست باشد.");
             }
 
             return ValidationResult.Success;

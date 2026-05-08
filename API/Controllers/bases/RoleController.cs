@@ -1,25 +1,29 @@
-﻿using App.Contracts.Object.Base.auth;
+﻿// API/Controllers/bases/RoleController.cs
+using App.Contracts.Object.Base.auth;
 using App.Contracts.Object.Base.Roles;
+using App.Object.Base.Roles;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
 
 namespace API.Controllers.bases
 {
-    public class RoleController : GenericController<RoleView ,RoleCreate, RoleUpdate, int>
+    [ApiController]
+    [Route("api/[controller]")]
+    public class RoleController : GenericController<RoleView, RoleCreate, RoleUpdate, int>
     {
-        private readonly IRoleApp roleApp;
-        private readonly IPermissionService permissionService;
+        private readonly RoleBusinessService _roleBusiness;
 
-        public RoleController(IRoleApp roleApp, IPermissionService permissionService) : base(roleApp)
+        public RoleController(IRoleApp roleApp, RoleBusinessService roleBusiness) : base(roleApp)
         {
-            this.roleApp = roleApp;
-            this.permissionService = permissionService;
+            _roleBusiness = roleBusiness;
         }
 
-
-
-
-       
+        [HttpGet("permissions")]
+        public async Task<ActionResult<ListDataResult<PermissionView>>> GetAllPermissions()
+        {
+            var permissions = await _roleBusiness.GetAllPermissionsAsync();
+            return ResultFactory.List(ResultStatusEnum.Success, permissions);
+        }
     }
 }

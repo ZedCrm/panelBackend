@@ -31,8 +31,6 @@
 +-- appsettings.Development.json
 +-- appsettings.json
 +-- Program.cs
-+-- test.js
-+-- user-status.json
 App
 +-- Object
 |   +-- Base
@@ -46,12 +44,10 @@ App
 |   |   +-- Roles
 |   |   |   +-- RoleApp.cs
 |   |   +-- Users
+|   |   |   +-- UserBusinessService.cs
 |   |   |   +-- UsersApp.cs
 |   |   |   +-- UserStatusService.cs
-|   |   +-- CrudService.cs
 |   |   +-- PersonApp.cs
-|   |   +-- MessageApp
-|   |   |   +-- IMessageRep.cs
 |   |   +-- ChatApp.cs
 |   |   +-- CountTypeApp
 |   |   |   +-- ContTypeApp.cs
@@ -60,12 +56,13 @@ App
 |   |   +-- ProductApp
 |   |   |   +-- ProductApp.cs
 |   +-- BaseService.cs
+|   +-- CrudService.cs
 |   +-- ChatProfile.cs
 |   +-- ClassMapping.cs
 |   +-- IFileService.cs
 |   +-- ModelValidator.cs
 |   +-- ValidationUtility.cs
-+-- IBaseRep.cs
++-- IMyDbContext.cs
 App.Contracts
 |   +-- MinCountAttribute.cs
 |   |   |   |   +-- IUserContext.cs
@@ -96,18 +93,6 @@ ConfApp
 |   |   +-- ChatGroupMemberMapping.cs
 |   |   +-- GroupMessageMapping.cs
 |   |   +-- MessageMapping.cs
-+-- Rep
-|   |   +-- MyuserRepo.cs
-|   |   +-- PermissionRepository.cs
-|   |   +-- RoleRepo.cs
-|   |   +-- UserRep.cs
-|   |   +-- MessageRep.cs
-|   +-- Inv
-|   |   +-- CountTypeRep.cs
-|   |   +-- invRep.cs
-|   |   +-- ProductRep.cs
-|   +-- PersonRep.cs
-+-- BaseRep.cs
 +-- MyContext.cs
 Domain
 +-- Objects
@@ -141,7 +126,6 @@ Infrastructure
 +-- CRMBootstraper.cs
 MyFrameWork
 +-- AppTool
-|   +-- ApiResult.cs
 |   +-- MessageApp.cs
 |   +-- Pagination.cs
 |   +-- PredicateBuilder.cs
@@ -149,6 +133,5 @@ MyFrameWork
 |   +-- SelectSourceAttribute.cs
 |   +-- Validator.cs
 |   +-- Wrapper.cs
-+-- Class1.cs
 NuGet.config
 package-lock.json

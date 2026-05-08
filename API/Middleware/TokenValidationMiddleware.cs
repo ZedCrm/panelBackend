@@ -21,16 +21,24 @@ namespace API.Middleware
         public async Task InvokeAsync(HttpContext context, IPermissionService permissionService)
         {
             var endpoint = context.GetEndpoint();
-            var authorizeAttribute = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>();
 
-            // اگر اکشن نیاز به لاگین نداشته باشد
-            if (authorizeAttribute == null)
+            // اگر endpoint وجود نداشت یا نیازی به authorize نداشت
+            if (endpoint == null)
             {
                 await _next(context);
                 return;
             }
 
-            // 1. احراز هویت
+            var authorizeAttribute = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>();
+
+            // اگر اکشن نیازی به لاگین نداشته باشد
+            if (authorizeAttribute == null && !RequiresPermission(endpoint))
+            {
+                await _next(context);
+                return;
+            }
+
+            // بررسی احراز هویت
             if (!context.User.Identity?.IsAuthenticated ?? true)
             {
                 context.Response.StatusCode = 401;
@@ -38,7 +46,7 @@ namespace API.Middleware
                 return;
             }
 
-            // 2. استخراج userId
+            // استخراج userId
             var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(userIdClaim, out int userId))
             {
@@ -49,55 +57,69 @@ namespace API.Middleware
 
             context.Items["UserId"] = userId;
 
-            // 3. روش ۳: استخراج مجوز از RouteData (بدون نیاز به RequirePermissionAttribute)
-            var routeData = context.GetRouteData();
-            var controllerName = routeData?.Values["controller"]?.ToString();
-            var actionName = routeData?.Values["action"]?.ToString();
-
-            string requiredPermission = null;
-
-            if (!string.IsNullOrEmpty(controllerName) && !string.IsNullOrEmpty(actionName))
+            // ================================================
+            // روش اول: بررسی RequirePermissionAttribute (اگر روی اکشن یا کنترلر باشد)
+            // ================================================
+            var requirePermissionAttr = endpoint?.Metadata.GetMetadata<RequirePermissionAttribute>();
+            if (requirePermissionAttr != null)
             {
-                requiredPermission = actionName switch
-                {
-                    "GetAll" or "GetById" => $"{controllerName}.View",
-                    "Create" => $"{controllerName}.Create",
-                    "Update" => $"{controllerName}.Update",
-                    "Delete" => $"{controllerName}.Delete",
-                    _ => null   // سایر اکشن‌ها بدون بررسی مجوز (یا می‌توانی deny کنی)
-                };
-            }
-
-            // اگر مجوزی تعریف شده بود، آن را بررسی کن
-            if (!string.IsNullOrEmpty(requiredPermission))
-            {
-                bool hasPermission = await permissionService.HasPermissionAsync(userId, requiredPermission);
+                bool hasPermission = await permissionService.HasPermissionAsync(userId, requirePermissionAttr.Permission);
                 if (!hasPermission)
                 {
                     context.Response.StatusCode = 403;
-                    await context.Response.WriteAsync("شما دسترسی لازم را ندارید");
+                    await context.Response.WriteAsync($"دسترسی ممنوع: شما اجازه '{requirePermissionAttr.Permission}' را ندارید.");
                     return;
                 }
             }
 
-            // (اختیاری) اگر می‌خواهی RequirePermissionAttribute همچنان پشتیبانی شود، می‌توانی آن را نیز چک کنی
-            var requirePermissionAttribute = endpoint?.Metadata.GetMetadata<RequirePermissionAttribute>();
-            if (requirePermissionAttribute != null)
+            // ================================================
+            // روش دوم: بررسی خودکار بر اساس نام کنترلر و اکشن (برای GenericControllerها)
+            // ================================================
+            var routeData = context.GetRouteData();
+            var controllerName = routeData?.Values["controller"]?.ToString();
+            var actionName = routeData?.Values["action"]?.ToString();
+
+            if (!string.IsNullOrEmpty(controllerName) && !string.IsNullOrEmpty(actionName))
             {
-                bool hasPermission = await permissionService.HasPermissionAsync(userId, requirePermissionAttribute.Permission);
-                if (!hasPermission)
+                string? requiredPermission = GetPermissionFromAction(controllerName, actionName);
+
+                if (!string.IsNullOrEmpty(requiredPermission))
                 {
-                    context.Response.StatusCode = 403;
-                    await context.Response.WriteAsync($"دسترسی ممنوع: شما اجازه '{requirePermissionAttribute.Permission}' را ندارید.");
-                    return;
+                    bool hasPermission = await permissionService.HasPermissionAsync(userId, requiredPermission);
+                    if (!hasPermission)
+                    {
+                        context.Response.StatusCode = 403;
+                        await context.Response.WriteAsync($"شما دسترسی لازم را ندارید: {requiredPermission}");
+                        return;
+                    }
                 }
             }
 
             await _next(context);
         }
+
+        private static bool RequiresPermission(Endpoint? endpoint)
+        {
+            if (endpoint == null) return false;
+            return endpoint.Metadata.GetMetadata<RequirePermissionAttribute>() != null;
+        }
+
+        private static string? GetPermissionFromAction(string controllerName, string actionName)
+        {
+            // حذف کلمه "Controller" از نام کنترلر
+            string cleanController = controllerName.Replace("Controller", "");
+
+            return actionName switch
+            {
+                "GetAll" or "GetById" => $"{cleanController}.View",
+                "Create" => $"{cleanController}.Create",
+                "Update" => $"{cleanController}.Update",
+                "Delete" => $"{cleanController}.Delete",
+                _ => null
+            };
+        }
     }
 
-    // Extension برای ثبت Middleware
     public static class TokenValidationMiddlewareExtensions
     {
         public static IApplicationBuilder UseTokenValidation(this IApplicationBuilder builder)

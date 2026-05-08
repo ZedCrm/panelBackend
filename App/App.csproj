@@ -18,11 +18,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\App.Contracts\App.Contracts.csproj" />
+    <ProjectReference Include="..\ConfApp\ConfApp.csproj" />
     <ProjectReference Include="..\Domain\Domain.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Object\Base\Users\Roles\" />
   </ItemGroup>
 
 </Project>

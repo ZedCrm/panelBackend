@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <title>راهنمای لایه App - پروژه</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            padding: 25px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2rem; margin-bottom: 8px; }
+        .badge {
+            background: #e94560;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .card-header {
+            background: #1a1a2e;
+            color: white;
+            padding: 12px 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        .card-header.blue { background: #1e3c72; }
+        .card-header.green { background: #0f5c5c; }
+        .card-header.orange { background: #c94b1f; }
+        .card-body { padding: 20px; }
+        
+        /* کدها - چپ به راست */
+        pre {
+            direction: ltr;
+            text-align: left;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 12px;
+            overflow-x: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            margin: 15px 0;
+        }
+        code {
+            font-family: 'Consolas', monospace;
+            direction: ltr;
+            text-align: left;
+        }
+        .inline-code {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-family: monospace;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: right;
+        }
+        th { background: #e94560; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        
+        .tip {
+            background: #d4edda;
+            border-right: 4px solid #28a745;
+            padding: 12px 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .warning {
+            background: #f8d7da;
+            border-right: 4px solid #dc3545;
+            padding: 12px 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .note {
+            background: #fff3cd;
+            border-right: 4px solid #ffc107;
+            padding: 12px 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        ul, ol { padding-right: 25px; margin: 10px 0; }
+        li { margin: 5px 0; }
+        hr { margin: 15px 0; border: none; border-top: 1px solid #eee; }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+    <h1>📘 راهنمای لایه App</h1>
+    <p>یاد بگیر چطور کدهای تمیز و حرفه‌ای بنویسی</p>
+    <div class="badge">نسخه 1.0 | ۱۴۰۴</div>
+</div>
+
+<!-- ============================================ -->
+<!-- بخش 1: لایه App چیه و چیکار میکنه؟ -->
+<!-- ============================================ -->
+<div class="card">
+    <div class="card-header">📌 لایه App دقیقاً چیه؟</div>
+    <div class="card-body">
+        <p><strong>لایه App</strong> جاییه که <strong>همه منطق‌های کسب و کار</strong> پروژه توش نوشته میشه.</p>
+        <p>این لایه وسط قرار داره: کنترلرها ازش استفاده می‌کنن و خودش از DbContext استفاده میکنه.</p>
+        
+        <pre>
+┌─────────────────┐
+│   Controller    │  ← فقط درخواست میگیره و جواب میده
+├─────────────────┤
+│    لایه App     │  ← اینجا همه کارهای اصلی انجام میشه
+├─────────────────┤
+│   DbContext     │  ← ارتباط با دیتابیس
+└─────────────────┘
+</pre>
+
+        <div class="tip">
+            💡 <strong>قانون طلایی:</strong> هیچ کد منطق کسب و کاری توی کنترلر ننویس!<br>
+            کنترلر فقط باید BusinessService یا CrudService رو صدا بزنه.
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- بخش 2: دو نوع سرویس در لایه App -->
+<!-- ============================================ -->
+<div class="card">
+    <div class="card-header blue">⚙️ دو نوع سرویس در لایه App</div>
+    <div class="card-body">
+        <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div style="background: #e8f4f8; padding: 15px; border-radius: 12px;">
+                <h3>📦 CrudService</h3>
+                <p><strong>کارش:</strong> عملیات ساده دیتابیسی</p>
+                <ul>
+                    <li>GetAll (گرفتن همه)</li>
+                    <li>GetById (گرفتن با شناسه)</li>
+                    <li>Create (ساختن)</li>
+                    <li>Update (ویرایش)</li>
+                    <li>Delete (حذف)</li>
+                </ul>
+                <p>نمونه: <span class="inline-code">UsersApp</span></p>
+            </div>
+            <div style="background: #f0e6f8; padding: 15px; border-radius: 12px;">
+                <h3>🎯 BusinessService</h3>
+                <p><strong>کارش:</strong> منطق‌های پیچیده و خاص</p>
+                <ul>
+                    <li>ولیدیشن یکتایی</li>
+                    <li>جستجوی پیشرفته</li>
+                    <li>گزارش‌گیری</li>
+                    <li>عملیات شرطی</li>
+                </ul>
+                <p>نمونه: <span class="inline-code">UserBusinessService</span></p>
+            </div>
+        </div>
+        
+        <div class="tip">
+            💡 <strong>کی از چی استفاده کنیم؟</strong><br>
+            • کار ساده مثل ذخیره و حذف ← <strong>CrudService</strong><br>
+            • کار خاص مثل ولیدیشن یکتایی یا جستجو ← <strong>BusinessService</strong>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- بخش 3: کلاس BaseService چیکار میکنه؟ -->
+<!-- ============================================ -->
+<div class="card">
+    <div class="card-header green">🏗️ BaseService (پدر همه BusinessServiceها)</div>
+    <div class="card-body">
+        <p><span class="inline-code">BaseService</span> یه کلاس پایه است که همه BusinessServiceها ازش ارث می‌برن. متدهای پرکاربردی داره که کار رو خیلی راحت می‌کنه:</p>
+        
+        <table>
+            <tr><th>متد</th><th>کاربرد</th><th>مثال</th></tr>
+            <tr><td><code>GetActiveQuery()</code></td><td>گرفتن کوئری فقط از رکوردهای فعال (IsDeleted=false)</td><td>نمایش لیست کاربران</td></tr>
+            <tr><td><code>ValidateModel(model)</code></td><td>اعتبارسنجی خودکار</td><td>چک کردن فرم ورودی</td></tr>
+            <tr><td><code>GetEntityOrNullAsync(predicate)</code></td><td>گرفتن یک رکورد یا null</td><td>پیدا کردن کاربر با ایمیل</td></tr>
+            <tr><td><code>ExistsAsync(predicate)</code></td><td>چک کردن وجود رکورد</td><td>آیا این ایمیل قبلا ثبت شده؟</td></tr>
+            <tr><td><code>ExecuteAsync(action, msg)</code></td><td>اجرا با مدیریت خطا</td><td>ذخیره کردن با try-catch</td></tr>
+        </table>
+
+        <div class="note">
+            📝 <strong>نکته:</strong> وقتی BusinessService می‌سازی، کافیه از BaseService ارث ببری تا این متدها در اختیارت باشن.
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- بخش 4: مثال عملی کامل - سرویس محصولات -->
+<!-- ============================================ -->
+<div class="card">
+    <div class="card-header orange">🎯 مثال عملی: ساخت سرویس محصولات (Product)</div>
+    <div class="card-body">
+        <p>فرض کن می‌خوای یه سرویس برای محصولات بنویسی که:</p>
+        <ul>
+            <li>محصول جدید بسازه</li>
+            <li>کد محصول نباید تکراری باشه</li>
+            <li>قیمت محصول باید مثبت باشه</li>
+            <li>قابلیت جستجو بین محصولات داشته باشه</li>
+        </ul>
+
+        <h3>مرحله 1: ساخت BusinessService (برای منطق‌های خاص)</h3>
+        <pre>
+// App/Object/Shop/ProductBusinessService.cs
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+using ConfApp;
+using Domain.Objects.Shop;
+
+namespace App.Object.Shop
+{
+    public class ProductBusinessService : BaseService&lt;Product&gt;
+    {
+        public ProductBusinessService(MyContext context) : base(context)
+        {
+        }
+
+        // 1. بررسی یکتایی کد محصول
+        public async Task&lt;StatusResult&gt; IsProductCodeUniqueAsync(string productCode, int? excludeId = null)
+        {
+            var query = GetActiveQuery();  // فقط محصولات فعال
+            
+            if (excludeId.HasValue)
+                query = query.Where(p => p.Id != excludeId.Value);
+
+            bool exists = await query.AnyAsync(p => p.ProductCode == productCode);
+            
+            if (exists)
+                return ResultFactory.Status(ResultStatusEnum.Conflict, 
+                    "کد محصول تکراری است.");
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        // 2. بررسی قیمت (با استفاده از متد BaseService)
+        public StatusResult ValidatePrice(int price)
+        {
+            if (price <= 0)
+                return ResultFactory.Status(ResultStatusEnum.ValidationFailed, 
+                    "قیمت باید بزرگتر از صفر باشد.");
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        // 3. جستجوی پیشرفته محصولات
+        public async Task&lt;ListDataResult&lt;ProductView&gt;&gt; SearchProductsAsync(
+            string? searchTerm, int? minPrice, int? maxPrice, Pagination pagination)
+        {
+            var query = GetActiveQuery()  // فقط فعال‌ها
+                .Include(p => p.CountType) // همراه با واحد شمارش
+                .AsQueryable();
+
+            // فیلتر بر اساس نام
+            if (!string.IsNullOrEmpty(searchTerm))
+                query = query.Where(p => p.Name.Contains(searchTerm));
+
+            // فیلتر قیمت
+            if (minPrice.HasValue)
+                query = query.Where(p => p.Price >= minPrice.Value);
+            if (maxPrice.HasValue)
+                query = query.Where(p => p.Price <= maxPrice.Value);
+
+            int total = await query.CountAsync();
+
+            var products = await query
+                .Skip(pagination.CalculateSkip())
+                .Take(pagination.PageSize)
+                .ToListAsync();
+
+            var views = products.Select(p => new ProductView
+            {
+                Id = p.Id,
+                ProductCode = p.ProductCode ?? "",
+                Name = p.Name,
+                Price = p.Price
+            }).ToList();
+
+            return ResultFactory.List(ResultStatusEnum.Success, views, total, pagination);
+        }
+    }
+}
+</pre>
+
+        <h3>مرحله 2: ساخت CrudService (برای عملیات ساده)</h3>
+        <pre>
+// App/Object/Shop/ProductApp.cs
+using AutoMapper;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+using ConfApp;
+using Domain.Objects.Shop;
+
+namespace App.Object.Shop
+{
+    public class ProductApp : CrudService&lt;Product, ProductView, ProductCreate, ProductUpdate, int&gt;
+    {
+        private readonly ProductBusinessService _productBusiness;
+
+        public ProductApp(MyContext context, IMapper mapper, ProductBusinessService productBusiness) 
+            : base(context, mapper)
+        {
+            _productBusiness = productBusiness;
+        }
+
+        // ساخت محصول جدید
+        public override async Task&lt;StatusResult&gt; CreateAsync(ProductCreate dto)
+        {
+            // 1. اعتبارسنجی خودکار (با Attributes)
+            var validation = ValidateModel(dto);
+            if (!validation.IsSuccess) return validation;
+
+            // 2. بررسی قیمت
+            var priceCheck = _productBusiness.ValidatePrice(dto.Price);
+            if (!priceCheck.IsSuccess) return priceCheck;
+
+            // 3. بررسی یکتایی کد محصول
+            var uniqueCheck = await _productBusiness.IsProductCodeUniqueAsync(dto.ProductCode);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
+
+            // 4. ذخیره در دیتابیس
+            var product = _mapper.Map&lt;Product&gt;(dto);
+            await _dbSet.AddAsync(product);
+            await _context.SaveChangesAsync();
+
+            return ResultFactory.Status(ResultStatusEnum.Success, "محصول با موفقیت ایجاد شد.");
+        }
+
+        // جستجو (با استفاده از BusinessService)
+        public async Task&lt;ListDataResult&lt;ProductView&gt;&gt; SearchAsync(
+            string? searchTerm, int? minPrice, int? maxPrice, Pagination pagination)
+        {
+            return await _productBusiness.SearchProductsAsync(searchTerm, minPrice, maxPrice, pagination);
+        }
+    }
+}
+</pre>
+
+        <h3>مرحله 3: DTOهای مورد نیاز</h3>
+        <pre>
+// App.Contracts/Object/Shop/ProductView.cs
+using System.ComponentModel.DataAnnotations;
+
+public class ProductView
+{
+    public int Id { get; set; }
+    
+    [Required(ErrorMessage = "کد محصول الزامی است.")]
+    [StringLength(20, MinimumLength = 3)]
+    public string ProductCode { get; set; } = string.Empty;
+    
+    [Required(ErrorMessage = "نام محصول الزامی است.")]
+    [StringLength(50, MinimumLength = 2)]
+    public string Name { get; set; } = string.Empty;
+    
+    [Required]
+    [Range(1, 100000000, ErrorMessage = "قیمت باید بین 1 تا 100 میلیون باشد.")]
+    public int Price { get; set; }
+}
+
+public class ProductCreate
+{
+    [Required]
+    public string ProductCode { get; set; } = string.Empty;
+    
+    [Required]
+    public string Name { get; set; } = string.Empty;
+    
+    [Required]
+    public int Price { get; set; }
+    
+    [Required]
+    public int CountTypeId { get; set; }
+}
+
+public class ProductUpdate : ProductCreate
+{
+    [Required]
+    public int Id { get; set; }
+}
+</pre>
+
+        <div class="tip">
+            💡 <strong>نکته مهم:</strong> دقت کن که CreateAsync توی ProductApp از سه تا ولیدیشن استفاده کرد:<br>
+            1️⃣ ولیدیشن خودکار (با Attributes) - توسط <code>ValidateModel</code><br>
+            2️⃣ ولیدیشن قیمت - توسط متد ساده BusinessService<br>
+            3️⃣ ولیدیشن یکتایی کد - توسط متد دیتابیسی BusinessService
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- بخش 5: کنترلر چطور از این سرویس استفاده میکنه؟ -->
+<!-- ============================================ -->
+<div class="card">
+    <div class="card-header blue">🎮 کنترلر چطور کار میکنه؟</div>
+    <div class="card-body">
+        <pre>
+// API/Controllers/Shop/ProductController.cs
+using Microsoft.AspNetCore.Mvc;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ProductController : ControllerBase
+{
+    private readonly ProductApp _productApp;
+    private readonly ProductBusinessService _productBusiness;
+
+    public ProductController(ProductApp productApp, ProductBusinessService productBusiness)
+    {
+        _productApp = productApp;
+        _productBusiness = productBusiness;
+    }
+
+    [HttpPost("create")]
+    public async Task&lt;IActionResult&gt; Create(ProductCreate dto)
+    {
+        // فقط صدا زدن سرویس - هیچ منطقی اینجا نیست!
+        var result = await _productApp.CreateAsync(dto);
+        
+        if (!result.IsSuccess)
+            return BadRequest(result);
+        
+        return Ok(result);
+    }
+
+    [HttpGet("search")]
+    public async Task&lt;IActionResult&gt; Search([FromQuery] string? term, [FromQuery] int? minPrice, [FromQuery] int? maxPrice, [FromQuery] Pagination pagination)
+    {
+        var result = await _productApp.SearchAsync(term, minPrice, maxPrice, pagination);
+        return Ok(result);
+    }
+}
+</pre>
+
+        <div class="note">
+            📌 <strong>ببین چقدر کنترلر تمیز شده:</strong> فقط داره سرویس رو صدا میزنه و جواب میده. هیچ if و for و کوئری‌ای توش نیست!
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- بخش 6: متدهای پرکاربرد BaseService به صورت عملی -->
+<!-- ============================================ -->
+<div class="card">
+    <div class="card-header green">🔧 متدهای BaseService در عمل</div>
+    <div class="card-body">
+        <h3>1. GetActiveQuery() - گرفتن فقط رکوردهای فعال</h3>
+        <pre>
+// مثال: گرفتن محصولات فعال با قیمت بالای 1000
+var activeProducts = GetActiveQuery().Where(p => p.Price > 1000).ToList();
+
+// معادل این کوئری SQL میشه:
+// SELECT * FROM Products WHERE IsDeleted = 0 AND Price > 1000
+</pre>
+
+        <h3>2. ValidateModel() - اعتبارسنجی خودکار یک خطی</h3>
+        <pre>
+// بدرد میخوره وقتی میخوای DTO رو اعتبارسنجی کنی
+var validation = ValidateModel(dto);
+if (!validation.IsSuccess) return validation;
+// دیگه نیازی نیست 10 خط کد validation بنویسی!
+</pre>
+
+        <h3>3. GetEntityOrNullAsync() - پیدا کردن یا null</h3>
+        <pre>
+// پیدا کردن محصول با شناسه
+var product = await GetEntityOrNullAsync(p => p.Id == id);
+
+if (product == null)
+    return ResultFactory.Status(ResultStatusEnum.NotFound, "محصول یافت نشد.");
+</pre>
+
+        <h3>4. ExistsAsync() - چک کردن وجود</h3>
+        <pre>
+// چک کن ببین محصول با این کد وجود داره؟
+bool exists = await ExistsAsync(p => p.ProductCode == code);
+
+if (exists)
+    return ResultFactory.Status(ResultStatusEnum.Conflict, "کد محصول تکراری است.");
+</pre>
+
+        <h3>5. ExecuteAsync() - اجرای امن با مدیریت خطا</h3>
+        <pre>
+// وقتی چندتا عملیات داری که ممکنه خطا بده
+var result = await ExecuteAsync(async () =>
+{
+    await _dbSet.AddAsync(product);
+    await _context.SaveChangesAsync();
+}, "محصول با موفقیت ذخیره شد.");
+
+// این متد خودکار خطاها رو میگیره و هندل میکنه
+</pre>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- بخش 7: جدول خلاصه برای کدنویسی سریع -->
+<!-- ============================================ -->
+<div class="card">
+    <div class="card-header orange">📋 خلاصه سریع (چیت‌شیت)</div>
+    <div class="card-body">
+        <table>
+            <tr><th>اگه بخوام...</th><th>از چی استفاده کنم؟</th><th>چطور؟</th></tr>
+            <tr><td>لیست همه رو بگیرم</td><td>CrudService</td><td><code>await GetAllAsync(pagination)</code></td></tr>
+            <tr><td>یکی رو با شناسه بگیرم</td><td>CrudService</td><td><code>await GetByIdAsync(id)</code></td></tr>
+            <tr><td>جدید بسازم</td><td>CrudService</td><td><code>override CreateAsync(dto)</code></td></tr>
+            <tr><td>بررسی کنم تکراری نباشه</td><td>BusinessService</td><td><code>await IsUniqueAsync(value)</code></td></tr>
+            <tr><td>جستجوی پیشرفته کنم</td><td>BusinessService</td><td>کوئری بنویسم</td></tr>
+            <tr><td>فقط رکوردهای فعال ببینم</td><td>BaseService</td><td><code>GetActiveQuery()</code></td></tr>
+            <tr><td>اعتبارسنجی خودکار کنم</td><td>BaseService</td><td><code>ValidateModel(dto)</code></td></tr>
+            <tr><td>با خطاهای دیتابیسی کار کنم</td><td>BaseService</td><td><code>ExecuteAsync(action, msg)</code></td></tr>
+        </table>
+
+        <div class="warning">
+            ⚠️ <strong>یادت نره:</strong>
+            <ul>
+                <li>همیشه از <code>GetActiveQuery()</code> استفاده کن تا رکوردهای حذف شده رو نبینی</li>
+                <li>ولیدیشن‌های ساده رو با <code>ValidateModel()</code> انجام بده</li>
+                <li>ولیدیشن دیتابیسی (مثل یکتایی) رو توی BusinessService بنویس</li>
+                <li>هیچ وقت توی کنترلر کوئری ننویس</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- بخش 8: یک نمونه کامل از سرویس -->
+<!-- ============================================ -->
+<div class="card">
+    <div class="card-header">✨ یک نمونه کامل: سرویس کاربر (User)</div>
+    <div class="card-body">
+        <pre>
+// App/Object/Base/Users/UserBusinessService.cs
+public class UserBusinessService : BaseService&lt;User&gt;
+{
+    public UserBusinessService(MyContext context) : base(context) { }
+
+    // بررسی یکتایی ایمیل
+    public async Task&lt;bool&gt; IsEmailUniqueAsync(string email, int? excludeUserId = null)
+    {
+        var query = GetActiveQuery();
+        if (excludeUserId.HasValue)
+            query = query.Where(u => u.Id != excludeUserId.Value);
+        return !await query.AnyAsync(u => u.Email == email);
+    }
+
+    // بررسی یکتایی نام کاربری
+    public async Task&lt;bool&gt; IsUsernameUniqueAsync(string username, int? excludeUserId = null)
+    {
+        var query = GetActiveQuery();
+        if (excludeUserId.HasValue)
+            query = query.Where(u => u.Id != excludeUserId.Value);
+        return !await query.AnyAsync(u => u.Username == username);
+    }
+}
+
+// App/Object/Base/Users/UsersApp.cs
+public class UsersApp : CrudService&lt;User, UsersView, UsersCreat, UsersUpdate, int&gt;, IUsersApp
+{
+    private readonly UserBusinessService _userBusiness;
+
+    public UsersApp(MyContext context, IMapper mapper, UserBusinessService userBusiness) 
+        : base(context, mapper)
+    {
+        _userBusiness = userBusiness;
+    }
+
+    public override async Task&lt;StatusResult&gt; CreateAsync(UsersCreat dto)
+    {
+        // 1. اعتبارسنجی خودکار
+        var validation = ValidateModel(dto);
+        if (!validation.IsSuccess) return validation;
+
+        // 2. بررسی یکتایی ایمیل
+        if (!await _userBusiness.IsEmailUniqueAsync(dto.Email))
+            return ResultFactory.Status(ResultStatusEnum.Conflict, "ایمیل قبلاً ثبت شده است.");
+
+        // 3. بررسی یکتایی نام کاربری
+        if (!await _userBusiness.IsUsernameUniqueAsync(dto.Username))
+            return ResultFactory.Status(ResultStatusEnum.Conflict, "نام کاربری قبلاً ثبت شده است.");
+
+        // 4. ساخت کاربر
+        var user = _mapper.Map&lt;User&gt;(dto);
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+        
+        await _dbSet.AddAsync(user);
+        await _context.SaveChangesAsync();
+
+        return ResultFactory.Status(ResultStatusEnum.Success, "کاربر با موفقیت ایجاد شد.");
+    }
+}
+</pre>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- بخش 9: سوالات متداول -->
+<!-- ============================================ -->
+<div class="card">
+    <div class="card-header blue">❓ سوالات متداول</div>
+    <div class="card-body">
+        <div class="note">
+            <strong>سوال:</strong> کی باید BusinessService بسازم و کی فقط از CrudService استفاده کنم؟<br>
+            <strong>جواب:</strong> اگه عملیاتت فقط یه <code>SaveChanges</code> ساده هست، همون CrudService کافیه. اگه ولیدیشن دیتابیسی، شرط‌های پیچیده، یا جستجو داری، BusinessService بساز.
+        </div>
+        
+        <div class="note">
+            <strong>سوال:</strong> چرا نباید توی کنترلر کوئری بنویسم؟<br>
+            <strong>جواب:</strong> چون اگه کوئری توی کنترلر باشه، تکرار میشه و نگهداریش سخت میشه. توی لایه App کوئری رو یه جا مینویسی و همه جا استفاده میکنی.
+        </div>
+        
+        <div class="note">
+            <strong>سوال:</strong> متد <code>GetActiveQuery()</code> چطور کار میکنه؟<br>
+            <strong>جواب:</strong> یه <code>IQueryable</code> برمیگردونه که شرط <code>IsDeleted == false</code> روش زده شده. یعنی فقط رکوردهای فعال رو بهت نشون میده.
+        </div>
+
+        <div class="tip">
+            💡 <strong>یادت باشه:</strong> کدی که امروز مینویسی، ممکنه ۶ ماه دیگه یکی دیگه بخونه. اگه کدت تمیز باشه، همه خوششون میاد! 😊
+        </div>
+    </div>
+</div>
+
+<div class="footer">
+    📝 این راهنما رو هر وقت نیاز بود بخون | اگه سوالی بود بپرس 🙋
+</div>
+
+</div>
+</body>
+</html>

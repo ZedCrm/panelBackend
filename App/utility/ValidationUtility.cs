@@ -1,9 +1,12 @@
+using ConfApp;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using MyFrameWork.AppTool.ResultType;
 
 namespace App.utility
 {
@@ -21,7 +24,7 @@ namespace App.utility
                     $"{fieldName} نمی‌تواند خالی باشد."
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
@@ -45,7 +48,7 @@ namespace App.utility
                     $"{fieldName} باید بین {minLength} تا {maxLength} کاراکتر باشد."
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
@@ -61,7 +64,7 @@ namespace App.utility
                     $"{fieldName} باید بین {minValue} تا {maxValue} باشد."
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
@@ -77,7 +80,7 @@ namespace App.utility
                     $"{fieldName} باید بین {minValue} تا {maxValue} باشد."
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
@@ -93,28 +96,27 @@ namespace App.utility
                     $"{fieldName} باید بین {minValue} تا {maxValue} باشد."
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
         /// <summary>
-        /// اعتبارسنجی یکتا بودن مقدار در دیتابیس
+        /// اعتبارسنجی یکتا بودن مقدار در دیتابیس با استفاده از MyContext
         /// </summary>
-        public static async Task<StatusResult> ValidateUniqueAsync<T, TKey>(
-            IBaseRep<T, TKey> repository,
+        public static async Task<StatusResult> ValidateUniqueAsync<T>(
+            MyContext context,
             Expression<Func<T, bool>> predicate,
-            string errorMessage)
-            where T : Domain.Objects.BaseDomain
+            string errorMessage) where T : class
         {
-            if (repository == null)
+            if (context == null)
             {
                 return ResultFactory.Status(
                     ResultStatusEnum.ValidationFailed,
-                    "ریپازیتوری معتبر نیست."
+                    "Context معتبر نیست."
                 );
             }
 
-            var exists = await repository.ExistAsync(predicate);
+            var exists = await context.Set<T>().AnyAsync(predicate);
             if (exists)
             {
                 return ResultFactory.Status(
@@ -122,22 +124,47 @@ namespace App.utility
                     errorMessage
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
         /// <summary>
         /// اعتبارسنجی یکتا بودن با امکان ارسال پیام پیش‌فرض
         /// </summary>
-        public static async Task<StatusResult> ValidateUniqueAsync<T, TKey>(
-            IBaseRep<T, TKey> repository,
+        public static async Task<StatusResult> ValidateUniqueAsync<T>(
+            MyContext context,
             Expression<Func<T, bool>> predicate,
             string fieldName,
-            string value)
-            where T : Domain.Objects.BaseDomain
+            string value) where T : class
         {
             var errorMessage = $"{fieldName} با مقدار '{value}' قبلاً در سیستم ثبت شده است.";
-            return await ValidateUniqueAsync(repository, predicate, errorMessage);
+            return await ValidateUniqueAsync(context, predicate, errorMessage);
+        }
+
+        /// <summary>
+        /// اعتبارسنجی یکتا بودن برای ویرایش (به جز آیتم جاری)
+        /// </summary>
+        public static async Task<StatusResult> ValidateUniqueForUpdateAsync<T>(
+            MyContext context,
+            Expression<Func<T, bool>> predicate,
+            int currentId,
+            string fieldName,
+            string value) where T : Domain.Objects.BaseDomain
+        {
+            // شرط: آیتم با همین مقدار وجود داشته باشد اما Id آن برابر با currentId نباشد
+            var combinedPredicate = predicate.And(x => x.Id != currentId);
+            var errorMessage = $"{fieldName} با مقدار '{value}' قبلاً در سیستم ثبت شده است.";
+
+            var exists = await context.Set<T>().AnyAsync(combinedPredicate);
+            if (exists)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    errorMessage
+                );
+            }
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
         /// <summary>
@@ -233,7 +260,7 @@ namespace App.utility
         public static StatusResult ValidateAll(params StatusResult[] validationResults)
         {
             var errors = new List<string>();
-            
+
             foreach (var result in validationResults)
             {
                 if (!result.IsSuccess && result.Messages != null)
@@ -267,7 +294,7 @@ namespace App.utility
         public static List<string> GetErrors(params StatusResult[] validationResults)
         {
             var errors = new List<string>();
-            
+
             foreach (var result in validationResults)
             {
                 if (!result.IsSuccess && result.Messages != null)
@@ -275,7 +302,7 @@ namespace App.utility
                     errors.AddRange(result.Messages);
                 }
             }
-            
+
             return errors;
         }
     }

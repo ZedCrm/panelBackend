@@ -1,113 +1,137 @@
-// App\Object\BaseService.cs
-using App.Object.Base.Users;
+﻿// App/Object/BaseService.cs
 using App.utility;
-using AutoMapper;
-using Domain.Objects;
+using ConfApp;
+using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
 using System.Linq.Expressions;
 
 namespace App.Object
 {
-    public abstract class BaseService<TDto, TCreate, TUpdate, TEntity>
-        where TDto : class
-        where TCreate : class
-        where TUpdate : class
-        where TEntity : BaseDomain
+    /// <summary>
+    /// سرویس پایه برای Business Logic - جدای از CrudService که فقط CRUD انجام می‌دهد
+    /// </summary>
+    public abstract class BaseService<TEntity> where TEntity : class
     {
-        protected readonly IBaseRep<TEntity, int> _repository;
-        protected readonly IMapper _mapper;
-        protected readonly IFileService? _fileService;
-        protected readonly UserStatusService? _statusService;
+        protected readonly MyContext _context;
+        protected readonly DbSet<TEntity> _dbSet;
 
-        protected BaseService(
-            IBaseRep<TEntity, int> repository,
-            IMapper mapper,
-            IFileService? fileService = null,
-            UserStatusService? statusService = null)
+        protected BaseService(MyContext context)
         {
-            _repository = repository;
-            _mapper = mapper;
-            _fileService = fileService;
-            _statusService = statusService;
+            _context = context;
+            _dbSet = context.Set<TEntity>();
         }
 
-        // GET ALL + Pagination
-        public virtual async Task<ListDataResult<TDto>> GetAll(Pagination pagination)
-        {
-            var entities = await _repository.GetAsync(pagination);
-            var dtos = _mapper.Map<List<TDto>>(entities);
-            var total = await _repository.CountAsync();
+        // ========== ولیدیشن سریع ==========
+        protected StatusResult ValidateModel<TModel>(TModel model)
+            => ModelValidator.ValidateToStatusResult(model);
 
-            return ResultFactory.List(ResultStatusEnum.Success,dtos, total, pagination);
+        protected async Task<StatusResult> ValidateUniqueAsync(
+            Expression<Func<TEntity, bool>> predicate,
+            string fieldName,
+            string? value = null)
+        {
+            var exists = await _dbSet.AnyAsync(predicate);
+            if (exists)
+            {
+                var message = string.IsNullOrEmpty(value)
+                    ? MessageApp.DuplicateEntry
+                    : MessageApp.DuplicateField(fieldName);
+                return ResultFactory.Status(ResultStatusEnum.Conflict, message);
+            }
+            return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
-        // GET BY ID
-        public virtual async Task<SingleDataResult<TUpdate>> GetById(int id)
+        protected async Task<StatusResult> ValidateUniqueForUpdateAsync(
+            Expression<Func<TEntity, bool>> predicate,
+            int currentId,
+            string fieldName,
+            string value)
         {
-            var entity = await _repository.GetAsync(id);
+            var param = Expression.Parameter(typeof(TEntity), "x");
+            var idProperty = Expression.Property(param, "Id");
+            var idEqual = Expression.NotEqual(idProperty, Expression.Constant(currentId));
+
+            // ترکیب شرط‌ها
+            var originalBody = predicate.Body;
+            var combinedBody = Expression.AndAlso(originalBody, idEqual);
+            var combinedPredicate = Expression.Lambda<Func<TEntity, bool>>(combinedBody, param);
+
+            return await ValidateUniqueAsync(combinedPredicate, fieldName, value);
+        }
+
+        // ========== کوئری سریع با شرط IsDeleted ==========
+        protected IQueryable<TEntity> GetActiveQuery()
+        {
+            // اگر TEntity از BaseDomain ارث برده باشد
+            var baseDomainType = typeof(Domain.Objects.BaseDomain);
+            if (baseDomainType.IsAssignableFrom(typeof(TEntity)))
+            {
+                var param = Expression.Parameter(typeof(TEntity), "x");
+                var property = Expression.Property(param, "IsDeleted");
+                var condition = Expression.Equal(property, Expression.Constant(false));
+                var lambda = Expression.Lambda<Func<TEntity, bool>>(condition, param);
+                return _dbSet.Where(lambda);
+            }
+            return _dbSet;
+        }
+
+        // ========== گرفتن Entity با بررسی NotFound ==========
+        protected async Task<TEntity?> GetEntityOrNullAsync(Expression<Func<TEntity, bool>> predicate)
+        {
+            return await GetActiveQuery().FirstOrDefaultAsync(predicate);
+        }
+
+        protected async Task<TEntity> GetEntityOrThrowAsync(Expression<Func<TEntity, bool>> predicate, string entityName)
+        {
+            var entity = await GetEntityOrNullAsync(predicate);
             if (entity == null)
-                return ResultFactory.Single<TUpdate>(ResultStatusEnum.NotFound,null,MessageApp.NotFound);
-
-            var dto = _mapper.Map<TUpdate>(entity);
-            return ResultFactory.Single(ResultStatusEnum.Success,dto);
+                throw new KeyNotFoundException(MessageApp.NotFoundItem(entityName));
+            return entity;
         }
 
-        // CREATE
-        public virtual async Task<StatusResult> Create(TCreate createDto)
+        // ========== گرفتن Entity با نتیجه StatusResult ==========
+        protected async Task<SingleDataResult<TEntity>> GetEntityResultAsync(Expression<Func<TEntity, bool>> predicate, string entityName)
         {
-            var entity = _mapper.Map<TEntity>(createDto);
-
-            await BeforeCreate(entity, createDto);
-            await _repository.CreateAsync(entity);
-            await _repository.SaveChangesAsync();
-            await AfterCreate(entity, createDto);
-
-            return ResultFactory.Status(ResultStatusEnum.Success,"رکورد با موفقیت ایجاد شد.");
-        }
-
-        // UPDATE
-        public virtual async Task<StatusResult> Update(TUpdate updateDto)
-        {
-            var idProp = updateDto.GetType().GetProperty("Id")?.GetValue(updateDto);
-            if (idProp is not int id || id <= 0)
-                return ResultFactory.Status(ResultStatusEnum.ValidationFailed,"شناسه معتبر نیست.");
-
-            var entity = await _repository.GetAsync(id);
+            var entity = await GetEntityOrNullAsync(predicate);
             if (entity == null)
-                return ResultFactory.Status(ResultStatusEnum.NotFound,MessageApp.NotFound);
-
-            _mapper.Map(updateDto, entity);
-
-            await BeforeUpdate(entity, updateDto);
-            await _repository.UpdateAsync(entity);
-            await _repository.SaveChangesAsync();
-            await AfterUpdate(entity, updateDto);
-
-            return ResultFactory.Status(ResultStatusEnum.Success,"رکورد با موفقیت به‌روزرسانی شد.");
+                return ResultFactory.Single<TEntity>(ResultStatusEnum.NotFound, null, MessageApp.NotFoundItem(entityName));
+            return ResultFactory.Single(ResultStatusEnum.Success, entity);
         }
 
-        // DELETE
-        public virtual async Task<StatusResult> DeleteBy(List<int> ids)
+        // ========== Execute با مدیریت خطا ==========
+        protected async Task<StatusResult> ExecuteAsync(Func<Task> action, string successMessage)
         {
-            if (!ids.Any())
-                return ResultFactory.Status(ResultStatusEnum.ValidationFailed ,"هیچ شناسه‌ای انتخاب نشده است.");
-
-            var entities = await _repository.GetByIdsAsync(ids);
-            if (!entities.Any())
-                return ResultFactory.Status(ResultStatusEnum.NotFound ,MessageApp.NotFound);
-
-            foreach (var entity in entities)
-                _repository.Delete(entity);
-
-            await _repository.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success ,"رکورد(ها) با موفقیت حذف شدند.");
+            try
+            {
+                await action();
+                await _context.SaveChangesAsync();
+                return ResultFactory.Status(ResultStatusEnum.Success, successMessage);
+            }
+            catch (DbUpdateException ex)
+            {
+                var innerMsg = ex.InnerException?.Message ?? ex.Message;
+                return ResultFactory.Status(ResultStatusEnum.DatabaseError, $"خطا در دیتابیس: {innerMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ResultFactory.Status(ResultStatusEnum.InternalError, $"خطا: {ex.Message}");
+            }
         }
 
-        // HOOKS — برای override در فرزند
-        protected virtual Task BeforeCreate(TEntity entity, TCreate dto) => Task.CompletedTask;
-        protected virtual Task AfterCreate(TEntity entity, TCreate dto) => Task.CompletedTask;
-        protected virtual Task BeforeUpdate(TEntity entity, TUpdate dto) => Task.CompletedTask;
-        protected virtual Task AfterUpdate(TEntity entity, TUpdate dto) => Task.CompletedTask;
+        // ========== بررسی وجود ==========
+        protected async Task<bool> ExistsAsync(Expression<Func<TEntity, bool>> predicate)
+        {
+            return await GetActiveQuery().AnyAsync(predicate);
+        }
+
+        // ========== شمارش ==========
+        protected async Task<int> CountAsync(Expression<Func<TEntity, bool>>? predicate = null)
+        {
+            var query = GetActiveQuery();
+            if (predicate != null)
+                query = query.Where(predicate);
+            return await query.CountAsync();
+        }
     }
 }

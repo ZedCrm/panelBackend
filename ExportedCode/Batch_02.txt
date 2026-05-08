@@ -1,186 +1,341 @@
-﻿===== FILE: App\Object\Base\Users\UsersApp.cs =====
-// App/Object/Base/Users/UsersApp.cs
+﻿===== FILE: App\Object\Base\Roles\RoleApp.cs =====
+using App.Contracts.Object.Base.Roles;
+using AutoMapper;
+using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+using ConfApp;
+
+namespace App.Object.Base.Roles
+{
+    public class RoleApp : CrudService<Role, RoleView, RoleCreate, RoleUpdate, int>, IRoleApp
+    {
+        private readonly MyContext _context;
+        private readonly IMapper _mapper;
+
+        public RoleApp(MyContext context, IMapper mapper) : base(context, mapper)
+        {
+            _context = context;
+            _mapper = mapper;
+        }
+
+        public async Task<List<PermissionView>> GetAllPermissionsAsync()
+        {
+            var perms = await _context.Permissions
+                .Where(p => !p.IsDeleted)
+                .Select(p => new PermissionView { Id = p.Id, PermissionName = p.Name, Category = p.Category })
+                .ToListAsync();
+            return perms;
+        }
+
+        public override async Task<StatusResult> CreateAsync(RoleCreate dto)
+        {
+            var role = _mapper.Map<Role>(dto);
+            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission { PermissionId = pid }).ToList();
+            await _context.Roles.AddAsync(role);
+            await _context.SaveChangesAsync();
+            return ResultFactory.Status(ResultStatusEnum.Success, "نقش ایجاد شد.");
+        }
+
+        public override async Task<StatusResult> UpdateAsync(RoleUpdate dto)
+        {
+            var role = await _context.Roles
+                .Include(r => r.RolePermissions)
+                .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
+            if (role == null)
+                return ResultFactory.Status(ResultStatusEnum.NotFound, "نقش یافت نشد.");
+            _mapper.Map(dto, role);
+            // حذف مجوزهای قبلی
+            _context.RolePermissions.RemoveRange(role.RolePermissions);
+            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission { PermissionId = pid }).ToList();
+            await _context.SaveChangesAsync();
+            return ResultFactory.Status(ResultStatusEnum.Success, "نقش بروزرسانی شد.");
+        }
+
+        public override async Task<SingleDataResult<RoleUpdate>> GetByIdAsync(int id)
+        {
+            var role = await _context.Roles
+                .Include(r => r.RolePermissions)
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
+            if (role == null)
+                return ResultFactory.Single<RoleUpdate>(ResultStatusEnum.NotFound, null, "نقش یافت نشد.");
+            var dto = _mapper.Map<RoleUpdate>(role);
+            dto.PermissionIds = role.RolePermissions.Select(rp => rp.PermissionId).ToList();
+            return ResultFactory.Single(ResultStatusEnum.Success, dto);
+        }
+    }
+}
+
+===== FILE: App\Object\Base\Users\UserBusinessService.cs =====
+// App/Object/Base/Users/UserBusinessService.cs
+using App.Contracts.Object.Base.Users;
+using App.utility;
+using AutoMapper;
+using ConfApp;
+using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+
+namespace App.Object.Base.Users
+{
+    public class UserBusinessService : BaseService<User>
+    {
+        private readonly IMapper _mapper;
+        private readonly IFileService _fileService;
+        private readonly UserStatusService _statusService;
+
+        public UserBusinessService(
+            MyContext context,
+            IMapper mapper,
+            IFileService fileService,
+            UserStatusService statusService) : base(context)
+        {
+            _mapper = mapper;
+            _fileService = fileService;
+            _statusService = statusService;
+        }
+
+        public async Task<StatusResult> ValidateUniqueUserAsync(string username, string email, int? excludeId = null)
+        {
+            var query = GetActiveQuery();
+
+            if (excludeId.HasValue)
+            {
+                var usernameExists = await query.AnyAsync(u => u.Username == username && u.Id != excludeId.Value);
+                if (usernameExists)
+                    return ResultFactory.Status(ResultStatusEnum.Conflict, MessageApp.DuplicateField("نام کاربری"));
+
+                var emailExists = await query.AnyAsync(u => u.Email == email && u.Id != excludeId.Value);
+                if (emailExists)
+                    return ResultFactory.Status(ResultStatusEnum.Conflict, MessageApp.DuplicateField("ایمیل"));
+            }
+            else
+            {
+                var usernameExists = await query.AnyAsync(u => u.Username == username);
+                if (usernameExists)
+                    return ResultFactory.Status(ResultStatusEnum.Conflict, MessageApp.DuplicateField("نام کاربری"));
+
+                var emailExists = await query.AnyAsync(u => u.Email == email);
+                if (emailExists)
+                    return ResultFactory.Status(ResultStatusEnum.Conflict, MessageApp.DuplicateField("ایمیل"));
+            }
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        public async Task<SingleDataResult<UserCreateFormData>> GetCreateFormAsync()
+        {
+            var roles = await _context.Roles
+                .Where(r => !r.IsDeleted)
+                .Select(r => new RoleViewForUser { Id = r.Id, Name = r.Name })
+                .ToListAsync();
+
+            var formData = new UserCreateFormData { Roles = roles };
+            return ResultFactory.Single(ResultStatusEnum.Success, formData);
+        }
+
+        public async Task<StatusResult> KeepAliveAsync(int userId)
+        {
+            _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
+            return ResultFactory.Status(ResultStatusEnum.Accepted, "وضعیت آنلاین شد.");
+        }
+
+        public async Task<SingleDataResult<UserWithRolesDto>> GetUserWithRolesAsync(int userId)
+        {
+            var user = await GetActiveQuery()
+                .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+                return ResultFactory.Single<UserWithRolesDto>(ResultStatusEnum.NotFound, null, MessageApp.NotFoundItem("کاربر"));
+
+            var dto = new UserWithRolesDto
+            {
+                Id = user.Id,
+                FullName = user.FullName,
+                Username = user.Username,
+                Email = user.Email,
+                Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
+            };
+
+            return ResultFactory.Single(ResultStatusEnum.Success, dto);
+        }
+    }
+
+    public class UserWithRolesDto
+    {
+        public int Id { get; set; }
+        public string FullName { get; set; } = default!;
+        public string Username { get; set; } = default!;
+        public string Email { get; set; } = default!;
+        public List<string> Roles { get; set; } = new();
+    }
+}
+
+===== FILE: App\Object\Base\Users\UsersApp.cs =====
 using App.Contracts.Object.Base.Users;
 using App.Object.Base.Roles;
 using App.utility;
 using AutoMapper;
+using ConfApp;  // Ø¨Ø±Ø§ÛŒ MyContext
 using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
+using System.Linq.Expressions;
 
 namespace App.Object.Base.Users
 {
     public class UsersApp : CrudService<User, UsersView, UsersCreat, UsersUpdate, int>,
                             IUsersApp
     {
-        private readonly IMyUserRepository _userRepository;
+        private readonly MyContext _context;
         private readonly IFileService _fileService;
         private readonly UserStatusService _statusService;
-        private readonly IRoleRep _roleRep;
+        private readonly IMapper _mapper;
 
         public UsersApp(
-            IMyUserRepository userRepository,
+            MyContext context,
             IMapper mapper,
             IFileService fileService,
-            UserStatusService statusService,
-            IRoleRep roleRep)
-            : base(userRepository, mapper)
+            UserStatusService statusService)
+            : base(context, mapper)   // â† Ù¾Ø§ÛŒÙ‡ CrudService Ø§Ø² context Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù…ÛŒâ€ŒÚ©Ù†Ø¯
         {
-            _userRepository = userRepository;
+            _context = context;
             _fileService = fileService;
             _statusService = statusService;
-            _roleRep = roleRep;
+            _mapper = mapper;
         }
 
-        /*=== Ø§ÛŒÙ†ØªØ±ÙÛŒØ³ IUsersApp ===*/
-        public Task<ListDataResult<UsersView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<SingleDataResult<UsersUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<StatusResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
-
-        /*=== Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ ===*/
+        // Ù…ØªØ¯Ù‡Ø§ÛŒ Ù‚Ø¨Ù„ÛŒ Ø¨Ø§ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø§Ø² DbSet Ø¨Ø§Ø²Ù†ÙˆÛŒØ³ÛŒ Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯
         public async Task<SingleDataResult<UserCreateFormData>> CreateForm()
         {
-            var roles = await _roleRep.GetAsync();
-            return ResultFactory.Single<UserCreateFormData>( ResultStatusEnum.Success,
-                new UserCreateFormData
-                {
-                    Roles = roles.Select(r => new RoleViewForUser { Id = r.Id, Name = r.Name }).ToList()
-                });
+            var roles = await _context.Roles
+                .Where(r => !r.IsDeleted)
+                .Select(r => new RoleViewForUser { Id = r.Id, Name = r.Name })
+                .ToListAsync();
+            return ResultFactory.Single<UserCreateFormData>(
+                ResultStatusEnum.Success,
+                new UserCreateFormData { Roles = roles });
         }
 
         public async Task<StatusResult> KeepAlive(int userId)
         {
             _statusService.UpdateStatus(userId, UserStatus.Online, DateTime.Now);
-            return ResultFactory.Status(ResultStatusEnum.Accepted ,"ÙˆØ¶Ø¹ÛŒØª Ø¢Ù†Ù„Ø§ÛŒÙ† Ø´Ø¯.");
+            return ResultFactory.Status(ResultStatusEnum.Accepted, "ÙˆØ¶Ø¹ÛŒØª Ø¢Ù†Ù„Ø§ÛŒÙ† Ø´Ø¯.");
         }
 
-        /*=== Ø§ÙˆØ±Ø±Ø§ÛŒØ¯Ù‡Ø§ÛŒ Ø¶Ø±ÙˆØ±ÛŒ (Business + ÙØ§ÛŒÙ„ + ÙˆØ¶Ø¹ÛŒØª) ===*/
         public override async Task<StatusResult> CreateAsync(UsersCreat dto)
         {
-            if (await _userRepository.ExistAsync(u => u.Email == dto.Email))
-                return ResultFactory.Status(ResultStatusEnum.Conflict ,"Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
-            if (await _userRepository.ExistAsync(u => u.Username == dto.Username))
-                return ResultFactory.Status(ResultStatusEnum.Conflict ,"Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
+            // Ø¨Ø±Ø±Ø³ÛŒ ÛŒÚ©ØªØ§ÛŒÛŒ Ø¨Ø§ DbSet
+            if (await _context.Users.AnyAsync(u => u.Email == dto.Email && !u.IsDeleted))
+                return ResultFactory.Status(ResultStatusEnum.Conflict, "Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
+            if (await _context.Users.AnyAsync(u => u.Username == dto.Username && !u.IsDeleted))
+                return ResultFactory.Status(ResultStatusEnum.Conflict, "Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
 
             var user = _mapper.Map<User>(dto);
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+            // Ù†Ù‚Ø´â€ŒÙ‡Ø§
             user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid }).ToList();
 
             if (dto.ProfilePicture != null)
             {
-                var resizeOptions = new ResizeOptions
-                {
-                    Size = new Size(200, 200),
-                    Mode = ResizeMode.Max
-                };
-
+                var resizeOptions = new ResizeOptions { Size = new Size(200, 200), Mode = ResizeMode.Max };
                 user.ProfilePictureUrl = await _fileService.UploadAsync(
-                    file: dto.ProfilePicture,
-                    folderPath: "uploads/profiles",
-                    existingUrl: user.ProfilePictureUrl,
-                    resizeOptions: resizeOptions
-                );
+                    dto.ProfilePicture, "uploads/profiles", user.ProfilePictureUrl, resizeOptions);
             }
 
-
-
-
-
-
-
-
-            await _userRepository.CreateAsync(user);
-            await _userRepository.SaveChangesAsync();
+            await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();
             _statusService.UpdateStatus(user.Id, UserStatus.Offline);
-            return ResultFactory.Status(ResultStatusEnum.Accepted ,$"Ú©Ø§Ø±Ø¨Ø± {dto.FullName} Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
+            return ResultFactory.Status(ResultStatusEnum.Accepted, $"Ú©Ø§Ø±Ø¨Ø± {dto.FullName} Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
         }
 
         public override async Task<StatusResult> UpdateAsync(UsersUpdate dto)
         {
-            if (await _userRepository.ExistAsync(u => u.Email == dto.Email && u.Id != dto.Id))
-                return ResultFactory.Status(ResultStatusEnum.Conflict ,"Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
-            if (await _userRepository.ExistAsync(u => u.Username == dto.Username && u.Id != dto.Id))
-                return ResultFactory.Status(ResultStatusEnum.Conflict ,"Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
+            if (await _context.Users.AnyAsync(u => u.Email == dto.Email && u.Id != dto.Id && !u.IsDeleted))
+                return ResultFactory.Status(ResultStatusEnum.Conflict, "Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
+            if (await _context.Users.AnyAsync(u => u.Username == dto.Username && u.Id != dto.Id && !u.IsDeleted))
+                return ResultFactory.Status(ResultStatusEnum.Conflict, "Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù‚Ø¨Ù„Ø§Ù‹ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.");
 
-            var user = await _userRepository.GetAsync(dto.Id);
-            if (user == null) return ResultFactory.Status(ResultStatusEnum.NotFound,MessageApp.NotFound);
-
+            var user = await _context.Users
+                .Include(u => u.UserRoles)
+                .FirstOrDefaultAsync(u => u.Id == dto.Id && !u.IsDeleted);
+            if (user == null)
+                return ResultFactory.Status(ResultStatusEnum.NotFound, MessageApp.NotFound);
 
             var oldPasswordHash = user.PasswordHash;
-
             _mapper.Map(dto, user);
-            // Ø§Ú¯Ø± Ú©Ø§Ø±Ø¨Ø± Ø±Ù…Ø² Ø¬Ø¯ÛŒØ¯ Ù†ÙØ±Ø³ØªØ§Ø¯Ù‡ Ø¨ÙˆØ¯ØŒ Ù¾Ø³ÙˆØ±Ø¯ Ù‚Ø¨Ù„ÛŒ Ø±Ø§ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†
             if (string.IsNullOrEmpty(dto.Password))
                 user.PasswordHash = oldPasswordHash;
             else
                 user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
+            // Ø­Ø°Ù Ù†Ù‚Ø´â€ŒÙ‡Ø§ÛŒ Ù‚Ø¯ÛŒÙ…ÛŒ Ùˆ Ø§Ø¶Ø§ÙÙ‡ Ú©Ø±Ø¯Ù† Ø¬Ø¯ÛŒØ¯
+            _context.UserRoles.RemoveRange(user.UserRoles);
             user.UserRoles = dto.RoleIds.Select(rid => new UserRole { RoleId = rid, UserId = dto.Id }).ToList();
 
             if (dto.ProfilePicture != null)
             {
-                var resizeOptions = new ResizeOptions
-                {
-                    Size = new Size(200, 200),
-                    Mode = ResizeMode.Max
-                };
-
+                var resizeOptions = new ResizeOptions { Size = new Size(200, 200), Mode = ResizeMode.Max };
                 user.ProfilePictureUrl = await _fileService.UploadAsync(
-                    file: dto.ProfilePicture,
-                    folderPath: "uploads/profiles",
-                    existingUrl: user.ProfilePictureUrl,
-                    resizeOptions: resizeOptions
-                );
+                    dto.ProfilePicture, "uploads/profiles", user.ProfilePictureUrl, resizeOptions);
             }
 
-            await _userRepository.UpdateAsync(user);
-            await _userRepository.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success ,"Ú©Ø§Ø±Ø¨Ø± Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
+            await _context.SaveChangesAsync();
+            return ResultFactory.Status(ResultStatusEnum.Success, "Ú©Ø§Ø±Ø¨Ø± Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
         }
 
         public override async Task<ListDataResult<UsersView>> GetAllAsync(Pagination pagination)
         {
-            var users = await _userRepository.GetAsync(pagination);
+            var query = _context.Users.Where(u => !u.IsDeleted).AsNoTracking();
+            // Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ Ø¯Ø§ÛŒÙ†Ø§Ù…ÛŒÚ© Ù…Ø§Ù†Ù†Ø¯ CrudService
+            if (!string.IsNullOrEmpty(pagination.SortBy))
+                query = ApplySorting(query, pagination.SortBy, pagination.SortDirection);
+            var total = await query.CountAsync();
+            var users = await query.Skip(pagination.CalculateSkip()).Take(pagination.PageSize).ToListAsync();
             var vms = _mapper.Map<List<UsersView>>(users);
-
             foreach (var vm in vms)
             {
                 var (status, lastSeen) = _statusService.GetStatus(vm.Id);
                 vm.Status = status;
                 vm.LastSeen = lastSeen;
             }
-
-            var total = await _userRepository.CountAsync();
-            return ResultFactory.List<UsersView>(ResultStatusEnum.Accepted,vms, total,
-                                                           pagination);
-        }
-
-        public override async Task<StatusResult> DeleteAsync(List<int> ids)
-        {
-            var res = await base.DeleteAsync(ids);
-            if (res.IsSuccess) ids.ForEach(id => _statusService.UpdateStatus(id, UserStatus.Offline));
-            return res;
+            return ResultFactory.List(ResultStatusEnum.Accepted, vms, total, pagination);
         }
 
         public async Task<ListDataResult<UserList>> GetList()
         {
-            var users = await _repo.GetAsync();
-          var res =  _mapper.Map<List<UserList>>(users);
-          return  ResultFactory.List(ResultStatusEnum.Accepted ,res);
+            var users = await _context.Users
+                .Where(u => !u.IsDeleted)
+                .Select(u => new UserList { Id = u.Id, FullName = u.FullName })
+                .ToListAsync();
+            return ResultFactory.List(ResultStatusEnum.Accepted, users);
+        }
 
+        // Ù…ØªØ¯ Ú©Ù…Ú©ÛŒ Ø¨Ø±Ø§ÛŒ Ù…Ø±ØªØ¨â€ŒØ³Ø§Ø²ÛŒ (Ù…Ø´Ø§Ø¨Ù‡ CrudService)
+        private static IQueryable<T> ApplySorting<T>(IQueryable<T> query, string sortBy, bool ascending)
+        {
+            var parameter = Expression.Parameter(typeof(T), "x");
+            var property = Expression.Property(parameter, sortBy);
+            var lambda = Expression.Lambda(property, parameter);
+            string methodName = ascending ? "OrderBy" : "OrderByDescending";
+            var method = typeof(Queryable).GetMethods()
+                .First(m => m.Name == methodName && m.GetParameters().Length == 2)
+                .MakeGenericMethod(typeof(T), property.Type);
+            return (IQueryable<T>)method.Invoke(null, new object[] { query, lambda })!;
         }
     }
-
-    public interface IMyUserRepository : IBaseRep<User, int> { }
 }
 
 ===== FILE: App\Object\Base\Users\UserStatusService.cs =====
 using System.Collections.Concurrent;
-using System.IO;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Domain.Objects.Base;
 
 namespace App.Object.Base.Users
@@ -188,17 +343,18 @@ namespace App.Object.Base.Users
     public class UserStatusService
     {
         private readonly ConcurrentDictionary<int, (UserStatus Status, DateTime? LastSeen)> _userStatuses = new();
-        private readonly string _statusFilePath = Path.Combine(Directory.GetCurrentDirectory(), "user-status.json");
+        private readonly string _statusFilePath;
 
         public UserStatusService()
         {
-            LoadFromFile();  // Ù„ÙˆØ¯ Ù…ÙˆÙ‚Ø¹ startup
+            _statusFilePath = Path.Combine(Directory.GetCurrentDirectory(), "user-status.json");
+            LoadFromFile();  // Ø§Ú¯Ø± ÙØ§ÛŒÙ„ Ù†Ø¨Ø§Ø´Ù‡ØŒ LoadFromFile Ø®ÙˆØ¯Ø´ Ø§ÛŒØ¬Ø§Ø¯ Ù…ÛŒâ€ŒÚ©Ù†Ù‡
         }
 
         public void UpdateStatus(int userId, UserStatus status, DateTime? lastSeen = null)
         {
             _userStatuses[userId] = (status, lastSeen ?? DateTime.Now);
-            SaveToFile();  // Ù‡Ø± Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø³ÛŒÙˆ Ú©Ù† (Ø¨Ø±Ø§ÛŒ ØªØºÛŒÛŒØ±Ø§Øª Ø²ÛŒØ§Ø¯, Ø´Ø§ÛŒØ¯ debounce Ú©Ù† Ø§Ù…Ø§ Ø³Ø§Ø¯Ù‡)
+            SaveToFile();
         }
 
         public (UserStatus, DateTime?) GetStatus(int userId)
@@ -206,7 +362,7 @@ namespace App.Object.Base.Users
             return _userStatuses.TryGetValue(userId, out var status) ? status : (UserStatus.Offline, null);
         }
 
-        public void CheckInactive()  // periodical call Ù…Ø«Ù„Ø§Ù‹ Ø¨Ø§ timer
+        public void CheckInactive()
         {
             var now = DateTime.Now;
             foreach (var kvp in _userStatuses)
@@ -223,9 +379,17 @@ namespace App.Object.Base.Users
             if (File.Exists(_statusFilePath))
             {
                 var json = File.ReadAllText(_statusFilePath);
-                var data = JsonSerializer.Deserialize<Dictionary<int, (UserStatus, DateTime?)>>(json);
+                var data = JsonSerializer.Deserialize<Dictionary<int, (UserStatus Status, DateTime? LastSeen)>>(json);
                 if (data != null)
-                    foreach (var kvp in data) _userStatuses[kvp.Key] = kvp.Value;
+                {
+                    foreach (var kvp in data)
+                        _userStatuses[kvp.Key] = kvp.Value;
+                }
+            }
+            else
+            {
+                // ÙØ§ÛŒÙ„ ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯ â†’ ÛŒÚ© ÙØ§ÛŒÙ„ Ø®Ø§Ù„ÛŒ Ø§ÛŒØ¬Ø§Ø¯ Ú©Ù†
+                SaveToFile();
             }
         }
 
@@ -237,105 +401,11 @@ namespace App.Object.Base.Users
     }
 }
 
-===== FILE: App\Object\Base\CrudService.cs =====
-using App.utility;
-using AutoMapper;
-using Domain.Objects;
-using MyFrameWork.AppTool;
-using MyFrameWork.AppTool.ResultType;
-
-namespace App.Object.Base
-{
-    public abstract class CrudService<TEntity, TDto, TCreate, TUpdate, TKey> : ICrudService<TDto, TCreate, TUpdate, TKey>
-        where TEntity : BaseDomain
-        where TDto : class
-        where TCreate : class
-        where TUpdate : class
-    {
-        protected readonly IBaseRep<TEntity, TKey> _repo;
-        protected readonly IMapper _mapper;
-
-        protected CrudService(IBaseRep<TEntity, TKey> repository, IMapper mapper)
-        {
-            _repo = repository;
-            _mapper = mapper;
-        }
-
-        public virtual async Task<ListDataResult<TDto>> GetAllAsync(Pagination pagination)
-        {
-            var entities = await _repo.GetAsync(pagination);
-            var data   = _mapper.Map<List<TDto>>(entities);
-            var total  = await _repo.CountAsync();
-            return ResultFactory.List<TDto>(ResultStatusEnum.Success ,data ,total, pagination );
-        }
-
-        public virtual async Task<SingleDataResult<TUpdate>> GetByIdAsync(TKey id)
-        {
-            var entity = await _repo.GetAsync(id);
-            return entity == null
-                ? ResultFactory.Single<TUpdate>(ResultStatusEnum.NotFound,null ,MessageApp.NotFound)
-                : ResultFactory.Single(ResultStatusEnum.Success,_mapper.Map<TUpdate>(entity));
-        }
-
-        public virtual async Task<StatusResult> CreateAsync(TCreate dto)
-        {
-            var validation = ModelValidator.ValidateToStatusResult(dto);
-            if (!validation.IsSuccess) return validation;
-
-            var entity = _mapper.Map<TEntity>(dto);
-            await _repo.CreateAsync(entity);
-            await _repo.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success,MessageApp.CustomSuccess("Ø§ÙØ²ÙˆØ¯Ù†"));
-        }
-
-        public virtual async Task<StatusResult> UpdateAsync(TUpdate dto)
-        {
-            var validation = ModelValidator.ValidateToStatusResult(dto);
-            if (!validation.IsSuccess) return validation;
-
-            var id = (TKey)typeof(TUpdate).GetProperty("Id")!.GetValue(dto)!;
-            var entity = await _repo.GetAsync(id);
-            if (entity == null) return ResultFactory.Status(ResultStatusEnum.NotFound,MessageApp.NotFound);
-
-            _mapper.Map(dto, entity);
-            await _repo.UpdateAsync(entity);
-            await _repo.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success ,MessageApp.CustomSuccess("ÙˆÛŒØ±Ø§ÛŒØ´"));
-        }
-
-        public virtual async Task<StatusResult> DeleteAsync(List<TKey> ids)
-        {
-            if (ids == null || !ids.Any()) return ResultFactory.Status(ResultStatusEnum.BadRequest,"Ù‡ÛŒÚ† Ø´Ù†Ø§Ø³Ù‡â€ŒØ§ÛŒ Ø§Ø±Ø³Ø§Ù„ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.");
-
-            var entities = await _repo.GetByIdsAsync(ids);
-            var deletable = new List<TEntity>();
-            var used = new List<TEntity>();
-
-            foreach (var e in entities)
-            {
-                var hasRel = await _repo.HasRelationsAsync(e);
-                (hasRel ? used : deletable).Add(e);
-            }
-
-            if (deletable.Any())
-            {
-                _repo.DeleteRange(deletable);
-                await _repo.SaveChangesAsync();
-            }
-
-            var msg = "";
-            if (deletable.Count > 0) msg += $"{deletable.Count} Ø±Ú©ÙˆØ±Ø¯ Ø­Ø°Ù Ø´Ø¯. ";
-            if (used.Count > 0) msg += $"{used.Count} Ù…ÙˆØ±Ø¯ Ø¨Ù‡ Ø¯Ù„ÛŒÙ„ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø­Ø°Ù Ù†Ø´Ø¯.";
-
-            return ResultFactory.Status(ResultStatusEnum.Success,msg.Trim());
-        }
-    }
-}
-
 ===== FILE: App\Object\Base\PersonApp.cs =====
 using App.Contracts.Object.Base;
 using App.Contracts.Object.Shop.ProductCon;
 using AutoMapper;
+using ConfApp;
 using Domain.Objects.Base;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
@@ -345,12 +415,12 @@ namespace App.Object.Base
 {
     public class PersonApp : CrudService<Person, PersonView, PersonCreate, PersonUpdate, int>, IPersonApp
     {
-        private readonly IPersonRep _ctx;
+        private readonly MyContext _ctx;
         private readonly IMapper mapper;
 
-        public PersonApp(IPersonRep personRep , IMapper mapper) : base(personRep ,mapper)
+        public PersonApp(MyContext ctx , IMapper mapper) : base(ctx ,mapper)
         {
-            _ctx = personRep;
+            _ctx = ctx;
             this.mapper = mapper;
         }
 
@@ -364,62 +434,36 @@ namespace App.Object.Base
     }
 
 
-    public interface IPersonRep : IBaseRep<Person, int>
-    {
-
-    }
+   
 }
 
-
-===== FILE: App\Object\Chat\MessageApp\IMessageRep.cs =====
-// ConfApp/Rep/Chat/IMessageRep.cs
-using App;
-using Domain.Objects.Chat;
-using MyFrameWork.AppTool;
-
-namespace App.Object.Chat.MessageApp
-
-{
-    public interface IMessageRep : IBaseRep<Message, int>
-    {
-        Task<List<Message>> GetChatHistoryAsync(int userId, int otherUserId, Pagination pagination);
-        Task<int> GetUnreadCountAsync(int receiverId, int senderId);
-        Task MarkAsReadAsync(int receiverId, int senderId);
-    }
-}
 
 ===== FILE: App\Object\Chat\ChatApp.cs =====
-// App/Object/Chat/ChatApp.cs
 using App.Contracts.Object.Chat;
 using App.Object.Base.Users;
-using App.Object.Chat.MessageApp;
 using App.utility;
 using AutoMapper;
-using MyFrameWork.AppTool;
 using Domain.Objects.Base;
 using Domain.Objects.Chat;
-using SixLabors.ImageSharp.Processing;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
+using SixLabors.ImageSharp.Processing;
+using ConfApp;
+using SixLabors.ImageSharp;
 
 namespace App.Object.Chat
 {
     public class ChatApp : IChatApp
     {
-        private readonly IMessageRep _messageRep;
-        private readonly IMyUserRepository _userRep;
+        private readonly MyContext _context;
         private readonly IFileService _fileService;
         private readonly IMapper _mapper;
         private readonly UserStatusService _statusService;
 
-        public ChatApp(
-            IMessageRep messageRep,
-            IMyUserRepository userRep,
-            IFileService fileService,
-            IMapper mapper,
-            UserStatusService statusService)
+        public ChatApp(MyContext context, IFileService fileService, IMapper mapper, UserStatusService statusService)
         {
-            _messageRep = messageRep;
-            _userRep = userRep;
+            _context = context;
             _fileService = fileService;
             _mapper = mapper;
             _statusService = statusService;
@@ -427,9 +471,9 @@ namespace App.Object.Chat
 
         public async Task<StatusResult> SendMessageAsync(SendMessageDto dto, int senderId)
         {
-            var receiver = await _userRep.GetAsync(dto.ReceiverId);
+            var receiver = await _context.Users.FindAsync(dto.ReceiverId);
             if (receiver == null)
-                return ResultFactory.Status(ResultStatusEnum.NotFound,"Ú¯ÛŒØ±Ù†Ø¯Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯.");
+                return ResultFactory.Status(ResultStatusEnum.NotFound, "Ú¯ÛŒØ±Ù†Ø¯Ù‡ ÛŒØ§ÙØª Ù†Ø´Ø¯.");
 
             var message = new Message
             {
@@ -440,154 +484,140 @@ namespace App.Object.Chat
                 SentAt = DateTime.Now,
                 DeliveredAt = DateTime.Now
             };
-
             if (dto.File != null)
             {
-                var resize = dto.Type == MessageType.Image
-                    ? new ResizeOptions { Size = new(800, 800), Mode = ResizeMode.Max }
-                    : null;
-
-                message.FileUrl = await _fileService.UploadAsync(
-                    dto.File, "uploads/chat", null, resize);
+                var resize = dto.Type == MessageType.Image ? new ResizeOptions { Size = new Size(800, 800), Mode = ResizeMode.Max } : null;
+                message.FileUrl = await _fileService.UploadAsync(dto.File, "uploads/chat", null, resize);
             }
-
-            await _messageRep.CreateAsync(message);
-            await _messageRep.SaveChangesAsync();
-
-            var view = _mapper.Map<MessageView>(message);
-            view.SenderName = (await _userRep.GetAsync(senderId))?.FullName ?? "Ù…Ù†";
-            view.IsMine = true;
-
-            return ResultFactory.Status(ResultStatusEnum.Success, "Ù¾ÛŒØ§Ù… Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯.");
+            await _context.Messages.AddAsync(message);
+            await _context.SaveChangesAsync();
+            return ResultFactory.Status(ResultStatusEnum.Success, "Ù¾ÛŒØ§Ù… Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯.");
         }
 
         public async Task<ListDataResult<MessageView>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId)
         {
-            var messages = await _messageRep.GetChatHistoryAsync(currentUserId, otherUserId, pagination);
+            var query = _context.Messages
+                .Where(m => (m.SenderId == currentUserId && m.ReceiverId == otherUserId) ||
+                            (m.SenderId == otherUserId && m.ReceiverId == currentUserId))
+                .OrderBy(m => m.SentAt);
+            var total = await query.CountAsync();
+            var messages = await query
+                .Skip(pagination.CalculateSkip())
+                .Take(pagination.PageSize)
+                .ToListAsync();
             var views = _mapper.Map<List<MessageView>>(messages);
-
-            var currentUser = await _userRep.GetAsync(currentUserId);
-            var otherUser = await _userRep.GetAsync(otherUserId);
-
+            // Ù¾Ø± Ú©Ø±Ø¯Ù† Ù†Ø§Ù… ÙØ±Ø³ØªÙ†Ø¯Ù‡
+            var currentUser = await _context.Users.FindAsync(currentUserId);
+            var otherUser = await _context.Users.FindAsync(otherUserId);
             foreach (var v in views)
             {
-                v.SenderName = v.SenderId == currentUserId 
-                    ? currentUser?.FullName ?? "Ù…Ù†" 
-                    : otherUser?.FullName ?? "Ú©Ø§Ø±Ø¨Ø± Ù†Ø§Ø´Ù†Ø§Ø³";
+                v.SenderName = v.SenderId == currentUserId ? currentUser?.FullName ?? "Ù…Ù†" : otherUser?.FullName ?? "Ú©Ø§Ø±Ø¨Ø±";
                 v.IsMine = v.SenderId == currentUserId;
             }
-
-            return ResultFactory.List<MessageView>(ResultStatusEnum.Accepted,views ,messages.Count,pagination);
+            return ResultFactory.List(ResultStatusEnum.Accepted, views, total, pagination);
         }
 
         public async Task<ListDataResult<ChatListItem>> GetChatListAsync(int userId)
         {
-            var sent = await _messageRep.GetFilteredAsync(m => m.SenderId == userId);
-            var received = await _messageRep.GetFilteredAsync(m => m.ReceiverId == userId);
-
-            var allMessages = sent.Concat(received);
-
-            var grouped = allMessages
+            var messages = await _context.Messages
+                .Where(m => m.SenderId == userId || m.ReceiverId == userId)
+                .ToListAsync();
+            var grouped = messages
                 .GroupBy(m => m.SenderId == userId ? m.ReceiverId : m.SenderId)
                 .Select(g =>
                 {
                     var lastMsg = g.OrderByDescending(m => m.SentAt).First();
                     var (status, lastSeen) = _statusService.GetStatus(g.Key);
-
                     return new ChatListItem
                     {
                         UserId = g.Key,
-                        UserName = "Ú©Ø§Ø±Ø¨Ø±", // Ø¨Ø¹Ø¯Ø§Ù‹ Ø¨Ø§ join ÙˆØ§Ù‚Ø¹ÛŒ
+                        UserName = "Ú©Ø§Ø±Ø¨Ø±", // Ø¯Ø± ØµÙˆØ±Øª Ù†ÛŒØ§Ø² Ø§Ø² Ø¬Ø¯ÙˆÙ„ Users Ù…Ù‚Ø¯Ø§Ø± Ù†Ø§Ù… Ø±Ø§ Ø¨Ú¯ÛŒØ±ÛŒØ¯
                         LastMessage = lastMsg.Content,
                         LastMessageTime = lastMsg.SentAt,
-                        UnreadCount = g.Count(m => 
-                            m.ReceiverId == userId && 
-                            m.SeenAt == null && 
-                            !m.IsDeletedForReceiver),
+                        UnreadCount = g.Count(m => m.ReceiverId == userId && m.SeenAt == null && !m.IsDeletedForReceiver),
                         IsOnline = status == UserStatus.Online,
                         LastSeen = lastSeen
                     };
-                })
-                .ToList();
-
-            return ResultFactory.List<ChatListItem>(ResultStatusEnum.Success,grouped);
+                }).ToList();
+            return ResultFactory.List(ResultStatusEnum.Success, grouped);
         }
 
         public async Task<StatusResult> MarkAsReadAsync(int senderId, int receiverId)
         {
-            await _messageRep.MarkAsReadAsync(receiverId, senderId);
-            await _messageRep.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success,"Ù¾ÛŒØ§Ù…â€ŒÙ‡Ø§ Ø¨Ù‡ Ø¹Ù†ÙˆØ§Ù† Ø®ÙˆØ§Ù†Ø¯Ù‡â€ŒØ´Ø¯Ù‡ Ø¹Ù„Ø§Ù…Øªâ€ŒÚ¯Ø°Ø§Ø±ÛŒ Ø´Ø¯Ù†Ø¯.");
-        }
-
-        public async Task<SingleDataResult<int>> GetUnreadCountAsync(int receiverId)
-        {
-            var count = await _messageRep.GetUnreadCountAsync(receiverId, 0);
-            return ResultFactory.Single<int>(ResultStatusEnum.Success,count);
+            var msgs = await _context.Messages
+                .Where(m => m.SenderId == senderId && m.ReceiverId == receiverId && m.SeenAt == null)
+                .ToListAsync();
+            foreach (var m in msgs)
+                m.SeenAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+            return ResultFactory.Status(ResultStatusEnum.Success, "Ù¾ÛŒØ§Ù…â€ŒÙ‡Ø§ Ø®ÙˆØ§Ù†Ø¯Ù‡ Ø´Ø¯.");
         }
 
         public async Task<SingleDataResult<int>> GetTotalUnreadCountAsync(int receiverId)
         {
-            var unreadMessages = await _messageRep.GetFilteredAsync(m =>
-                m.ReceiverId == receiverId &&
-                m.SeenAt == null &&
-                !m.IsDeletedForReceiver
-            );
-
-            return ResultFactory.Single<int>(ResultStatusEnum.Success,unreadMessages.Count);
+            var count = await _context.Messages
+                .CountAsync(m => m.ReceiverId == receiverId && m.SeenAt == null && !m.IsDeletedForReceiver);
+            return ResultFactory.Single(ResultStatusEnum.Success, count);
         }
     }
 }
 
 ===== FILE: App\Object\Shop\CountTypeApp\ContTypeApp.cs =====
 using App.Contracts.Object.Shop.CountTypeCon;
-using App.Object.Base;
 using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using ConfApp;
 
 namespace App.Object.Shop.CountTypeApp
 {
     public class CountTypeApp : CrudService<CountType, CountTypeView, CountTypeCreate, CountTypeView, int>,
                                 ICountTypeApp
     {
-        private readonly ICountTypeRep _rep;
-        private readonly IMapper _mapper;
-
-        public CountTypeApp(ICountTypeRep rep, IMapper mapper)
-            : base(rep, mapper)
+        public CountTypeApp(MyContext context, IMapper mapper)
+            : base(context, mapper)
         {
-            _rep = rep;
-            _mapper = mapper;
         }
 
-        /*=== CRUD ÛŒÚ©â€ŒØ®Ø·ÛŒ ===*/
-        public Task<ListDataResult<CountTypeView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<SingleDataResult<CountTypeView>> GetById(int id)                   => base.GetByIdAsync(id);
-        public async  Task<StatusResult> Create(CountTypeCreate dto) {
+        public Task<ListDataResult<CountTypeView>> GetAll(Pagination pagination)
+            => base.GetAllAsync(pagination);
 
-            var exist = await _rep.ExistAsync(c => c.Name == dto.Name);
-            if (exist) {return ResultFactory.Status(ResultStatusEnum.Conflict, MessageApp.DuplicateField(dto.Name)); }
+        public Task<SingleDataResult<CountTypeView>> GetById(int id)
+            => base.GetByIdAsync(id);
+
+        public async Task<StatusResult> Create(CountTypeCreate dto)
+        {
+            // Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ ÛŒÚ©ØªØ§ÛŒÛŒ Ù†Ø§Ù…
+            var exists = await _context.CountTypes
+                .AnyAsync(c => c.Name == dto.Name && !c.IsDeleted);
+
+            if (exists)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.Conflict,
+                    MessageApp.DuplicateField(dto.Name)
+                );
+            }
 
             return await base.CreateAsync(dto);
-
         }
-        public Task<StatusResult> DeleteBy(List<int> ids)                          => base.DeleteAsync(ids);
-        public Task<StatusResult> Update(CountTypeView dto)                        => base.UpdateAsync(dto);
-    }
 
-    public interface ICountTypeRep : IBaseRep<CountType, int> { }
+        public Task<StatusResult> DeleteBy(List<int> ids)
+            => base.DeleteAsync(ids);
+
+        public Task<StatusResult> Update(CountTypeView dto)
+            => base.UpdateAsync(dto);
+    }
 }
 
 ===== FILE: App\Object\Shop\invApp\InvApp.cs =====
 using App.Contracts.Object.Shop.InvCon;
-using App.Object.Base;
 using App.utility;
 using AutoMapper;
+using ConfApp;
 using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
@@ -597,14 +627,12 @@ namespace App.Object.Shop.InvApp
     public class InvApp : CrudService<Inv, InvView, InvCreate, InvUpdate, int>,
                           IInvApp
     {
-        private readonly IInvRep _invRep;
-        private readonly IMapper _mapper;
+     
 
-        public InvApp(IInvRep invRep, IMapper mapper)
-            : base(invRep, mapper)
+        public InvApp(MyContext ctx, IMapper mapper)
+            : base(ctx, mapper)
         {
-            _invRep = invRep;
-            _mapper = mapper;
+            
         }
 
         public Task<ListDataResult<InvView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
@@ -614,181 +642,382 @@ namespace App.Object.Shop.InvApp
         public Task<StatusResult> Update(InvUpdate dto)                      => base.UpdateAsync(dto);
     }
 
-    public interface IInvRep : IBaseRep<Inv, int> { }
+   
 }
 
 ===== FILE: App\Object\Shop\ProductApp\ProductApp.cs =====
 using App.Contracts.Object.Shop.ProductCon;
-using App.Object.Base;
 using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
-using System;
-using System.Collections.Generic;
 using System.Linq.Expressions;
+using ConfApp;
 
 namespace App.Object.Shop.ProductApp
 {
     public class ProductApp : CrudService<Product, ProductView, ProductCreate, ProductUpdate, int>,
                               IProductApp
     {
-        private readonly IProductRep _productRep;
-        private readonly IMapper _mapper;
+        // نیازی به فیلدهای جداگانه نیست، کلاس پایه _context و _mapper را دارد
+        // فقط باید مطمئن شویم که در کلاس CrudService این فیلدها protected هستند
 
-        public ProductApp(IProductRep productRep, IMapper mapper)
-            : base(productRep, mapper)
+        public ProductApp(MyContext context, IMapper mapper)
+            : base(context, mapper)
         {
-            _productRep = productRep;
-            _mapper = mapper;
         }
 
-        /*=== CRUD یک‌خطی ===*/
-        public Task<ListDataResult<ProductView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<SingleDataResult<ProductUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<StatusResult> Create(ProductCreate dto) => base.CreateAsync(dto);
-        public Task<StatusResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
-        public Task<StatusResult> Update(ProductUpdate dto) => base.UpdateAsync(dto);
+        /*=== CRUD یک خطی (با override در صورت نیاز) ===*/
+        public Task<ListDataResult<ProductView>> GetAll(Pagination pagination)
+            => base.GetAllAsync(pagination);
 
-        /*=== متد اختصاصی ===*/
+        public Task<SingleDataResult<ProductUpdate>> GetById(int id)
+            => base.GetByIdAsync(id);
+
+        public Task<StatusResult> Create(ProductCreate dto)
+            => base.CreateAsync(dto);
+
+        public Task<StatusResult> DeleteBy(List<int> ids)
+            => base.DeleteAsync(ids);
+
+        public Task<StatusResult> Update(ProductUpdate dto)
+            => base.UpdateAsync(dto);
+
+        /*=== متد اختصاصی جستجو ===*/
         public async Task<ListDataResult<ProductView>> SearchProducts(ProductSearchCriteria criteria)
         {
-            Expression<Func<Product, bool>> filter = p => true;
+            // ساختن Query پایه
+            var query = _context.Products
+                .Include(p => p.CountType)  // شامل کردن اطلاعات واحد شمارش
+                .Where(p => !p.IsDeleted)
+                .AsQueryable();
 
+            // اعمال فیلتر بر اساس نام (اگر مقدار داشته باشد)
             if (!string.IsNullOrWhiteSpace(criteria.Name))
-                filter = filter.And(p => p.Name.Contains(criteria.Name));
+            {
+                query = query.Where(p => p.Name.Contains(criteria.Name));
+            }
 
-            if (criteria.MinPrice.HasValue && criteria.MinPrice.Value != 0)
-                filter = filter.And(p => p.Price >= criteria.MinPrice.Value);
+            // اعمال فیلتر حداقل قیمت (اگر مقدار داشته باشد و مخالف صفر باشد)
+            if (criteria.MinPrice.HasValue && criteria.MinPrice.Value > 0)
+            {
+                query = query.Where(p => p.Price >= criteria.MinPrice.Value);
+            }
 
-            if (criteria.MaxPrice.HasValue && criteria.MaxPrice.Value != 0)
-                filter = filter.And(p => p.Price <= criteria.MaxPrice.Value);
+            // اعمال فیلتر حداکثر قیمت (اگر مقدار داشته باشد و مخالف صفر باشد)
+            if (criteria.MaxPrice.HasValue && criteria.MaxPrice.Value > 0)
+            {
+                query = query.Where(p => p.Price <= criteria.MaxPrice.Value);
+            }
 
-            var data = await _productRep.GetFilteredAsync(filter, criteria);
-            var views = _mapper.Map<List<ProductView>>(data);
-            var total = await _productRep.CountAsync(filter);
+            // اعمال مرتب‌سازی (SortBy از داخل criteria می‌آید)
+            if (!string.IsNullOrEmpty(criteria.SortBy))
+            {
+                query = ApplySorting(query, criteria.SortBy, criteria.SortDirection);
+            }
 
-            return ResultFactory.List( ResultStatusEnum.Accepted, views, total,
-                                                             criteria);
+            // گرفتن تعداد کل رکوردها قبل از صفحه‌بندی
+            var total = await query.CountAsync();
+
+            // اعمال صفحه‌بندی
+            var products = await query
+                .Skip(criteria.CalculateSkip())
+                .Take(criteria.PageSize)
+                .ToListAsync();
+
+            // تبدیل Entity به View با استفاده از AutoMapper
+            var productViews = _mapper.Map<List<ProductView>>(products);
+
+            // بازگرداندن نتیجه به صورت ListDataResult
+            return ResultFactory.List<ProductView>(
+                ResultStatusEnum.Success,
+                productViews,
+                total,
+                criteria
+            );
+        }
+
+        /// <summary>
+        /// متد کمکی برای مرتب‌سازی پویا (مشابه کلاس پایه CrudService)
+        /// </summary>
+        private static IQueryable<T> ApplySorting<T>(IQueryable<T> query, string sortBy, bool ascending)
+        {
+            var parameter = Expression.Parameter(typeof(T), "x");
+            var property = Expression.Property(parameter, sortBy);
+            var lambda = Expression.Lambda(property, parameter);
+
+            var methodName = ascending ? "OrderBy" : "OrderByDescending";
+            var method = typeof(Queryable).GetMethods()
+                .First(m => m.Name == methodName && m.GetParameters().Length == 2)
+                .MakeGenericMethod(typeof(T), property.Type);
+
+            return (IQueryable<T>)method.Invoke(null, new object[] { query, lambda })!;
         }
     }
-
-    public interface IProductRep : IBaseRep<Product, int> { }
 }
 
 ===== FILE: App\Object\BaseService.cs =====
-// App\Object\BaseService.cs
-using App.Object.Base.Users;
+// App/Object/BaseService.cs
 using App.utility;
-using AutoMapper;
-using Domain.Objects;
+using ConfApp;
+using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
 using System.Linq.Expressions;
 
 namespace App.Object
 {
-    public abstract class BaseService<TDto, TCreate, TUpdate, TEntity>
+    /// <summary>
+    /// سرویس پایه برای Business Logic - جدای از CrudService که فقط CRUD انجام می‌دهد
+    /// </summary>
+    public abstract class BaseService<TEntity> where TEntity : class
+    {
+        protected readonly MyContext _context;
+        protected readonly DbSet<TEntity> _dbSet;
+
+        protected BaseService(MyContext context)
+        {
+            _context = context;
+            _dbSet = context.Set<TEntity>();
+        }
+
+        // ========== ولیدیشن سریع ==========
+        protected StatusResult ValidateModel<TModel>(TModel model)
+            => ModelValidator.ValidateToStatusResult(model);
+
+        protected async Task<StatusResult> ValidateUniqueAsync(
+            Expression<Func<TEntity, bool>> predicate,
+            string fieldName,
+            string? value = null)
+        {
+            var exists = await _dbSet.AnyAsync(predicate);
+            if (exists)
+            {
+                var message = string.IsNullOrEmpty(value)
+                    ? MessageApp.DuplicateEntry
+                    : MessageApp.DuplicateField(fieldName);
+                return ResultFactory.Status(ResultStatusEnum.Conflict, message);
+            }
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        protected async Task<StatusResult> ValidateUniqueForUpdateAsync(
+            Expression<Func<TEntity, bool>> predicate,
+            int currentId,
+            string fieldName,
+            string value)
+        {
+            var param = Expression.Parameter(typeof(TEntity), "x");
+            var idProperty = Expression.Property(param, "Id");
+            var idEqual = Expression.NotEqual(idProperty, Expression.Constant(currentId));
+
+            // ترکیب شرط‌ها
+            var originalBody = predicate.Body;
+            var combinedBody = Expression.AndAlso(originalBody, idEqual);
+            var combinedPredicate = Expression.Lambda<Func<TEntity, bool>>(combinedBody, param);
+
+            return await ValidateUniqueAsync(combinedPredicate, fieldName, value);
+        }
+
+        // ========== کوئری سریع با شرط IsDeleted ==========
+        protected IQueryable<TEntity> GetActiveQuery()
+        {
+            // اگر TEntity از BaseDomain ارث برده باشد
+            var baseDomainType = typeof(Domain.Objects.BaseDomain);
+            if (baseDomainType.IsAssignableFrom(typeof(TEntity)))
+            {
+                var param = Expression.Parameter(typeof(TEntity), "x");
+                var property = Expression.Property(param, "IsDeleted");
+                var condition = Expression.Equal(property, Expression.Constant(false));
+                var lambda = Expression.Lambda<Func<TEntity, bool>>(condition, param);
+                return _dbSet.Where(lambda);
+            }
+            return _dbSet;
+        }
+
+        // ========== گرفتن Entity با بررسی NotFound ==========
+        protected async Task<TEntity?> GetEntityOrNullAsync(Expression<Func<TEntity, bool>> predicate)
+        {
+            return await GetActiveQuery().FirstOrDefaultAsync(predicate);
+        }
+
+        protected async Task<TEntity> GetEntityOrThrowAsync(Expression<Func<TEntity, bool>> predicate, string entityName)
+        {
+            var entity = await GetEntityOrNullAsync(predicate);
+            if (entity == null)
+                throw new KeyNotFoundException(MessageApp.NotFoundItem(entityName));
+            return entity;
+        }
+
+        // ========== گرفتن Entity با نتیجه StatusResult ==========
+        protected async Task<SingleDataResult<TEntity>> GetEntityResultAsync(Expression<Func<TEntity, bool>> predicate, string entityName)
+        {
+            var entity = await GetEntityOrNullAsync(predicate);
+            if (entity == null)
+                return ResultFactory.Single<TEntity>(ResultStatusEnum.NotFound, null, MessageApp.NotFoundItem(entityName));
+            return ResultFactory.Single(ResultStatusEnum.Success, entity);
+        }
+
+        // ========== Execute با مدیریت خطا ==========
+        protected async Task<StatusResult> ExecuteAsync(Func<Task> action, string successMessage)
+        {
+            try
+            {
+                await action();
+                await _context.SaveChangesAsync();
+                return ResultFactory.Status(ResultStatusEnum.Success, successMessage);
+            }
+            catch (DbUpdateException ex)
+            {
+                var innerMsg = ex.InnerException?.Message ?? ex.Message;
+                return ResultFactory.Status(ResultStatusEnum.DatabaseError, $"خطا در دیتابیس: {innerMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ResultFactory.Status(ResultStatusEnum.InternalError, $"خطا: {ex.Message}");
+            }
+        }
+
+        // ========== بررسی وجود ==========
+        protected async Task<bool> ExistsAsync(Expression<Func<TEntity, bool>> predicate)
+        {
+            return await GetActiveQuery().AnyAsync(predicate);
+        }
+
+        // ========== شمارش ==========
+        protected async Task<int> CountAsync(Expression<Func<TEntity, bool>>? predicate = null)
+        {
+            var query = GetActiveQuery();
+            if (predicate != null)
+                query = query.Where(predicate);
+            return await query.CountAsync();
+        }
+    }
+}
+
+===== FILE: App\Object\CrudService.cs =====
+// App/Object/CrudService.cs
+using App.utility;
+using AutoMapper;
+using ConfApp;
+using Domain.Objects;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+using System.Linq.Expressions;
+
+namespace App.Object
+{
+    public abstract class CrudService<TEntity, TDto, TCreate, TUpdate, TKey> : BaseService<TEntity>
+        where TEntity : BaseDomain
         where TDto : class
         where TCreate : class
         where TUpdate : class
-        where TEntity : BaseDomain
     {
-        protected readonly IBaseRep<TEntity, int> _repository;
         protected readonly IMapper _mapper;
-        protected readonly IFileService? _fileService;
-        protected readonly UserStatusService? _statusService;
 
-        protected BaseService(
-            IBaseRep<TEntity, int> repository,
-            IMapper mapper,
-            IFileService? fileService = null,
-            UserStatusService? statusService = null)
+        protected CrudService(MyContext context, IMapper mapper) : base(context)
         {
-            _repository = repository;
             _mapper = mapper;
-            _fileService = fileService;
-            _statusService = statusService;
         }
 
-        // GET ALL + Pagination
-        public virtual async Task<ListDataResult<TDto>> GetAll(Pagination pagination)
+        // ========== GET ALL ==========
+        public virtual async Task<ListDataResult<TDto>> GetAllAsync(Pagination pagination)
         {
-            var entities = await _repository.GetAsync(pagination);
-            var dtos = _mapper.Map<List<TDto>>(entities);
-            var total = await _repository.CountAsync();
+            var query = GetActiveQuery().AsNoTracking();
 
-            return ResultFactory.List(ResultStatusEnum.Success,dtos, total, pagination);
+            if (!string.IsNullOrEmpty(pagination.SortBy))
+            {
+                query = ApplySorting(query, pagination.SortBy, pagination.SortDirection);
+            }
+
+            var total = await query.CountAsync();
+            var entities = await query
+                .Skip(pagination.CalculateSkip())
+                .Take(pagination.PageSize)
+                .ToListAsync();
+
+            var data = _mapper.Map<List<TDto>>(entities);
+            return ResultFactory.List(ResultStatusEnum.Success, data, total, pagination);
         }
 
-        // GET BY ID
-        public virtual async Task<SingleDataResult<TUpdate>> GetById(int id)
+        // ========== GET BY ID ==========
+        public virtual async Task<SingleDataResult<TUpdate>> GetByIdAsync(TKey id)
         {
-            var entity = await _repository.GetAsync(id);
+            var entity = await GetEntityOrNullAsync(e => e.Id.Equals(id));
             if (entity == null)
-                return ResultFactory.Single<TUpdate>(ResultStatusEnum.NotFound,null,MessageApp.NotFound);
+                return ResultFactory.Single<TUpdate>(ResultStatusEnum.NotFound, null, MessageApp.NotFound);
 
             var dto = _mapper.Map<TUpdate>(entity);
-            return ResultFactory.Single(ResultStatusEnum.Success,dto);
+            return ResultFactory.Single(ResultStatusEnum.Success, dto);
         }
 
-        // CREATE
-        public virtual async Task<StatusResult> Create(TCreate createDto)
+        // ========== CREATE ==========
+        public virtual async Task<StatusResult> CreateAsync(TCreate dto)
         {
-            var entity = _mapper.Map<TEntity>(createDto);
+            var validation = ValidateModel(dto);
+            if (!validation.IsSuccess) return validation;
 
-            await BeforeCreate(entity, createDto);
-            await _repository.CreateAsync(entity);
-            await _repository.SaveChangesAsync();
-            await AfterCreate(entity, createDto);
+            var entity = _mapper.Map<TEntity>(dto);
+            await _dbSet.AddAsync(entity);
+            await _context.SaveChangesAsync();
 
-            return ResultFactory.Status(ResultStatusEnum.Success,"Ø±Ú©ÙˆØ±Ø¯ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§ÛŒØ¬Ø§Ø¯ Ø´Ø¯.");
+            return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.Saved);
         }
 
-        // UPDATE
-        public virtual async Task<StatusResult> Update(TUpdate updateDto)
+        // ========== UPDATE ==========
+        public virtual async Task<StatusResult> UpdateAsync(TUpdate dto)
         {
-            var idProp = updateDto.GetType().GetProperty("Id")?.GetValue(updateDto);
-            if (idProp is not int id || id <= 0)
-                return ResultFactory.Status(ResultStatusEnum.ValidationFailed,"Ø´Ù†Ø§Ø³Ù‡ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.");
+            var validation = ValidateModel(dto);
+            if (!validation.IsSuccess) return validation;
 
-            var entity = await _repository.GetAsync(id);
+            var idProperty = typeof(TUpdate).GetProperty("Id");
+            if (idProperty == null)
+                return ResultFactory.Status(ResultStatusEnum.ValidationFailed, "DTO ÙØ§Ù‚Ø¯ Ø®Ø§ØµÛŒØª Id Ø§Ø³Øª");
+
+            var id = (TKey)idProperty.GetValue(dto)!;
+            var entity = await GetEntityOrNullAsync(e => e.Id.Equals(id));
+
             if (entity == null)
-                return ResultFactory.Status(ResultStatusEnum.NotFound,MessageApp.NotFound);
+                return ResultFactory.Status(ResultStatusEnum.NotFound, MessageApp.NotFound);
 
-            _mapper.Map(updateDto, entity);
+            _mapper.Map(dto, entity);
+            await _context.SaveChangesAsync();
 
-            await BeforeUpdate(entity, updateDto);
-            await _repository.UpdateAsync(entity);
-            await _repository.SaveChangesAsync();
-            await AfterUpdate(entity, updateDto);
-
-            return ResultFactory.Status(ResultStatusEnum.Success,"Ø±Ú©ÙˆØ±Ø¯ Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯.");
+            return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.Updated);
         }
 
-        // DELETE
-        public virtual async Task<StatusResult> DeleteBy(List<int> ids)
+        // ========== DELETE ==========
+        public virtual async Task<StatusResult> DeleteAsync(List<TKey> ids)
         {
-            if (!ids.Any())
-                return ResultFactory.Status(ResultStatusEnum.ValidationFailed ,"Ù‡ÛŒÚ† Ø´Ù†Ø§Ø³Ù‡â€ŒØ§ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.");
+            if (ids == null || ids.Count == 0)
+                return ResultFactory.Status(ResultStatusEnum.BadRequest, "Ù‡ÛŒÚ† Ø´Ù†Ø§Ø³Ù‡â€ŒØ§ÛŒ Ø§Ø±Ø³Ø§Ù„ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.");
 
-            var entities = await _repository.GetByIdsAsync(ids);
-            if (!entities.Any())
-                return ResultFactory.Status(ResultStatusEnum.NotFound ,MessageApp.NotFound);
+            var intIds = ids.Select(id => Convert.ToInt32(id)).ToList();
+            var entities = await _dbSet.Where(e => intIds.Contains(e.Id)).ToListAsync();
 
-            foreach (var entity in entities)
-                _repository.Delete(entity);
+            _dbSet.RemoveRange(entities);
+            await _context.SaveChangesAsync();
 
-            await _repository.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success ,"Ø±Ú©ÙˆØ±Ø¯(Ù‡Ø§) Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø­Ø°Ù Ø´Ø¯Ù†Ø¯.");
+            return ResultFactory.Status(ResultStatusEnum.Success, $"{entities.Count} {MessageApp.Deleted}");
         }
 
-        // HOOKS â€” Ø¨Ø±Ø§ÛŒ override Ø¯Ø± ÙØ±Ø²Ù†Ø¯
-        protected virtual Task BeforeCreate(TEntity entity, TCreate dto) => Task.CompletedTask;
-        protected virtual Task AfterCreate(TEntity entity, TCreate dto) => Task.CompletedTask;
-        protected virtual Task BeforeUpdate(TEntity entity, TUpdate dto) => Task.CompletedTask;
-        protected virtual Task AfterUpdate(TEntity entity, TUpdate dto) => Task.CompletedTask;
+        // ========== Helper ==========
+        private static IQueryable<TEntity> ApplySorting(IQueryable<TEntity> query, string sortBy, bool ascending)
+        {
+            var parameter = Expression.Parameter(typeof(TEntity), "x");
+            var property = Expression.Property(parameter, sortBy);
+            var lambda = Expression.Lambda(property, parameter);
+
+            var methodName = ascending ? "OrderBy" : "OrderByDescending";
+            var method = typeof(Queryable).GetMethods()
+                .First(m => m.Name == methodName && m.GetParameters().Length == 2)
+                .MakeGenericMethod(typeof(TEntity), property.Type);
+
+            return (IQueryable<TEntity>)method.Invoke(null, new object[] { query, lambda })!;
+        }
     }
 }
 
@@ -807,56 +1036,91 @@ public class ChatProfile : Profile
 }
 
 ===== FILE: App\utility\ClassMapping.cs =====
+using App.Contracts.Object.Base;
 using App.Contracts.Object.Base.Roles;
 using App.Contracts.Object.Base.Users;
+using App.Contracts.Object.Chat;
+using App.Contracts.Object.Shop.CountTypeCon;
+using App.Contracts.Object.Shop.InvCon;
+using App.Contracts.Object.Shop.ProductCon;
 using AutoMapper;
 using Domain.Objects.Base;
+using Domain.Objects.Chat;
+using Domain.Objects.Shop;
 
 public class ClassMapping : Profile
 {
     public ClassMapping()
     {
-        // مپ‌های اختصاصی (برای خواصی که نام متفاوت دارند) را دستی بنویسید
+        // ========== User Mappings ==========
         CreateMap<User, UsersView>()
-            .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src => src.ProfilePictureUrl));
+            .ForMember(dest => dest.ProfilePictureUrl, opt => opt.MapFrom(src => src.ProfilePictureUrl))
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
+            .ForMember(dest => dest.LastSeen, opt => opt.MapFrom(src => src.LastSeen));
 
+        CreateMap<UsersCreat, User>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
+            .ForMember(dest => dest.UserRoles, opt => opt.Ignore())
+            .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdateDate, opt => opt.Ignore())
+            .ForMember(dest => dest.IsDeleted, opt => opt.Ignore());
+
+        CreateMap<UsersUpdate, User>()
+            .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
+            .ForMember(dest => dest.UserRoles, opt => opt.Ignore());
+
+        // ========== Role Mappings ==========
         CreateMap<Role, RoleView>()
-    .ForMember(dest => dest.Permissions, opt => opt.MapFrom(src => src.RolePermissions.Select(rp => rp.Permission)));
-        CreateMap<RoleCreate, Role>();
+            .ForMember(dest => dest.Rolename, opt => opt.MapFrom(src => src.Name))
+            .ForMember(dest => dest.Permissions, opt => opt.MapFrom(src => src.RolePermissions.Select(rp => rp.Permission)));
+
+        CreateMap<RoleCreate, Role>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.RolePermissions, opt => opt.Ignore())
+            .ForMember(dest => dest.UserRoles, opt => opt.Ignore());
+
         CreateMap<RoleUpdate, Role>()
-            .ForMember(dest => dest.RolePermissions, opt => opt.Ignore()); // دستی مدیریت می‌شود
-        CreateMap<Permission, PermissionView>();
+            .ForMember(dest => dest.RolePermissions, opt => opt.Ignore())
+            .ForMember(dest => dest.UserRoles, opt => opt.Ignore());
 
+        CreateMap<Permission, PermissionView>()
+            .ForMember(dest => dest.PermissionName, opt => opt.MapFrom(src => src.Name));
 
+        // ========== Chat Mappings ==========
+        CreateMap<Message, MessageView>()
+            .ForMember(dest => dest.SenderName, opt => opt.Ignore())  // بعداً مقداردهی می‌شود
+            .ForMember(dest => dest.IsMine, opt => opt.Ignore());
 
-        // اما بقیه مپ‌ها را خودکار انجام بده
-        AutoMapAllEntitiesAndDtos();
-    }
+        // ========== Product Mappings ==========
+        CreateMap<Product, ProductView>();
+        CreateMap<ProductCreate, Product>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdateDate, opt => opt.Ignore())
+            .ForMember(dest => dest.IsDeleted, opt => opt.Ignore());
 
-    private void AutoMapAllEntitiesAndDtos()
-    {
-        var domainTypes = typeof(Domain.Objects.BaseDomain).Assembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && t.IsSubclassOf(typeof(Domain.Objects.BaseDomain)));
+        CreateMap<ProductUpdate, Product>()
+            .ForMember(dest => dest.CreateDate, opt => opt.Ignore());
 
-        var dtoTypes = typeof(App.Contracts.Object.Base.Users.UsersView).Assembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && (t.Name.EndsWith("View") || t.Name.EndsWith("Dto") || t.Name.EndsWith("Create") || t.Name.EndsWith("Update")));
+        // ========== CountType Mappings ==========
+        CreateMap<CountType, CountTypeView>();
+        CreateMap<CountTypeCreate, CountType>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.products, opt => opt.Ignore());
 
-        foreach (var entity in domainTypes)
-        {
-            // DTO همنام با View یا Create یا Update
-            var possibleDtos = dtoTypes.Where(d =>
-                d.Name == entity.Name + "View" ||
-                d.Name == entity.Name + "Create" ||
-                d.Name == entity.Name + "Update");
+        // ========== Inv Mappings ==========
+        CreateMap<Inv, InvView>();
+        CreateMap<InvCreate, Inv>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore());
+        CreateMap<InvUpdate, Inv>();
 
-            foreach (var dto in possibleDtos)
-            {
-                if (dto.Name.EndsWith("Create") || dto.Name.EndsWith("Update"))
-                    CreateMap(dto, entity).ForMember("Id", opt => opt.Ignore());
-                else
-                    CreateMap(entity, dto);
-            }
-        }
+        // ========== Person Mappings ==========
+        CreateMap<Person, PersonView>();
+        CreateMap<PersonCreate, Person>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.CreateDate, opt => opt.Ignore());
+        CreateMap<PersonUpdate, Person>();
     }
 }
 
@@ -1091,12 +1355,15 @@ namespace App.utility
 }
 
 ===== FILE: App\utility\ValidationUtility.cs =====
+using ConfApp;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using MyFrameWork.AppTool.ResultType;
 
 namespace App.utility
 {
@@ -1114,7 +1381,7 @@ namespace App.utility
                     $"{fieldName} Ù†Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ Ø®Ø§Ù„ÛŒ Ø¨Ø§Ø´Ø¯."
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
@@ -1138,7 +1405,7 @@ namespace App.utility
                     $"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minLength} ØªØ§ {maxLength} Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯."
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
@@ -1154,7 +1421,7 @@ namespace App.utility
                     $"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minValue} ØªØ§ {maxValue} Ø¨Ø§Ø´Ø¯."
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
@@ -1170,7 +1437,7 @@ namespace App.utility
                     $"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minValue} ØªØ§ {maxValue} Ø¨Ø§Ø´Ø¯."
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
@@ -1186,28 +1453,27 @@ namespace App.utility
                     $"{fieldName} Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† {minValue} ØªØ§ {maxValue} Ø¨Ø§Ø´Ø¯."
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
         /// <summary>
-        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ ÛŒÚ©ØªØ§ Ø¨ÙˆØ¯Ù† Ù…Ù‚Ø¯Ø§Ø± Ø¯Ø± Ø¯ÛŒØªØ§Ø¨ÛŒØ³
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ ÛŒÚ©ØªØ§ Ø¨ÙˆØ¯Ù† Ù…Ù‚Ø¯Ø§Ø± Ø¯Ø± Ø¯ÛŒØªØ§Ø¨ÛŒØ³ Ø¨Ø§ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø§Ø² MyContext
         /// </summary>
-        public static async Task<StatusResult> ValidateUniqueAsync<T, TKey>(
-            IBaseRep<T, TKey> repository,
+        public static async Task<StatusResult> ValidateUniqueAsync<T>(
+            MyContext context,
             Expression<Func<T, bool>> predicate,
-            string errorMessage)
-            where T : Domain.Objects.BaseDomain
+            string errorMessage) where T : class
         {
-            if (repository == null)
+            if (context == null)
             {
                 return ResultFactory.Status(
                     ResultStatusEnum.ValidationFailed,
-                    "Ø±ÛŒÙ¾Ø§Ø²ÛŒØªÙˆØ±ÛŒ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª."
+                    "Context Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª."
                 );
             }
 
-            var exists = await repository.ExistAsync(predicate);
+            var exists = await context.Set<T>().AnyAsync(predicate);
             if (exists)
             {
                 return ResultFactory.Status(
@@ -1215,22 +1481,47 @@ namespace App.utility
                     errorMessage
                 );
             }
-            
+
             return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
         /// <summary>
         /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ ÛŒÚ©ØªØ§ Ø¨ÙˆØ¯Ù† Ø¨Ø§ Ø§Ù…Ú©Ø§Ù† Ø§Ø±Ø³Ø§Ù„ Ù¾ÛŒØ§Ù… Ù¾ÛŒØ´â€ŒÙØ±Ø¶
         /// </summary>
-        public static async Task<StatusResult> ValidateUniqueAsync<T, TKey>(
-            IBaseRep<T, TKey> repository,
+        public static async Task<StatusResult> ValidateUniqueAsync<T>(
+            MyContext context,
             Expression<Func<T, bool>> predicate,
             string fieldName,
-            string value)
-            where T : Domain.Objects.BaseDomain
+            string value) where T : class
         {
             var errorMessage = $"{fieldName} Ø¨Ø§ Ù…Ù‚Ø¯Ø§Ø± '{value}' Ù‚Ø¨Ù„Ø§Ù‹ Ø¯Ø± Ø³ÛŒØ³ØªÙ… Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.";
-            return await ValidateUniqueAsync(repository, predicate, errorMessage);
+            return await ValidateUniqueAsync(context, predicate, errorMessage);
+        }
+
+        /// <summary>
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ ÛŒÚ©ØªØ§ Ø¨ÙˆØ¯Ù† Ø¨Ø±Ø§ÛŒ ÙˆÛŒØ±Ø§ÛŒØ´ (Ø¨Ù‡ Ø¬Ø² Ø¢ÛŒØªÙ… Ø¬Ø§Ø±ÛŒ)
+        /// </summary>
+        public static async Task<StatusResult> ValidateUniqueForUpdateAsync<T>(
+            MyContext context,
+            Expression<Func<T, bool>> predicate,
+            int currentId,
+            string fieldName,
+            string value) where T : Domain.Objects.BaseDomain
+        {
+            // Ø´Ø±Ø·: Ø¢ÛŒØªÙ… Ø¨Ø§ Ù‡Ù…ÛŒÙ† Ù…Ù‚Ø¯Ø§Ø± ÙˆØ¬ÙˆØ¯ Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯ Ø§Ù…Ø§ Id Ø¢Ù† Ø¨Ø±Ø§Ø¨Ø± Ø¨Ø§ currentId Ù†Ø¨Ø§Ø´Ø¯
+            var combinedPredicate = predicate.And(x => x.Id != currentId);
+            var errorMessage = $"{fieldName} Ø¨Ø§ Ù…Ù‚Ø¯Ø§Ø± '{value}' Ù‚Ø¨Ù„Ø§Ù‹ Ø¯Ø± Ø³ÛŒØ³ØªÙ… Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.";
+
+            var exists = await context.Set<T>().AnyAsync(combinedPredicate);
+            if (exists)
+            {
+                return ResultFactory.Status(
+                    ResultStatusEnum.ValidationFailed,
+                    errorMessage
+                );
+            }
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
         }
 
         /// <summary>
@@ -1326,7 +1617,7 @@ namespace App.utility
         public static StatusResult ValidateAll(params StatusResult[] validationResults)
         {
             var errors = new List<string>();
-            
+
             foreach (var result in validationResults)
             {
                 if (!result.IsSuccess && result.Messages != null)
@@ -1360,7 +1651,7 @@ namespace App.utility
         public static List<string> GetErrors(params StatusResult[] validationResults)
         {
             var errors = new List<string>();
-            
+
             foreach (var result in validationResults)
             {
                 if (!result.IsSuccess && result.Messages != null)
@@ -1368,43 +1659,27 @@ namespace App.utility
                     errors.AddRange(result.Messages);
                 }
             }
-            
+
             return errors;
         }
     }
 }
 
-===== FILE: App\IBaseRep.cs =====
-using App.Contracts.Object.Shop.ProductCon;
-using Domain.Objects;
-using MyFrameWork.AppTool;
+===== FILE: App\IMyDbContext.cs =====
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace App
 {
-    public interface IBaseRep<T, TKey> : IDisposable where T : BaseDomain
+    public interface IMyDbContext
     {
-        Task<T> GetAsync(TKey id);
-        T Get(TKey id);
-        Task<List<T>>  GetFilteredAsync(Expression<Func<T, bool>> filter = null , ProductSearchCriteria criteria = null);
-        Task<List<T>> GetAsync();
-        Task<List<T>> GetAsync(Pagination pagination );
-        Task CreateAsync(T entity);
-        void Delete(T entity);
-        void DeleteById(TKey id);
-        Task<int> CountAsync();
-        Task<int> CountAsync(Expression<Func<T , bool>> filter);
-        Task<bool> ExistAsync(Expression<Func<T, bool>> expression  );
-        Task<bool> UpdateAsync(T entity);
-        Task SaveChangesAsync();
-        Task<List<T>> GetByIdsAsync(List<TKey> ids);
-        public void DeleteRange(List<T> entities);
-        public Task<bool> HasRelationsAsync(T entity);
+        DbSet<T> Set<T>() where T : class;
+        Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+        
     }
 }
 
@@ -1706,128 +1981,5 @@ namespace App.Contracts.Object.Base.Users
         public int Id { get; set; }
         public string Name { get; set; } = default!;
     }
-}
-
-===== FILE: App.Contracts\Object\Base\IPersonApp.cs =====
-using MyFrameWork.AppTool.ResultType;
-
-namespace App.Contracts.Object.Base
-{
-    public interface IPersonApp : ICrudService<PersonView,PersonCreate ,PersonUpdate , int>
-    {
-       
-    }
-}
-
-
-===== FILE: App.Contracts\Object\Base\PersonView.cs =====
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace App.Contracts.Object.Base
-{
-    public class PersonCreate
-    {
-        
-       
-
-        [Required]
-        [StringLength(3)]
-        public string Name { get; set; }
-
-        [Required]
-        [StringLength(3)]
-        public string Family { get; set; }
-
-        [Required]
-        public int age { get; set; }
-    }
-
-
-
-    public class PersonView : PersonCreate
-    {
-
-        public int Id { get; set; }
-
-    }
-
-
-    public class PersonUpdate : PersonView
-    {
-
-    }
-
-
-}
-
-
-===== FILE: App.Contracts\Object\Chat\IChatApp.cs =====
-// App.Contracts/Object/Chat/IChatApp.cs
-using MyFrameWork.AppTool;
-using MyFrameWork.AppTool.ResultType;
-
-namespace App.Contracts.Object.Chat
-{
-    public interface IChatApp
-    {
-        Task<StatusResult> SendMessageAsync(SendMessageDto dto, int senderId);
-        Task<ListDataResult<MessageView>> GetChatHistoryAsync(int otherUserId, Pagination pagination, int currentUserId);
-        Task<ListDataResult<ChatListItem>> GetChatListAsync(int userId);
-        Task<StatusResult> MarkAsReadAsync(int senderId, int receiverId);
-        Task<SingleDataResult<int>> GetTotalUnreadCountAsync(int receiverId);
-    }
-
-
-}
-
-===== FILE: App.Contracts\Object\Chat\SendMessageDto.cs =====
-// App.Contracts/Object/Chat/SendMessageDto.cs
-using Microsoft.AspNetCore.Http;
-using Domain.Objects.Chat;
-
-namespace App.Contracts.Object.Chat
-{
-    public class SendMessageDto
-    {
-        public int ReceiverId { get; set; }
-        public string Content { get; set; } = string.Empty;
-        public IFormFile? File { get; set; }
-        public MessageType Type { get; set; } = MessageType.Text;
-    }
-
-
-
-
-    public class MessageView
-    {
-        public int Id { get; set; }
-        public int SenderId { get; set; }
-        public string SenderName { get; set; } = string.Empty;
-        public string Content { get; set; } = string.Empty;
-        public string? FileUrl { get; set; }
-        public MessageType Type { get; set; }
-        public DateTime SentAt { get; set; }
-        public DateTime? DeliveredAt { get; set; }
-        public DateTime? SeenAt { get; set; }
-        public bool IsMine { get; set; } // Ø¨Ø±Ø§ÛŒ UI
-    }
-
-    public class ChatListItem
-    {
-        public int UserId { get; set; }
-        public string UserName { get; set; } = string.Empty;
-        public string? LastMessage { get; set; }
-        public DateTime? LastMessageTime { get; set; }
-        public int UnreadCount { get; set; }
-        public bool IsOnline { get; set; }
-        public DateTime? LastSeen { get; set; }
-    }
-
-
 }
 

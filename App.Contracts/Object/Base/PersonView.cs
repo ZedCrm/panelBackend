@@ -1,43 +1,33 @@
-﻿using System;
-using System.Collections.Generic;
+﻿// App.Contracts/Object/Base/PersonView.cs
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using App.Contracts.Attributes;
 
 namespace App.Contracts.Object.Base
 {
     public class PersonCreate
     {
-        
-       
+        [Required(ErrorMessage = "لطفاً نام را وارد کنید.")]
+        [StringLength(50, MinimumLength = 2, ErrorMessage = "نام باید بین 2 تا 50 کاراکتر باشد.")]
+        [PersianText]
+        public string Name { get; set; } = string.Empty;
 
-        [Required]
-        [StringLength(3)]
-        public string Name { get; set; }
+        [Required(ErrorMessage = "لطفاً نام خانوادگی را وارد کنید.")]
+        [StringLength(50, MinimumLength = 2, ErrorMessage = "نام خانوادگی باید بین 2 تا 50 کاراکتر باشد.")]
+        [PersianText]
+        public string Family { get; set; } = string.Empty;
 
-        [Required]
-        [StringLength(3)]
-        public string Family { get; set; }
-
-        [Required]
-        public int age { get; set; }
+        [Required(ErrorMessage = "لطفاً سن را وارد کنید.")]
+        [RangeIf(1, 150)]
+        [PositiveNumber]
+        public int Age { get; set; }
     }
-
-
 
     public class PersonView : PersonCreate
     {
-
         public int Id { get; set; }
-
     }
-
 
     public class PersonUpdate : PersonView
     {
-
     }
-
-
 }

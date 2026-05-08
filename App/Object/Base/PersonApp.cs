@@ -1,8 +1,8 @@
-﻿using App.Contracts.Object.Base;
-using App.Contracts.Object.Shop.ProductCon;
+﻿// App/Object/Base/PersonApp.cs
+using App.Contracts.Object.Base;
 using AutoMapper;
+using ConfApp;
 using Domain.Objects.Base;
-using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
 
@@ -10,27 +10,30 @@ namespace App.Object.Base
 {
     public class PersonApp : CrudService<Person, PersonView, PersonCreate, PersonUpdate, int>, IPersonApp
     {
-        private readonly IPersonRep _ctx;
-        private readonly IMapper mapper;
+        private readonly PersonBusinessService _personBusiness;
 
-        public PersonApp(IPersonRep personRep , IMapper mapper) : base(personRep ,mapper)
+        public PersonApp(MyContext ctx, IMapper mapper, PersonBusinessService personBusiness)
+            : base(ctx, mapper)
         {
-            _ctx = personRep;
-            this.mapper = mapper;
+            _personBusiness = personBusiness;
         }
 
-        public Task<ListDataResult<PersonView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<SingleDataResult<PersonUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<StatusResult> Create(PersonCreate dto) => base.CreateAsync(dto);
-        public Task<StatusResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
-        public Task<StatusResult> Update(PersonUpdate dto) => base.UpdateAsync(dto);
+        public override async Task<StatusResult> CreateAsync(PersonCreate dto)
+        {
+            // Validation یکتایی نام و نام خانوادگی
+            var uniqueCheck = await _personBusiness.ValidateUniquePersonAsync(dto.Name, dto.Family);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
 
+            // Validation سن و سایر موارد به صورت خودکار توسط ModelValidator انجام می‌شود
+            return await base.CreateAsync(dto);
+        }
 
-    }
+        public override async Task<StatusResult> UpdateAsync(PersonUpdate dto)
+        {
+            var uniqueCheck = await _personBusiness.ValidateUniquePersonAsync(dto.Name, dto.Family, dto.Id);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
 
-
-    public interface IPersonRep : IBaseRep<Person, int>
-    {
-
+            return await base.UpdateAsync(dto);
+        }
     }
 }

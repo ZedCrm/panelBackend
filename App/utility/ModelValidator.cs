@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using MyFrameWork.AppTool.ResultType;
 
 namespace App.utility
@@ -25,9 +22,9 @@ namespace App.utility
             var results = new List<ValidationResult>();
 
             bool isValid = Validator.TryValidateObject(
-                model, 
-                context, 
-                results, 
+                model,
+                context,
+                results,
                 validateAllProperties: true
             );
 
@@ -61,9 +58,9 @@ namespace App.utility
             var results = new List<ValidationResult>();
 
             bool isValid = Validator.TryValidateObject(
-                model, 
-                context, 
-                results, 
+                model,
+                context,
+                results,
                 validateAllProperties: true
             );
 
@@ -76,17 +73,14 @@ namespace App.utility
                 );
             }
 
-            return ResultFactory.Single(
-                ResultStatusEnum.Success,
-                model
-            );
+            return ResultFactory.Single(ResultStatusEnum.Success, model);
         }
 
         /// <summary>
-        /// اعتبارسنجی مدل و برگرداندن نتیجه به صورت دلخواه با امکان ارسال دیتای سفارشی
+        /// اعتبارسنجی مدل و برگرداندن نتیجه به صورت SingleDataResult با قابلیت نقشه‌برداری
         /// </summary>
         public static SingleDataResult<TOutput> ValidateAndMap<TInput, TOutput>(
-            TInput model, 
+            TInput model,
             Func<TInput, TOutput> onSuccessMapping)
         {
             if (model == null)
@@ -102,9 +96,9 @@ namespace App.utility
             var results = new List<ValidationResult>();
 
             bool isValid = Validator.TryValidateObject(
-                model, 
-                context, 
-                results, 
+                model,
+                context,
+                results,
                 validateAllProperties: true
             );
 
@@ -118,17 +112,14 @@ namespace App.utility
             }
 
             var output = onSuccessMapping(model);
-            return ResultFactory.Single(
-                ResultStatusEnum.Success,
-                output
-            );
+            return ResultFactory.Single(ResultStatusEnum.Success, output);
         }
 
         /// <summary>
         /// اعتبارسنجی آسنکرون مدل
         /// </summary>
         public static async Task<StatusResult> ValidateToStatusResultAsync<T>(
-            T model, 
+            T model,
             Func<T, Task<bool>>? additionalValidation = null)
         {
             if (model == null)
@@ -143,9 +134,9 @@ namespace App.utility
             var results = new List<ValidationResult>();
 
             bool isValid = Validator.TryValidateObject(
-                model, 
-                context, 
-                results, 
+                model,
+                context,
+                results,
                 validateAllProperties: true
             );
 
@@ -157,7 +148,6 @@ namespace App.utility
                 );
             }
 
-            // اعتبارسنجی اضافی توسط کالر
             if (additionalValidation != null)
             {
                 var isAdditionalValid = await additionalValidation(model);
@@ -190,9 +180,9 @@ namespace App.utility
             var results = new List<ValidationResult>();
 
             bool isValid = Validator.TryValidateObject(
-                model, 
-                context, 
-                results, 
+                model,
+                context,
+                results,
                 validateAllProperties: true
             );
 

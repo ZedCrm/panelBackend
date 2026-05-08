@@ -17,26 +17,35 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // ========================================================================
-// REGION 1: Dependency Injection - Service Registration
+// REGION 1: Configuration
 // ========================================================================
 
-#region Service Registration
+// خواندن تنظیمات JWT از appsettings.json (بعداً اضافه می‌کنیم)
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "yourapp";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "yourapp";
+var jwtSecretKey = builder.Configuration["Jwt:SecretKey"] ?? "your_secret_key_at_least_16_chars";
 
-// Add controllers and API exploration services
-builder.Services.AddControllers();
+// ========================================================================
+// REGION 2: Service Registration
+// ========================================================================
+
+builder.Services.AddControllers(options =>
+{
+    // اضافه کردن ResultFilter به صورت Global
+    options.Filters.Add<ResultFilter>();
+});
 builder.Services.AddEndpointsApiExplorer();
 
-// Configure Swagger/OpenAPI for API documentation
+// Configure Swagger
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "CRM API", 
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "CRM API",
         Version = "v1",
-        Description = "API مدیریت مشتریان - برای تست ابتدا روی دکمه Authorize کلیک کنید"
+        Description = "API مدیریت مشتریان"
     });
 
-    // Change to HTTP Bearer authentication instead of OAuth2
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -44,7 +53,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter 'Bearer' followed by your token. Example: Bearer abc123xyz"
+        Description = "توکن خود را وارد کنید: Bearer {your_token}"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -52,168 +61,130 @@ builder.Services.AddSwaggerGen(c =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference 
-                { 
-                    Type = ReferenceType.SecurityScheme, 
-                    Id = "Bearer" 
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
                 }
             },
-            new[] { "read", "write" }
+            Array.Empty<string>()
         }
-    });
-
-    c.TagActionsBy(api =>
-    {
-        if (api.ActionDescriptor.DisplayName.Contains("AuthController"))
-            return new[] { "Authentication" };
-        return new[] { api.ActionDescriptor.RouteValues["controller"] };
     });
 });
 
-// Add real-time communication support
+// SignalR for Real-time
 builder.Services.AddSignalR();
 
-// Enable access to HttpContext in services
+// HttpContext Accessor
 builder.Services.AddHttpContextAccessor();
 
-#endregion
-
 // ========================================================================
-// REGION 2: CORS Configuration
+// REGION 3: CORS Configuration
 // ========================================================================
 
-#region CORS Configuration
-
-// Allow specific origin for Angular development server
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowAngular", policy =>
     {
-        policy.WithOrigins("http://localhost:4200")  // Angular default dev port
+        policy.WithOrigins("http://localhost:4200")
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
     });
 });
 
-#endregion
-
 // ========================================================================
-// REGION 3: JWT Authentication Setup
+// REGION 4: JWT Authentication
 // ========================================================================
-
-#region JWT Authentication
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,               // Ensure token comes from trusted issuer
-            ValidateAudience = true,             // Ensure token is for this audience
-            ValidateLifetime = true,             // Check token expiration
-            ValidateIssuerSigningKey = true,     // Verify signature
-            ValidIssuer = "yourapp",             // Issuer identifier
-            ValidAudience = "yourapp",           // Audience identifier
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars"))
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey))
+        };
+
+        // برای SignalR - دریافت توکن از QueryString
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
-#endregion
-
 // ========================================================================
-// REGION 4: Database and Infrastructure Setup
+// REGION 5: Database and Infrastructure (یکبار و درست)
 // ========================================================================
 
-#region Database & Infrastructure
-
-// Get connection string from configuration or use SQLite as fallback
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? "Data Source=dev.db";
 
-// Initialize CRM management with appropriate database provider
-CRMBootstraper.AddCRMManagement(
-    builder.Services,
-    connectionString,
-    connectionString.Contains("Data Source=dev.db") ? DbProvider.Sqlite : DbProvider.SqlServer
-);
+var dbProvider = connectionString.Contains("Data Source=dev.db")
+    ? DbProvider.Sqlite
+    : DbProvider.SqlServer;
 
-#endregion
+CRMBootstraper.AddCRMManagement(builder.Services, connectionString, dbProvider);
 
-// ========================================================================
-// REGION 5: Custom Application Services
-// ========================================================================
-
-#region Custom Services
-
-// File handling service for uploads/downloads
-builder.Services.AddScoped<IFileService, API.utility.FileService>();
-
-// Permission discovery service to find all permissions from controllers
+// ثبت سرویس‌های اضافی که در CRMBootstraper نیستند
+builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IPermissionDiscoveryService, PermissionDiscoveryService>();
-
-// Database seeder for permissions
 builder.Services.AddScoped<PermissionSeeder>();
 
-#endregion
+// ========================================================================
+// REGION 6: Build App
+// ========================================================================
 
 var app = builder.Build();
 
 // ========================================================================
-// REGION 6: Development Environment Configuration
+// REGION 7: Development Environment
 // ========================================================================
-
-#region Development Configuration
 
 if (app.Environment.IsDevelopment())
 {
-    // Enable Swagger UI for API testing
     app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM API V1");
-    c.RoutePrefix = "swagger";
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM API V1");
+        c.RoutePrefix = "swagger";
+        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+        c.DefaultModelsExpandDepth(0);
+        c.EnableTryItOutByDefault();
+    });
 
-    // بستن پیش‌فرض همه عملیات‌ها (Actions/Endpoints)
-    c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
-
-    // بستن پیش‌فرض همه مدل‌ها (Schemas) – مقدار -1 یعنی اصلاً نمایش نده
-    c.DefaultModelsExpandDepth(0);
-    c.EnableTryItOutByDefault();
-
-    c.DisplayOperationId();
-    c.DisplayRequestDuration();
-    c.HeadContent = "<style> .swagger-ui .topbar { background-color: #1976D2; } </style>";
-});
-
-    // Seed permissions from controller attributes (development only)
-    using var scope = app.Services.CreateScope();
-    var permissionSeeder = scope.ServiceProvider.GetRequiredService<PermissionSeeder>();
-    await permissionSeeder.SeedAsync();
+    // Seed permissions فقط در محیط توسعه
+    using (var scope = app.Services.CreateScope())
+    {
+        var permissionSeeder = scope.ServiceProvider.GetRequiredService<PermissionSeeder>();
+        await permissionSeeder.SeedAsync();
+    }
 }
 
-#endregion
-
 // ========================================================================
-// REGION 7: Middleware Pipeline
+// REGION 8: Middleware Pipeline
 // ========================================================================
 
-#region Static Files & Routing
+app.UseStaticFiles();
+app.UseRouting();
+app.UseCors("AllowAngular");
 
-app.UseStaticFiles();           // Serve static files from wwwroot
-app.UseRouting();               // Enable routing
-
-#endregion
-
-#region CORS Middleware
-
-app.UseCors("AllowAll");        // Apply CORS policy
-
-#endregion
-
-#region Request Logging Middleware
-
-// Log all incoming requests and outgoing responses
+// Custom middleware
 app.Use(async (context, next) =>
 {
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
@@ -222,33 +193,14 @@ app.Use(async (context, next) =>
     logger.LogInformation("Response: {StatusCode}", context.Response.StatusCode);
 });
 
-#endregion
-
-#region Preflight Request Handling
-
-// Handle CORS preflight (OPTIONS) requests
-app.Use(async (context, next) =>
-{
-    if (context.Request.Method == "OPTIONS")
-    {
-        context.Response.StatusCode = 200;
-        await context.Response.CompleteAsync();
-        return;
-    }
-    await next();
-});
-
-#endregion
-
-#region WebSocket Token Extraction
-
-// Extract JWT token from query string for SignalR WebSocket connections
+// WebSocket Token Extraction (توسط JWT Events مدیریت شد، این middleware اضافی است)
+// اما برای اطمینان بیشتر نگه می‌داریم
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/chatHub"))
     {
         var accessToken = context.Request.Query["access_token"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(accessToken))
+        if (!string.IsNullOrEmpty(accessToken) && string.IsNullOrEmpty(context.Request.Headers.Authorization))
         {
             context.Request.Headers.Authorization = $"Bearer {accessToken}";
         }
@@ -256,83 +208,42 @@ app.Use(async (context, next) =>
     await next();
 });
 
-#endregion
-
-#region Authentication & Authorization
-
-app.UseAuthentication();        // Validate JWT tokens
-app.UseTokenValidation();       // Custom token validation middleware
-app.UseAuthorization();         // Authorize based on roles/policies
-
-#endregion
+app.UseAuthentication();
+app.UseTokenValidation();
+app.UseAuthorization();
 
 // ========================================================================
-// REGION 8: Real-time Communication Hubs
+// REGION 9: Hubs & Controllers
 // ========================================================================
 
-#region SignalR Hubs
-
-// Map ChatHub for real-time messaging
 app.MapHub<ChatHub>("/chatHub");
-
-#endregion
+app.MapControllers();
 
 // ========================================================================
-// REGION 9: File System Setup
+// REGION 10: File System Setup
 // ========================================================================
 
-#region File System Setup
-
-// Ensure uploads directory exists for file storage
-var uploadsPath = Path.Combine(app.Environment.WebRootPath, "uploads");
+var uploadsPath = Path.Combine(app.Environment.WebRootPath ?? Directory.GetCurrentDirectory(), "uploads");
 Directory.CreateDirectory(uploadsPath);
 
-#endregion
-
 // ========================================================================
-// REGION 10: Background Services
+// REGION 11: Database Seeding (یکبار در انتها)
 // ========================================================================
 
-#region Background Services
-
-// Timer to check for inactive users every minute
-var timer = new Timer(_ =>
-{
-    using var scope = app.Services.CreateScope();
-    var statusService = scope.ServiceProvider.GetRequiredService<UserStatusService>();
-    statusService.CheckInactive();  // Mark users as offline if inactive
-}, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
-
-#endregion
-
-// ========================================================================
-// REGION 11: Controller Mapping
-// ========================================================================
-
-#region Controller Mapping
-
-app.MapControllers();   // Map all API controllers
-
-#endregion
-
-// ========================================================================
-// REGION 12: Database Seeding
-// ========================================================================
-
-#region Database Seeding
-
-// Seed initial data (Users, Roles, Permissions) on application startup
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MyContext>();
+
+    // اعمال خودکار Migrationها
+    await context.Database.MigrateAsync();
+
+    // Seed کردن داده‌های اولیه (کاربر، نقش‌ها)
     var seeder = new DatabaseSeeder(context);
-    seeder.SeedAll();   // Populate database with default data
+    seeder.SeedAll();
 }
 
-#endregion
-
 // ========================================================================
-// REGION 13: Application Execution
+// REGION 12: Run Application
 // ========================================================================
 
-app.Run();  // Start the application
+app.Run();

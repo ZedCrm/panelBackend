@@ -1,42 +1,39 @@
+// App/Object/Shop/CountTypeApp/ContTypeApp.cs
 using App.Contracts.Object.Shop.CountTypeCon;
-using App.Object.Base;
 using App.utility;
 using AutoMapper;
 using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using ConfApp;
 
 namespace App.Object.Shop.CountTypeApp
 {
-    public class CountTypeApp : CrudService<CountType, CountTypeView, CountTypeCreate, CountTypeView, int>,
-                                ICountTypeApp
+    public class CountTypeApp : CrudService<CountType, CountTypeView, CountTypeCreate, CountTypeView, int>, ICountTypeApp
     {
-        private readonly ICountTypeRep _rep;
-        private readonly IMapper _mapper;
+        private readonly CountTypeBusinessService _countTypeBusiness;
 
-        public CountTypeApp(ICountTypeRep rep, IMapper mapper)
-            : base(rep, mapper)
+        public CountTypeApp(MyContext context, IMapper mapper, CountTypeBusinessService countTypeBusiness)
+            : base(context, mapper)
         {
-            _rep = rep;
-            _mapper = mapper;
+            _countTypeBusiness = countTypeBusiness;
         }
 
-        /*=== CRUD یک‌خطی ===*/
-        public Task<ListDataResult<CountTypeView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<SingleDataResult<CountTypeView>> GetById(int id)                   => base.GetByIdAsync(id);
-        public async  Task<StatusResult> Create(CountTypeCreate dto) {
-
-            var exist = await _rep.ExistAsync(c => c.Name == dto.Name);
-            if (exist) {return ResultFactory.Status(ResultStatusEnum.Conflict, MessageApp.DuplicateField(dto.Name)); }
+        public override async Task<StatusResult> CreateAsync(CountTypeCreate dto)
+        {
+            var uniqueCheck = await _countTypeBusiness.ValidateUniqueNameAsync(dto.Name);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
 
             return await base.CreateAsync(dto);
-
         }
-        public Task<StatusResult> DeleteBy(List<int> ids)                          => base.DeleteAsync(ids);
-        public Task<StatusResult> Update(CountTypeView dto)                        => base.UpdateAsync(dto);
-    }
 
-    public interface ICountTypeRep : IBaseRep<CountType, int> { }
+        public override async Task<StatusResult> UpdateAsync(CountTypeView dto)
+        {
+            var uniqueCheck = await _countTypeBusiness.ValidateUniqueNameAsync(dto.Name, dto.Id);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
+
+            return await base.UpdateAsync(dto);
+        }
+    }
 }

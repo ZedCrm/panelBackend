@@ -10,18 +10,13 @@ using App.Object.Base;
 using App.Object.Base.auth;
 using App.Object.Base.auth.UserContext;
 using App.Object.Base.Auth;
+using App.Object.Base.Roles;
 using App.Object.Base.Users;
 using App.Object.Chat;
-using App.Object.Chat.MessageApp;
 using App.Object.Shop.CountTypeApp;
 using App.Object.Shop.InvApp;
 using App.Object.Shop.ProductApp;
-using App.utility; // فقط IFileService
 using ConfApp;
-using ConfApp.Rep;
-using ConfApp.Rep.bases;
-using ConfApp.Rep.Chat;
-using ConfApp.Rep.Inv;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,19 +26,6 @@ namespace Infrastructure
     {
         public static void AddCRMManagement(IServiceCollection services, string connectionString, DbProvider dbProvider)
         {
-
-
-        
-            // === Repository ها ===
-            services.AddScoped<IPersonRep, PersonRep>();
-            services.AddScoped<IProductRep, ProductRep>();
-            services.AddScoped<ICountTypeRep, CountTypeRep>();
-            services.AddScoped<IInvRep, InvRep>();
-            services.AddScoped<IUserRepository, UserRep>();
-            services.AddScoped<IPermissionRep, PermissionRepository>();
-            services.AddScoped<IMyUserRepository, MyuserRepo>();
-            services.AddScoped<IRoleRep, RoleRepo>();
-
             // === App Service ها ===
             services.AddScoped<IPersonApp, PersonApp>();
             services.AddScoped<IProductApp, ProductApp>();
@@ -53,13 +35,19 @@ namespace Infrastructure
             services.AddScoped<ITokenApp, TokenApp>();
             services.AddScoped<IPermissionService, PermissionService>();
             services.AddScoped<IUsersApp, UsersApp>();
-
-            services.AddScoped<IMessageRep, MessageRep>();
             services.AddScoped<IChatApp, ChatApp>();
+
+
+
+            // Business Services
+            services.AddScoped<UserBusinessService>();
+            services.AddScoped<RoleBusinessService>();
+            services.AddScoped<ProductBusinessService>();
+            services.AddScoped<CountTypeBusinessService>();
+            services.AddScoped<PersonBusinessService>();
 
             // === سرویس‌های مشترک ===
             services.AddSingleton<UserStatusService>();
-            // IFileService فقط در Program.cs ثبت می‌شه
 
             // === HttpContextAccessor ===
             services.AddHttpContextAccessor();
@@ -67,9 +55,8 @@ namespace Infrastructure
             // === UserContext ===
             services.AddScoped<IUserContext, UserContext>();
 
-            // === AutoMapper ===
+            // === AutoMapper (فقط یکبار) ===
             services.AddAutoMapper(typeof(ClassMapping));
-            services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
             // === DbContext ===
             services.AddDbContext<MyContext>(options =>

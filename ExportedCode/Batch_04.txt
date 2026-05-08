@@ -1,59 +1,4 @@
-﻿===== FILE: Domain\Objects\Shop\Inv.cs =====
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace Domain.Objects.Shop
-{
-    [Table("Inventories")]
-    public class Inv : BaseDomain
-    {
-        [Required]
-        public string Name { get; set; }
-
-        public bool Active { get; set; } = true;
-    }
-}
-
-===== FILE: Domain\Objects\Shop\InvTran.cs =====
-using System;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace Domain.Objects.Shop
-{
-    [Table("InvTrans")]
-    public class InvTran : BaseDomain
-    {
-        public DateTime CreateTime { get; set; }
-
-        public DateTime AcceptTime { get; set; }
-
-        [Required]
-        public int InvId { get; set; }
-
-        [ForeignKey(nameof(InvId))]
-        public Inv Inv { get; set; }
-    }
-}
-
-===== FILE: Domain\Objects\Shop\InvTranDetail.cs =====
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace Domain.Objects.Shop
-{
-    [Table("InvTranDetails")]
-    public class InvTranDetail : BaseDomain
-    {
-        [Required]
-        public int InvTranId { get; set; }
-
-        [ForeignKey(nameof(InvTranId))]
-        public InvTran InvTran { get; set; }
-    }
-}
-
-===== FILE: Domain\Objects\Shop\Product.cs =====
+﻿===== FILE: Domain\Objects\Shop\Product.cs =====
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -3997,16 +3942,10 @@ using App.Object.Base.auth.UserContext;
 using App.Object.Base.Auth;
 using App.Object.Base.Users;
 using App.Object.Chat;
-using App.Object.Chat.MessageApp;
 using App.Object.Shop.CountTypeApp;
 using App.Object.Shop.InvApp;
 using App.Object.Shop.ProductApp;
-using App.utility; // فقط IFileService
 using ConfApp;
-using ConfApp.Rep;
-using ConfApp.Rep.bases;
-using ConfApp.Rep.Chat;
-using ConfApp.Rep.Inv;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -4016,19 +3955,6 @@ namespace Infrastructure
     {
         public static void AddCRMManagement(IServiceCollection services, string connectionString, DbProvider dbProvider)
         {
-
-
-        
-            // === Repository ها ===
-            services.AddScoped<IPersonRep, PersonRep>();
-            services.AddScoped<IProductRep, ProductRep>();
-            services.AddScoped<ICountTypeRep, CountTypeRep>();
-            services.AddScoped<IInvRep, InvRep>();
-            services.AddScoped<IUserRepository, UserRep>();
-            services.AddScoped<IPermissionRep, PermissionRepository>();
-            services.AddScoped<IMyUserRepository, MyuserRepo>();
-            services.AddScoped<IRoleRep, RoleRepo>();
-
             // === App Service ها ===
             services.AddScoped<IPersonApp, PersonApp>();
             services.AddScoped<IProductApp, ProductApp>();
@@ -4038,13 +3964,14 @@ namespace Infrastructure
             services.AddScoped<ITokenApp, TokenApp>();
             services.AddScoped<IPermissionService, PermissionService>();
             services.AddScoped<IUsersApp, UsersApp>();
-
-            services.AddScoped<IMessageRep, MessageRep>();
             services.AddScoped<IChatApp, ChatApp>();
+
+
+
+            services.AddScoped<UserBusinessService>();
 
             // === سرویس‌های مشترک ===
             services.AddSingleton<UserStatusService>();
-            // IFileService فقط در Program.cs ثبت می‌شه
 
             // === HttpContextAccessor ===
             services.AddHttpContextAccessor();
@@ -4052,9 +3979,8 @@ namespace Infrastructure
             // === UserContext ===
             services.AddScoped<IUserContext, UserContext>();
 
-            // === AutoMapper ===
+            // === AutoMapper (فقط یکبار) ===
             services.AddAutoMapper(typeof(ClassMapping));
-            services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
             // === DbContext ===
             services.AddDbContext<MyContext>(options =>
@@ -4082,99 +4008,67 @@ namespace Infrastructure
     }
 }
 
-===== FILE: MyFrameWork\AppTool\ApiResult.cs =====
-
-
 ===== FILE: MyFrameWork\AppTool\MessageApp.cs =====
+// MyFrameWork/AppTool/MessageApp.cs
 using System;
 
 namespace MyFrameWork.AppTool
 {
     public static class MessageApp
     {
-        // ------------------------------
-        // پیام‌های ثابت عمومی
-        // ------------------------------
+        // ========== پیام‌های ثابت موجود (نگه‌داری شده) ==========
         public const string AcceptOpt = "عملیات با موفقیت انجام شد.";
         public const string FailOpt = "عملیات با خطا مواجه شد!!!";
         public const string NotPermission = "شما دسترسی لازم را ندارید.";
         public const string OperationCancelled = "عملیات لغو شد.";
-
-        // پیام‌های خطا
         public const string ServerError = "خطای سرور رخ داده است. لطفاً بعداً تلاش کنید.";
         public const string ConnectionFailed = "اتصال به سرور برقرار نشد.";
         public const string Timeout = "زمان درخواست به پایان رسید.";
         public const string InvalidFormat = "فرمت ورودی صحیح نیست.";
         public const string InvalidInput = "ورودی وارد شده معتبر نیست.";
-
-        // پیام‌های اعتبارسنجی
         public const string IsRequired = "این مقدار نمی‌تواند خالی باشد.";
         public const string MaxLength = "تعداد کاراکتر وارد شده بیشتر از حد مجاز است.";
         public const string MinLength = "تعداد کاراکتر وارد شده کمتر از حد مجاز است.";
         public const string NotFound = "مورد مورد نظر یافت نشد.";
         public const string DuplicateEntry = "این مقدار قبلاً ثبت شده است.";
-
-        // ------------------------------
-        // متدهای پویا برای پیام‌های قابل شخصی‌سازی
-        // ------------------------------
-        
-        public static string RequiredField(string fieldName)
-            => $"{fieldName} نمی‌تواند خالی باشد.";
-
-        public static string MaxLengthExceeded(string fieldName, int maxLength)
-            => $"تعداد کاراکترهای {fieldName} بیشتر از {maxLength} کاراکتر است.";
-
-        public static string MinLengthNotMet(string fieldName, int minLength)
-            => $"تعداد کاراکترهای {fieldName} کمتر از {minLength} کاراکتر است.";
-
-        public static string NotFoundItem(string itemName)
-            => $"{itemName} یافت نشد.";
-
-        public static string DuplicateField(string fieldName)
-            => $"{fieldName} قبلاً ثبت شده است.";
-
-        public static string InvalidFieldInput(string fieldName)
-            => $"مقدار وارد شده برای {fieldName} معتبر نیست.";
-
-        public static string CustomError(string errorDetail)
-            => $"خطا: {errorDetail}";
-
-        public static string CustomSuccess(string action)
-            => $"عملیات {action} با موفقیت انجام شد.";
-
-        public static string CustomFail(string action)
-            => $"عملیات {action} با خطا مواجه شد: {action}";
-        
-
-        public static string CustomDeleteFail(string action)
-            => $". حذف با خطا مواجه شد: {action}";
-        public static string CustomAddsuccses(string action)
-            => $". رکورد با موفقیت ذخیره  شد: {action}";
-
-        // ------------------------------
-        // پیام‌های اطلاع‌رسانی
-        // ------------------------------
         public const string InfoNoChanges = "هیچ تغییر جدیدی اعمال نشد.";
         public const string InfoSaved = "اطلاعات با موفقیت ذخیره شد.";
         public const string InfoDeleted = "مورد با موفقیت حذف شد.";
-    
-                // ------------------------------
-        // پیام‌های اعتبارسنجی (DataAnnotation)
-        // ------------------------------
         public const string IsRequiredcustom = "لطفاً {0} را وارد کنید.";
         public const string MaxLengthcustom = "تعداد کاراکترهای {0} نمی‌تواند بیشتر از {1} باشد.";
         public const string MinLengthcustom = "تعداد کاراکترهای {0} نمی‌تواند کمتر از {1} باشد.";
         public const string NotFoundcustom = "{0} یافت نشد.";
         public const string DuplicateEntrycustom = "{0} قبلاً ثبت شده است.";
         public const string InvalidInputcustom = "مقدار وارد شده برای {0} معتبر نیست.";
-    
-    
-    
-    
-    
+
+        // ========== پیام‌های جدید داینامیک (با نام‌های متفاوت) ==========
+        public static string CreatedMsg(string entityName) => $"{entityName} با موفقیت ایجاد شد.";
+        public static string UpdatedMsg(string entityName) => $"{entityName} با موفقیت به‌روزرسانی شد.";
+        public static string DeletedMsg(string entityName) => $"{entityName} با موفقیت حذف شد.";
+        public static string NotFoundMsg(string entityName, object? id = null)
+            => id == null ? $"{entityName} یافت نشد." : $"{entityName} با شناسه {id} یافت نشد.";
+        public static string DuplicateMsg(string fieldName, string value)
+            => $"{fieldName} با مقدار '{value}' قبلاً ثبت شده است.";
+        public static string RequiredMsg(string fieldName) => $"لطفاً {fieldName} را وارد کنید.";
+        public static string MaxLengthMsg(string fieldName, int max) => $"{fieldName} نمی‌تواند بیشتر از {max} کاراکتر باشد.";
+        public static string MinLengthMsg(string fieldName, int min) => $"{fieldName} نمی‌تواند کمتر از {min} کاراکتر باشد.";
+        public static string RangeMsg(string fieldName, int min, int max) => $"{fieldName} باید بین {min} و {max} باشد.";
+        public static string InvalidFormatMsg(string fieldName) => $"فرمت {fieldName} صحیح نیست.";
+
+        // حفظ متدهای قبلی
+        public static string RequiredField(string fieldName) => $"{fieldName} نمی‌تواند خالی باشد.";
+        public static string MaxLengthExceeded(string fieldName, int maxLength) => $"تعداد کاراکترهای {fieldName} بیشتر از {maxLength} کاراکتر است.";
+        public static string MinLengthNotMet(string fieldName, int minLength) => $"تعداد کاراکترهای {fieldName} کمتر از {minLength} کاراکتر است.";
+        public static string NotFoundItem(string itemName) => $"{itemName} یافت نشد.";
+        public static string DuplicateField(string fieldName) => $"{fieldName} قبلاً ثبت شده است.";
+        public static string InvalidFieldInput(string fieldName) => $"مقدار وارد شده برای {fieldName} معتبر نیست.";
+        public static string CustomError(string errorDetail) => $"خطا: {errorDetail}";
+        public static string CustomSuccess(string action) => $"عملیات {action} با موفقیت انجام شد.";
+        public static string CustomFail(string action) => $"عملیات {action} با خطا مواجه شد: {action}";
+        public static string CustomDeleteFail(string action) => $". حذف با خطا مواجه شد: {action}";
+        public static string CustomAddsuccses(string action) => $". رکورد با موفقیت ذخیره شد: {action}";
     }
 }
-
 
 ===== FILE: MyFrameWork\AppTool\Pagination.cs =====
 using System;
@@ -4468,21 +4362,6 @@ namespace MyFrameWork.AppTool
     {
     public int Value { get; set; }
     }
-
-===== FILE: MyFrameWork\Class1.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace MyFrameWork
-{
-    internal class Class1
-    {
-    }
-}
-
 
 ===== FILE: NuGet.config =====
 <?xml version="1.0" encoding="utf-8"?>

@@ -1,7 +1,5 @@
 using System.Collections.Concurrent;
-using System.IO;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Domain.Objects.Base;
 
 namespace App.Object.Base.Users
@@ -9,17 +7,18 @@ namespace App.Object.Base.Users
     public class UserStatusService
     {
         private readonly ConcurrentDictionary<int, (UserStatus Status, DateTime? LastSeen)> _userStatuses = new();
-        private readonly string _statusFilePath = Path.Combine(Directory.GetCurrentDirectory(), "user-status.json");
+        private readonly string _statusFilePath;
 
         public UserStatusService()
         {
-            LoadFromFile();  // لود موقع startup
+            _statusFilePath = Path.Combine(Directory.GetCurrentDirectory(), "user-status.json");
+            LoadFromFile();  // اگر فایل نباشه، LoadFromFile خودش ایجاد می‌کنه
         }
 
         public void UpdateStatus(int userId, UserStatus status, DateTime? lastSeen = null)
         {
             _userStatuses[userId] = (status, lastSeen ?? DateTime.Now);
-            SaveToFile();  // هر بروزرسانی سیو کن (برای تغییرات زیاد, شاید debounce کن اما ساده)
+            SaveToFile();
         }
 
         public (UserStatus, DateTime?) GetStatus(int userId)
@@ -27,7 +26,7 @@ namespace App.Object.Base.Users
             return _userStatuses.TryGetValue(userId, out var status) ? status : (UserStatus.Offline, null);
         }
 
-        public void CheckInactive()  // periodical call مثلاً با timer
+        public void CheckInactive()
         {
             var now = DateTime.Now;
             foreach (var kvp in _userStatuses)
@@ -44,9 +43,17 @@ namespace App.Object.Base.Users
             if (File.Exists(_statusFilePath))
             {
                 var json = File.ReadAllText(_statusFilePath);
-                var data = JsonSerializer.Deserialize<Dictionary<int, (UserStatus, DateTime?)>>(json);
+                var data = JsonSerializer.Deserialize<Dictionary<int, (UserStatus Status, DateTime? LastSeen)>>(json);
                 if (data != null)
-                    foreach (var kvp in data) _userStatuses[kvp.Key] = kvp.Value;
+                {
+                    foreach (var kvp in data)
+                        _userStatuses[kvp.Key] = kvp.Value;
+                }
+            }
+            else
+            {
+                // فایل وجود ندارد → یک فایل خالی ایجاد کن
+                SaveToFile();
             }
         }
 

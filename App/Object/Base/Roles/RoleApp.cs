@@ -1,111 +1,72 @@
-﻿using App.Contracts.Object.Base.Roles;
-using App.Object.Base.auth;
+﻿// App/Object/Base/Roles/RoleApp.cs
+using App.Contracts.Object.Base.Roles;
 using AutoMapper;
 using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using ConfApp;
 
 namespace App.Object.Base.Roles
 {
-    // App\Object\Base\Roles\RoleApp.cs
     public class RoleApp : CrudService<Role, RoleView, RoleCreate, RoleUpdate, int>, IRoleApp
     {
-        private readonly IRoleRep _roleRep;
-        private readonly IPermissionRep _permissionRep; // دسترسی به جدول مجوزها
-        private readonly IMapper _mapper;
+        private readonly RoleBusinessService _roleBusiness;
 
-        public RoleApp(IRoleRep roleRep, IMapper mapper, IPermissionRep permissionRep)
-            : base(roleRep, mapper)
+        public RoleApp(MyContext context, IMapper mapper, RoleBusinessService roleBusiness)
+            : base(context, mapper)
         {
-            _roleRep = roleRep;
-            _mapper = mapper;
-            _permissionRep = permissionRep;
+            _roleBusiness = roleBusiness;
         }
 
-        // دریافت تمام مجوزها برای استفاده در فرم
         public async Task<List<PermissionView>> GetAllPermissionsAsync()
-        {
-            var permissions = new List<PermissionView>();
-            return _mapper.Map<List<PermissionView>>(permissions);
-        }
+            => await _roleBusiness.GetAllPermissionsAsync();
 
-        // override CreateAsync برای ذخیره RolePermissions
         public override async Task<StatusResult> CreateAsync(RoleCreate dto)
         {
-            // اعتبارسنجی اولیه توسط ModelValidator در CrudService انجام می‌شود
-            var role = _mapper.Map<Role>(dto);
-            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission
-            {
-                PermissionId = pid,
-                RoleId = role.Id // بعد از ذخیره role مقدار Id مشخص می‌شود
-            }).ToList();
+            // validation با استفاده از BusinessService
+            var uniqueCheck = await _roleBusiness.ValidateRoleUniqueAsync(dto.Rolename);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
 
-            await _roleRep.CreateAsync(role);
-            await _roleRep.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success, "نقش با موفقیت ایجاد شد.");
+            var role = _mapper.Map<Role>(dto);
+            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission { PermissionId = pid }).ToList();
+            await _context.Roles.AddAsync(role);
+            await _context.SaveChangesAsync();
+            return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.CreatedMsg("نقش"));
         }
 
-        // override UpdateAsync برای بروزرسانی RolePermissions
         public override async Task<StatusResult> UpdateAsync(RoleUpdate dto)
         {
-            var role = await _roleRep.GetAsync(dto.Id);
+            var uniqueCheck = await _roleBusiness.ValidateRoleUniqueAsync(dto.Rolename, dto.Id);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
+
+            var role = await _context.Roles
+                .Include(r => r.RolePermissions)
+                .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
+
             if (role == null)
-                return ResultFactory.Status(ResultStatusEnum.NotFound, "نقش یافت نشد.");
+                return ResultFactory.Status(ResultStatusEnum.NotFound, MessageApp.NotFoundItem("نقش"));
 
-            _mapper.Map(dto, role); 
+            _mapper.Map(dto, role);
+            _context.RolePermissions.RemoveRange(role.RolePermissions);
+            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission { PermissionId = pid }).ToList();
+            await _context.SaveChangesAsync();
 
-            var existingPermissions = role.RolePermissions.ToList();
-            foreach (var rp in existingPermissions)
-                
-            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission
-            {
-                PermissionId = pid,
-                RoleId = role.Id
-            }).ToList();
-
-            await _roleRep.UpdateAsync(role);
-            await _roleRep.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success, "نقش با موفقیت بروزرسانی شد.");
+            return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.UpdatedMsg("نقش"));
         }
 
-       
         public override async Task<SingleDataResult<RoleUpdate>> GetByIdAsync(int id)
         {
-            var role = await _roleRep.GetAsync(id);
+            var role = await _context.Roles
+                .Include(r => r.RolePermissions)
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
+
             if (role == null)
-                return ResultFactory.Single<RoleUpdate>(ResultStatusEnum.NotFound, null, "نقش یافت نشد.");
+                return ResultFactory.Single<RoleUpdate>(ResultStatusEnum.NotFound, null, MessageApp.NotFoundItem("نقش"));
 
-            var roleUpdate = _mapper.Map<RoleUpdate>(role);
-            roleUpdate.PermissionIds = role.RolePermissions?.Select(rp => rp.PermissionId).ToList();
-            return ResultFactory.Single(ResultStatusEnum.Success, roleUpdate);
-        }
-
-        
-        public override async Task<ListDataResult<RoleView>> GetAllAsync(Pagination pagination)
-        {
-            var roles = await _roleRep.GetAsync(pagination);
-            var roleViews = _mapper.Map<List<RoleView>>(roles);
-            // پر کردن لیست مجوزها برای هر نقش (بهتر است با Include در ریپازیتوری انجام شود)
-            foreach (var roleView in roleViews)
-            {
-                var role = roles.First(r => r.Id == roleView.Id);
-                roleView.Permissions = _mapper.Map<List<PermissionView>>(role.RolePermissions?.Select(rp => rp.Permission));
-            }
-            var total = await _roleRep.CountAsync();
-            return ResultFactory.List(ResultStatusEnum.Success, roleViews, total, pagination);
+            var dto = _mapper.Map<RoleUpdate>(role);
+            dto.PermissionIds = role.RolePermissions.Select(rp => rp.PermissionId).ToList();
+            return ResultFactory.Single(ResultStatusEnum.Success, dto);
         }
     }
-
-
-
-    public interface IRoleRep : IBaseRep<Role, int>
-    {
-    }
-
-    
 }

@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ConfApp
 {
-    public class MyContext : DbContext
+    public class MyContext : DbContext 
     {
         #region DbSet 
         public DbSet<Person> Persons { get; set; }

@@ -71,32 +71,34 @@ using MyFrameWork.AppTool.ResultType;
 
 namespace API.Controllers.bases
 {
-    public class RoleController : GenericController<RoleView ,RoleCreate, RoleUpdate, int>
+    [ApiController]
+    [Route("api/[controller]")]
+    public class RoleController : GenericController<RoleView, RoleCreate, RoleUpdate, int>
     {
-        private readonly IRoleApp roleApp;
-        private readonly IPermissionService permissionService;
+        private readonly IRoleApp _roleApp;
+        private readonly IPermissionService _permissionService;
 
         public RoleController(IRoleApp roleApp, IPermissionService permissionService) : base(roleApp)
         {
-            this.roleApp = roleApp;
-            this.permissionService = permissionService;
+            _roleApp = roleApp;
+            _permissionService = permissionService;
         }
 
-
-
-
-       
+        // اضافه کردن متدهای مورد نیاز در صورت لزوم
+        [HttpGet("permissions")]
+        public async Task<ActionResult<ListDataResult<PermissionView>>> GetAllPermissions()
+        {
+            var permissions = await _roleApp.GetAllPermissionsAsync();
+            return ResultFactory.List<PermissionView>(ResultStatusEnum.Success, permissions);
+        }
     }
 }
 
-
 ===== FILE: API\Controllers\bases\UserController.cs =====
-// API\Controllers\bases\UserController.cs
+// API/Controllers/bases/UserController.cs - Ù†Ø³Ø®Ù‡ Ø¨Ù‡Ø¨ÙˆØ¯ ÛŒØ§ÙØªÙ‡
 using API.Attributes;
-using App.Contracts.Object.Base.auth;
 using App.Contracts.Object.Base.Users;
-using App.Contracts.Object.Shop.InvCon;
-using App.Object.Base.auth;
+using App.Object.Base.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
@@ -104,59 +106,34 @@ using MyFrameWork.AppTool.ResultType;
 
 namespace API.Controllers.bases
 {
-
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class UserController : GenericController<UsersView, UsersCreat, UsersUpdate, int>
     {
         private readonly IUsersApp _usersApp;
-        private readonly IPermissionService _permissionService;
-        public UserController(IUsersApp usersApp , IPermissionService permissionService) : base(usersApp) 
-        { 
-            _usersApp = usersApp ;
-         _permissionService = permissionService;
-         }
+        private readonly UserBusinessService _userBusiness; // Ø³Ø±ÙˆÛŒØ³ Ø¨ÛŒØ²ÛŒÙ†Ø³ Ø¬Ø¯ÛŒØ¯
 
-     
-        /*======================================================*/
-        /*                  Ù…ØªØ¯Ù‡Ø§ÛŒ Ø§Ø®ØªØµØ§ØµÛŒ                      */
-        /*======================================================*/
+        public UserController(IUsersApp usersApp, UserBusinessService userBusiness) : base(usersApp)
+        {
+            _usersApp = usersApp;
+            _userBusiness = userBusiness;
+        }
+
+        [HttpGet("/api/user/getcreateform")]
+        public async Task<ActionResult<SingleDataResult<UserCreateFormData>>> GetCreateForm()
+            => await _userBusiness.GetCreateFormAsync();  // Ø®ÛŒÙ„ÛŒ ØªÙ…ÛŒØ²!
+
         [HttpPost("/api/User/keepalive")]
         public async Task<ActionResult<StatusResult>> KeepAlive()
         {
             var userId = GetCurrentUserId();
-            if (userId <= 0)
-                return Unauthorized(ResultFactory.Status(ResultStatusEnum.Unauthorized,"Ú©Ø§Ø±Ø¨Ø± Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª."));
-
-            return await _usersApp.KeepAlive(userId);
+            return await _userBusiness.KeepAliveAsync(userId);
         }
 
-        [RequirePermission("User.Create")]
-        [HttpGet("/api/user/getcreateform")]
-        public async Task<ActionResult<SingleDataResult<UserCreateFormData>>> GetCreateForm()
-            => await _usersApp.CreateForm();
-
-
-
-
-        [HttpGet("/api/user/permissions")]
-        public async Task<ActionResult<ListDataResult<string>>> GetUserPermissions()
-        {
-            var userId = GetCurrentUserId();  // Ø§Ø² BaseController Ù…ÛŒâ€ŒÚ¯ÛŒØ±ÛŒ
-            if (userId <= 0) return Unauthorized(ResultFactory.Status(ResultStatusEnum.Unauthorized,"Ú©Ø§Ø±Ø¨Ø± Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª."));
-
-            var permissions = await _permissionService.GetUserPermissionsAsync(userId);  
-            return ResultFactory.List<string>(ResultStatusEnum.Success,permissions);
-        }
-
-        [HttpGet("/api/user/getlist")]
-
-        public async Task<ListDataResult<UserList>> GetList(){
-
-            return await _usersApp.GetList();
-
-        }
+        [HttpGet("/api/user/{id}/with-roles")]
+        public async Task<ActionResult<SingleDataResult<UserWithRolesDto>>> GetUserWithRoles(int id)
+            => await _userBusiness.GetUserWithRolesAsync(id);
     }
 }
 
@@ -236,15 +213,12 @@ namespace API.Controllers
 using App.Contracts.Object.Shop.CountTypeCon;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MyFrameWork.AppTool;
-using MyFrameWork.AppTool.ResultType;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace API.Controllers.Shop
 {
-
     [Authorize]
+    [ApiController]
+    [Route("api/[controller]")]
     public class CountTypeController : GenericController<CountTypeView, CountTypeCreate, CountTypeView, int>
     {
         public CountTypeController(ICountTypeApp app) : base(app)
@@ -281,7 +255,6 @@ namespace API.Controllers.Shop
 
 ===== FILE: API\Controllers\Shop\ProductController.cs =====
 using API.Attributes;
-using App.Contracts.Object.Shop.InvCon;
 using App.Contracts.Object.Shop.ProductCon;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -290,29 +263,23 @@ using MyFrameWork.AppTool.ResultType;
 
 namespace API.Controllers.Shop
 {
-    /// <summary>
-    /// کنترلر مربوط به مدیریت محصولات در سیستم
-    /// </summary>
     [Authorize]
-    public class ProductController :   GenericController<ProductView, ProductCreate, ProductUpdate, int>
+    [ApiController]
+    [Route("api/[controller]")]
+    public class ProductController : GenericController<ProductView, ProductCreate, ProductUpdate, int>
     {
         private readonly IProductApp _productApp;
 
-        public ProductController(IProductApp productApp) : base(productApp) 
+        public ProductController(IProductApp productApp) : base(productApp)
         {
             _productApp = productApp;
         }
 
-        /// <summary>
-        /// جستجوی محصولات بر اساس معیارهای مشخص
-        /// </summary>
-        [HttpPost("/api/product/search")]
+        [HttpPost("search")]
         public async Task<ActionResult<ListDataResult<ProductView>>> Search([FromBody] ProductSearchCriteria productSearch)
         {
             return await _productApp.SearchProducts(productSearch);
         }
-
-    
     }
 }
 
@@ -692,16 +659,24 @@ namespace API.Middleware
         public async Task InvokeAsync(HttpContext context, IPermissionService permissionService)
         {
             var endpoint = context.GetEndpoint();
-            var authorizeAttribute = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>();
 
-            // Ø§Ú¯Ø± Ø§Ú©Ø´Ù† Ù†ÛŒØ§Ø² Ø¨Ù‡ Ù„Ø§Ú¯ÛŒÙ† Ù†Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯
-            if (authorizeAttribute == null)
+            // Ø§Ú¯Ø± endpoint ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø´Øª ÛŒØ§ Ù†ÛŒØ§Ø²ÛŒ Ø¨Ù‡ authorize Ù†Ø¯Ø§Ø´Øª
+            if (endpoint == null)
             {
                 await _next(context);
                 return;
             }
 
-            // 1. Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª
+            var authorizeAttribute = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>();
+
+            // Ø§Ú¯Ø± Ø§Ú©Ø´Ù† Ù†ÛŒØ§Ø²ÛŒ Ø¨Ù‡ Ù„Ø§Ú¯ÛŒÙ† Ù†Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯
+            if (authorizeAttribute == null && !RequiresPermission(endpoint))
+            {
+                await _next(context);
+                return;
+            }
+
+            // Ø¨Ø±Ø±Ø³ÛŒ Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª
             if (!context.User.Identity?.IsAuthenticated ?? true)
             {
                 context.Response.StatusCode = 401;
@@ -709,7 +684,7 @@ namespace API.Middleware
                 return;
             }
 
-            // 2. Ø§Ø³ØªØ®Ø±Ø§Ø¬ userId
+            // Ø§Ø³ØªØ®Ø±Ø§Ø¬ userId
             var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (!int.TryParse(userIdClaim, out int userId))
             {
@@ -720,55 +695,69 @@ namespace API.Middleware
 
             context.Items["UserId"] = userId;
 
-            // 3. Ø±ÙˆØ´ Û³: Ø§Ø³ØªØ®Ø±Ø§Ø¬ Ù…Ø¬ÙˆØ² Ø§Ø² RouteData (Ø¨Ø¯ÙˆÙ† Ù†ÛŒØ§Ø² Ø¨Ù‡ RequirePermissionAttribute)
-            var routeData = context.GetRouteData();
-            var controllerName = routeData?.Values["controller"]?.ToString();
-            var actionName = routeData?.Values["action"]?.ToString();
-
-            string requiredPermission = null;
-
-            if (!string.IsNullOrEmpty(controllerName) && !string.IsNullOrEmpty(actionName))
+            // ================================================
+            // Ø±ÙˆØ´ Ø§ÙˆÙ„: Ø¨Ø±Ø±Ø³ÛŒ RequirePermissionAttribute (Ø§Ú¯Ø± Ø±ÙˆÛŒ Ø§Ú©Ø´Ù† ÛŒØ§ Ú©Ù†ØªØ±Ù„Ø± Ø¨Ø§Ø´Ø¯)
+            // ================================================
+            var requirePermissionAttr = endpoint?.Metadata.GetMetadata<RequirePermissionAttribute>();
+            if (requirePermissionAttr != null)
             {
-                requiredPermission = actionName switch
-                {
-                    "GetAll" or "GetById" => $"{controllerName}.View",
-                    "Create" => $"{controllerName}.Create",
-                    "Update" => $"{controllerName}.Update",
-                    "Delete" => $"{controllerName}.Delete",
-                    _ => null   // Ø³Ø§ÛŒØ± Ø§Ú©Ø´Ù†â€ŒÙ‡Ø§ Ø¨Ø¯ÙˆÙ† Ø¨Ø±Ø±Ø³ÛŒ Ù…Ø¬ÙˆØ² (ÛŒØ§ Ù…ÛŒâ€ŒØªÙˆØ§Ù†ÛŒ deny Ú©Ù†ÛŒ)
-                };
-            }
-
-            // Ø§Ú¯Ø± Ù…Ø¬ÙˆØ²ÛŒ ØªØ¹Ø±ÛŒÙ Ø´Ø¯Ù‡ Ø¨ÙˆØ¯ØŒ Ø¢Ù† Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†
-            if (!string.IsNullOrEmpty(requiredPermission))
-            {
-                bool hasPermission = await permissionService.HasPermissionAsync(userId, requiredPermission);
+                bool hasPermission = await permissionService.HasPermissionAsync(userId, requirePermissionAttr.Permission);
                 if (!hasPermission)
                 {
                     context.Response.StatusCode = 403;
-                    await context.Response.WriteAsync("Ø´Ù…Ø§ Ø¯Ø³ØªØ±Ø³ÛŒ Ù„Ø§Ø²Ù… Ø±Ø§ Ù†Ø¯Ø§Ø±ÛŒØ¯");
+                    await context.Response.WriteAsync($"Ø¯Ø³ØªØ±Ø³ÛŒ Ù…Ù…Ù†ÙˆØ¹: Ø´Ù…Ø§ Ø§Ø¬Ø§Ø²Ù‡ '{requirePermissionAttr.Permission}' Ø±Ø§ Ù†Ø¯Ø§Ø±ÛŒØ¯.");
                     return;
                 }
             }
 
-            // (Ø§Ø®ØªÛŒØ§Ø±ÛŒ) Ø§Ú¯Ø± Ù…ÛŒâ€ŒØ®ÙˆØ§Ù‡ÛŒ RequirePermissionAttribute Ù‡Ù…Ú†Ù†Ø§Ù† Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ Ø´ÙˆØ¯ØŒ Ù…ÛŒâ€ŒØªÙˆØ§Ù†ÛŒ Ø¢Ù† Ø±Ø§ Ù†ÛŒØ² Ú†Ú© Ú©Ù†ÛŒ
-            var requirePermissionAttribute = endpoint?.Metadata.GetMetadata<RequirePermissionAttribute>();
-            if (requirePermissionAttribute != null)
+            // ================================================
+            // Ø±ÙˆØ´ Ø¯ÙˆÙ…: Ø¨Ø±Ø±Ø³ÛŒ Ø®ÙˆØ¯Ú©Ø§Ø± Ø¨Ø± Ø§Ø³Ø§Ø³ Ù†Ø§Ù… Ú©Ù†ØªØ±Ù„Ø± Ùˆ Ø§Ú©Ø´Ù† (Ø¨Ø±Ø§ÛŒ GenericControllerÙ‡Ø§)
+            // ================================================
+            var routeData = context.GetRouteData();
+            var controllerName = routeData?.Values["controller"]?.ToString();
+            var actionName = routeData?.Values["action"]?.ToString();
+
+            if (!string.IsNullOrEmpty(controllerName) && !string.IsNullOrEmpty(actionName))
             {
-                bool hasPermission = await permissionService.HasPermissionAsync(userId, requirePermissionAttribute.Permission);
-                if (!hasPermission)
+                string? requiredPermission = GetPermissionFromAction(controllerName, actionName);
+
+                if (!string.IsNullOrEmpty(requiredPermission))
                 {
-                    context.Response.StatusCode = 403;
-                    await context.Response.WriteAsync($"Ø¯Ø³ØªØ±Ø³ÛŒ Ù…Ù…Ù†ÙˆØ¹: Ø´Ù…Ø§ Ø§Ø¬Ø§Ø²Ù‡ '{requirePermissionAttribute.Permission}' Ø±Ø§ Ù†Ø¯Ø§Ø±ÛŒØ¯.");
-                    return;
+                    bool hasPermission = await permissionService.HasPermissionAsync(userId, requiredPermission);
+                    if (!hasPermission)
+                    {
+                        context.Response.StatusCode = 403;
+                        await context.Response.WriteAsync($"Ø´Ù…Ø§ Ø¯Ø³ØªØ±Ø³ÛŒ Ù„Ø§Ø²Ù… Ø±Ø§ Ù†Ø¯Ø§Ø±ÛŒØ¯: {requiredPermission}");
+                        return;
+                    }
                 }
             }
 
             await _next(context);
         }
+
+        private static bool RequiresPermission(Endpoint? endpoint)
+        {
+            if (endpoint == null) return false;
+            return endpoint.Metadata.GetMetadata<RequirePermissionAttribute>() != null;
+        }
+
+        private static string? GetPermissionFromAction(string controllerName, string actionName)
+        {
+            // Ø­Ø°Ù Ú©Ù„Ù…Ù‡ "Controller" Ø§Ø² Ù†Ø§Ù… Ú©Ù†ØªØ±Ù„Ø±
+            string cleanController = controllerName.Replace("Controller", "");
+
+            return actionName switch
+            {
+                "GetAll" or "GetById" => $"{cleanController}.View",
+                "Create" => $"{cleanController}.Create",
+                "Update" => $"{cleanController}.Update",
+                "Delete" => $"{cleanController}.Delete",
+                _ => null
+            };
+        }
     }
 
-    // Extension Ø¨Ø±Ø§ÛŒ Ø«Ø¨Øª Middleware
     public static class TokenValidationMiddlewareExtensions
     {
         public static IApplicationBuilder UseTokenValidation(this IApplicationBuilder builder)
@@ -1121,18 +1110,21 @@ namespace API.utility
 
 ===== FILE: API\appsettings.json =====
 {
-    "Kestrel": {
+  "Kestrel": {
     "Endpoints": {
       "Http": {
         "Url": "http://0.0.0.0:90"
       }
     }
   },
-  
   "ConnectionStrings": {
     "DefaultConnection": "Server=.; Database=crm; User Id=sa; Password=Nm123456; Encrypt=True; TrustServerCertificate=True; MultipleActiveResultSets=True;"
   },
-
+  "Jwt": {
+    "Issuer": "yourapp",
+    "Audience": "yourapp",
+    "SecretKey": "your_secret_key_at_least_16_chars"
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Information",
@@ -1141,7 +1133,6 @@ namespace API.utility
   },
   "AllowedHosts": "*"
 }
-
 
 ===== FILE: API\Program.cs =====
 using API.Hubs;
@@ -1163,26 +1154,35 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // ========================================================================
-// REGION 1: Dependency Injection - Service Registration
+// REGION 1: Configuration
 // ========================================================================
 
-#region Service Registration
+// Ø®ÙˆØ§Ù†Ø¯Ù† ØªÙ†Ø¸ÛŒÙ…Ø§Øª JWT Ø§Ø² appsettings.json (Ø¨Ø¹Ø¯Ø§Ù‹ Ø§Ø¶Ø§ÙÙ‡ Ù…ÛŒâ€ŒÚ©Ù†ÛŒÙ…)
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "yourapp";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "yourapp";
+var jwtSecretKey = builder.Configuration["Jwt:SecretKey"] ?? "your_secret_key_at_least_16_chars";
 
-// Add controllers and API exploration services
-builder.Services.AddControllers();
+// ========================================================================
+// REGION 2: Service Registration
+// ========================================================================
+
+builder.Services.AddControllers(options =>
+{
+    // Ø§Ø¶Ø§ÙÙ‡ Ú©Ø±Ø¯Ù† ResultFilter Ø¨Ù‡ ØµÙˆØ±Øª Global
+    options.Filters.Add<ResultFilter>();
+});
 builder.Services.AddEndpointsApiExplorer();
 
-// Configure Swagger/OpenAPI for API documentation
+// Configure Swagger
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "CRM API", 
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "CRM API",
         Version = "v1",
-        Description = "API Ù…Ø¯ÛŒØ±ÛŒØª Ù…Ø´ØªØ±ÛŒØ§Ù† - Ø¨Ø±Ø§ÛŒ ØªØ³Øª Ø§Ø¨ØªØ¯Ø§ Ø±ÙˆÛŒ Ø¯Ú©Ù…Ù‡ Authorize Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯"
+        Description = "API Ù…Ø¯ÛŒØ±ÛŒØª Ù…Ø´ØªØ±ÛŒØ§Ù†"
     });
 
-    // Change to HTTP Bearer authentication instead of OAuth2
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -1190,7 +1190,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter 'Bearer' followed by your token. Example: Bearer abc123xyz"
+        Description = "ØªÙˆÚ©Ù† Ø®ÙˆØ¯ Ø±Ø§ ÙˆØ§Ø±Ø¯ Ú©Ù†ÛŒØ¯: Bearer {your_token}"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -1198,168 +1198,130 @@ builder.Services.AddSwaggerGen(c =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference 
-                { 
-                    Type = ReferenceType.SecurityScheme, 
-                    Id = "Bearer" 
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
                 }
             },
-            new[] { "read", "write" }
+            Array.Empty<string>()
         }
-    });
-
-    c.TagActionsBy(api =>
-    {
-        if (api.ActionDescriptor.DisplayName.Contains("AuthController"))
-            return new[] { "Authentication" };
-        return new[] { api.ActionDescriptor.RouteValues["controller"] };
     });
 });
 
-// Add real-time communication support
+// SignalR for Real-time
 builder.Services.AddSignalR();
 
-// Enable access to HttpContext in services
+// HttpContext Accessor
 builder.Services.AddHttpContextAccessor();
 
-#endregion
-
 // ========================================================================
-// REGION 2: CORS Configuration
+// REGION 3: CORS Configuration
 // ========================================================================
 
-#region CORS Configuration
-
-// Allow specific origin for Angular development server
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowAngular", policy =>
     {
-        policy.WithOrigins("http://localhost:4200")  // Angular default dev port
+        policy.WithOrigins("http://localhost:4200")
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
     });
 });
 
-#endregion
-
 // ========================================================================
-// REGION 3: JWT Authentication Setup
+// REGION 4: JWT Authentication
 // ========================================================================
-
-#region JWT Authentication
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,               // Ensure token comes from trusted issuer
-            ValidateAudience = true,             // Ensure token is for this audience
-            ValidateLifetime = true,             // Check token expiration
-            ValidateIssuerSigningKey = true,     // Verify signature
-            ValidIssuer = "yourapp",             // Issuer identifier
-            ValidAudience = "yourapp",           // Audience identifier
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_at_least_16_chars"))
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey))
+        };
+
+        // Ø¨Ø±Ø§ÛŒ SignalR - Ø¯Ø±ÛŒØ§ÙØª ØªÙˆÚ©Ù† Ø§Ø² QueryString
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
-#endregion
-
 // ========================================================================
-// REGION 4: Database and Infrastructure Setup
+// REGION 5: Database and Infrastructure (ÛŒÚ©Ø¨Ø§Ø± Ùˆ Ø¯Ø±Ø³Øª)
 // ========================================================================
 
-#region Database & Infrastructure
-
-// Get connection string from configuration or use SQLite as fallback
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? "Data Source=dev.db";
 
-// Initialize CRM management with appropriate database provider
-CRMBootstraper.AddCRMManagement(
-    builder.Services,
-    connectionString,
-    connectionString.Contains("Data Source=dev.db") ? DbProvider.Sqlite : DbProvider.SqlServer
-);
+var dbProvider = connectionString.Contains("Data Source=dev.db")
+    ? DbProvider.Sqlite
+    : DbProvider.SqlServer;
 
-#endregion
+CRMBootstraper.AddCRMManagement(builder.Services, connectionString, dbProvider);
 
-// ========================================================================
-// REGION 5: Custom Application Services
-// ========================================================================
-
-#region Custom Services
-
-// File handling service for uploads/downloads
-builder.Services.AddScoped<IFileService, API.utility.FileService>();
-
-// Permission discovery service to find all permissions from controllers
+// Ø«Ø¨Øª Ø³Ø±ÙˆÛŒØ³â€ŒÙ‡Ø§ÛŒ Ø§Ø¶Ø§ÙÛŒ Ú©Ù‡ Ø¯Ø± CRMBootstraper Ù†ÛŒØ³ØªÙ†Ø¯
+builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IPermissionDiscoveryService, PermissionDiscoveryService>();
-
-// Database seeder for permissions
 builder.Services.AddScoped<PermissionSeeder>();
 
-#endregion
+// ========================================================================
+// REGION 6: Build App
+// ========================================================================
 
 var app = builder.Build();
 
 // ========================================================================
-// REGION 6: Development Environment Configuration
+// REGION 7: Development Environment
 // ========================================================================
-
-#region Development Configuration
 
 if (app.Environment.IsDevelopment())
 {
-    // Enable Swagger UI for API testing
     app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM API V1");
-    c.RoutePrefix = "swagger";
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "CRM API V1");
+        c.RoutePrefix = "swagger";
+        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+        c.DefaultModelsExpandDepth(0);
+        c.EnableTryItOutByDefault();
+    });
 
-    // Ø¨Ø³ØªÙ† Ù¾ÛŒØ´â€ŒÙØ±Ø¶ Ù‡Ù…Ù‡ Ø¹Ù…Ù„ÛŒØ§Øªâ€ŒÙ‡Ø§ (Actions/Endpoints)
-    c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
-
-    // Ø¨Ø³ØªÙ† Ù¾ÛŒØ´â€ŒÙØ±Ø¶ Ù‡Ù…Ù‡ Ù…Ø¯Ù„â€ŒÙ‡Ø§ (Schemas) â€“ Ù…Ù‚Ø¯Ø§Ø± -1 ÛŒØ¹Ù†ÛŒ Ø§ØµÙ„Ø§Ù‹ Ù†Ù…Ø§ÛŒØ´ Ù†Ø¯Ù‡
-    c.DefaultModelsExpandDepth(0);
-    c.EnableTryItOutByDefault();
-
-    c.DisplayOperationId();
-    c.DisplayRequestDuration();
-    c.HeadContent = "<style> .swagger-ui .topbar { background-color: #1976D2; } </style>";
-});
-
-    // Seed permissions from controller attributes (development only)
-    using var scope = app.Services.CreateScope();
-    var permissionSeeder = scope.ServiceProvider.GetRequiredService<PermissionSeeder>();
-    await permissionSeeder.SeedAsync();
+    // Seed permissions ÙÙ‚Ø· Ø¯Ø± Ù…Ø­ÛŒØ· ØªÙˆØ³Ø¹Ù‡
+    using (var scope = app.Services.CreateScope())
+    {
+        var permissionSeeder = scope.ServiceProvider.GetRequiredService<PermissionSeeder>();
+        await permissionSeeder.SeedAsync();
+    }
 }
 
-#endregion
-
 // ========================================================================
-// REGION 7: Middleware Pipeline
+// REGION 8: Middleware Pipeline
 // ========================================================================
 
-#region Static Files & Routing
+app.UseStaticFiles();
+app.UseRouting();
+app.UseCors("AllowAngular");
 
-app.UseStaticFiles();           // Serve static files from wwwroot
-app.UseRouting();               // Enable routing
-
-#endregion
-
-#region CORS Middleware
-
-app.UseCors("AllowAll");        // Apply CORS policy
-
-#endregion
-
-#region Request Logging Middleware
-
-// Log all incoming requests and outgoing responses
+// Custom middleware
 app.Use(async (context, next) =>
 {
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
@@ -1368,33 +1330,14 @@ app.Use(async (context, next) =>
     logger.LogInformation("Response: {StatusCode}", context.Response.StatusCode);
 });
 
-#endregion
-
-#region Preflight Request Handling
-
-// Handle CORS preflight (OPTIONS) requests
-app.Use(async (context, next) =>
-{
-    if (context.Request.Method == "OPTIONS")
-    {
-        context.Response.StatusCode = 200;
-        await context.Response.CompleteAsync();
-        return;
-    }
-    await next();
-});
-
-#endregion
-
-#region WebSocket Token Extraction
-
-// Extract JWT token from query string for SignalR WebSocket connections
+// WebSocket Token Extraction (ØªÙˆØ³Ø· JWT Events Ù…Ø¯ÛŒØ±ÛŒØª Ø´Ø¯ØŒ Ø§ÛŒÙ† middleware Ø§Ø¶Ø§ÙÛŒ Ø§Ø³Øª)
+// Ø§Ù…Ø§ Ø¨Ø±Ø§ÛŒ Ø§Ø·Ù…ÛŒÙ†Ø§Ù† Ø¨ÛŒØ´ØªØ± Ù†Ú¯Ù‡ Ù…ÛŒâ€ŒØ¯Ø§Ø±ÛŒÙ…
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/chatHub"))
     {
         var accessToken = context.Request.Query["access_token"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(accessToken))
+        if (!string.IsNullOrEmpty(accessToken) && string.IsNullOrEmpty(context.Request.Headers.Authorization))
         {
             context.Request.Headers.Authorization = $"Bearer {accessToken}";
         }
@@ -1402,92 +1345,45 @@ app.Use(async (context, next) =>
     await next();
 });
 
-#endregion
-
-#region Authentication & Authorization
-
-app.UseAuthentication();        // Validate JWT tokens
-app.UseTokenValidation();       // Custom token validation middleware
-app.UseAuthorization();         // Authorize based on roles/policies
-
-#endregion
+app.UseAuthentication();
+app.UseTokenValidation();
+app.UseAuthorization();
 
 // ========================================================================
-// REGION 8: Real-time Communication Hubs
+// REGION 9: Hubs & Controllers
 // ========================================================================
 
-#region SignalR Hubs
-
-// Map ChatHub for real-time messaging
 app.MapHub<ChatHub>("/chatHub");
-
-#endregion
+app.MapControllers();
 
 // ========================================================================
-// REGION 9: File System Setup
+// REGION 10: File System Setup
 // ========================================================================
 
-#region File System Setup
-
-// Ensure uploads directory exists for file storage
-var uploadsPath = Path.Combine(app.Environment.WebRootPath, "uploads");
+var uploadsPath = Path.Combine(app.Environment.WebRootPath ?? Directory.GetCurrentDirectory(), "uploads");
 Directory.CreateDirectory(uploadsPath);
 
-#endregion
-
 // ========================================================================
-// REGION 10: Background Services
+// REGION 11: Database Seeding (ÛŒÚ©Ø¨Ø§Ø± Ø¯Ø± Ø§Ù†ØªÙ‡Ø§)
 // ========================================================================
 
-#region Background Services
-
-// Timer to check for inactive users every minute
-var timer = new Timer(_ =>
-{
-    using var scope = app.Services.CreateScope();
-    var statusService = scope.ServiceProvider.GetRequiredService<UserStatusService>();
-    statusService.CheckInactive();  // Mark users as offline if inactive
-}, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
-
-#endregion
-
-// ========================================================================
-// REGION 11: Controller Mapping
-// ========================================================================
-
-#region Controller Mapping
-
-app.MapControllers();   // Map all API controllers
-
-#endregion
-
-// ========================================================================
-// REGION 12: Database Seeding
-// ========================================================================
-
-#region Database Seeding
-
-// Seed initial data (Users, Roles, Permissions) on application startup
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MyContext>();
+
+    // Ø§Ø¹Ù…Ø§Ù„ Ø®ÙˆØ¯Ú©Ø§Ø± MigrationÙ‡Ø§
+    await context.Database.MigrateAsync();
+
+    // Seed Ú©Ø±Ø¯Ù† Ø¯Ø§Ø¯Ù‡â€ŒÙ‡Ø§ÛŒ Ø§ÙˆÙ„ÛŒÙ‡ (Ú©Ø§Ø±Ø¨Ø±ØŒ Ù†Ù‚Ø´â€ŒÙ‡Ø§)
     var seeder = new DatabaseSeeder(context);
-    seeder.SeedAll();   // Populate database with default data
+    seeder.SeedAll();
 }
 
-#endregion
-
 // ========================================================================
-// REGION 13: Application Execution
+// REGION 12: Run Application
 // ========================================================================
 
-app.Run();  // Start the application
-
-===== FILE: API\test.js =====
-
-
-===== FILE: API\user-status.json =====
-{"4":{},"1013":{},"1014":{}}
+app.Run();
 
 ===== FILE: App\Object\Base\auth\UserContext\UserContext.cs =====
 
@@ -1526,71 +1422,58 @@ namespace App.Object.Base.auth.UserContext
 ===== FILE: App\Object\Base\auth\AuthApp.cs =====
 using App.Contracts.Object.Base.auth;
 using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
+using ConfApp;
 
 namespace App.Object.Base.Auth
 {
-
     public class AuthApp : IAuthApp
     {
-        private readonly IUserRepository _userRepository;
+        private readonly MyContext _context;
         private readonly ITokenApp _tokenService;
 
-        public AuthApp(IUserRepository userRepository, ITokenApp tokenService)
+        public AuthApp(MyContext context, ITokenApp tokenService)
         {
-            _userRepository = userRepository;
+            _context = context;
             _tokenService = tokenService;
         }
 
- public async Task<SingleDataResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
-{
-    var user = await _userRepository.GetByUsernameAsync(request.Username);
-    if (user == null)
-        return ResultFactory.Single<AuthResponseDto>(ResultStatusEnum.NotFound ,null ,"Ú©Ø§Ø±Ø¨Ø± ÛŒØ§ÙØª Ù†Ø´Ø¯");
+        public async Task<SingleDataResult<AuthResponseDto>> LoginAsync(LoginRequestDto request)
+        {
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Username == request.Username && !u.IsDeleted);
+            if (user == null)
+                return ResultFactory.Single<AuthResponseDto>(ResultStatusEnum.NotFound, null, "Ú©Ø§Ø±Ø¨Ø± ÛŒØ§ÙØª Ù†Ø´Ø¯");
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+                return ResultFactory.Single<AuthResponseDto>(ResultStatusEnum.NotFound, null, "Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª.");
+            var token = _tokenService.GenerateToken(user);
+            return ResultFactory.Single(ResultStatusEnum.Accepted, new AuthResponseDto
+            {
+                UserId = user.Id,
+                Username = user.Username,
+                FullName = user.FullName,
+                Token = token
+            });
+        }
 
-    var isPasswordCorrect = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
-    if (!isPasswordCorrect)
-        return ResultFactory.Single<AuthResponseDto>(ResultStatusEnum.NotFound,null,"Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ø´ØªØ¨Ø§Ù‡ Ø§Ø³Øª.");
-
-    var token = _tokenService.GenerateToken(user);
-
-    return ResultFactory.Single<AuthResponseDto>(ResultStatusEnum.Accepted,new AuthResponseDto
-    {
-        UserId = user.Id,
-        Username = user.Username,
-        FullName = user.FullName,
-        Token = token
-    });
-}
-
-      public async Task<StatusResult> RegisterAsync(RegisterRequestDto request)
-{
-    if (await _userRepository.ExistsByUsername(request.Username))
-        return ResultFactory.Status(ResultStatusEnum.Conflict,null,"Ø§ÛŒÙ…ÛŒÙ„ ÙˆØ§Ø±Ø¯ Ø´Ø¯Ù‡ Ù‚Ø¨Ù„Ø§Ù‹ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.");
-
-    var user = new User
-    {
-        FullName = request.FullName,
-        Username = request.Username,
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
-    };
-
-    await _userRepository.AddAsync(user);
-    var token = _tokenService.GenerateToken(user);
-
-    return ResultFactory.Status(ResultStatusEnum.Accepted);
-}
+        public async Task<StatusResult> RegisterAsync(RegisterRequestDto request)
+        {
+            if (await _context.Users.AnyAsync(u => u.Username == request.Username && !u.IsDeleted))
+                return ResultFactory.Status(ResultStatusEnum.Conflict, "Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ ØªÚ©Ø±Ø§Ø±ÛŒ Ø§Ø³Øª.");
+            var user = new User
+            {
+                FullName = request.FullName,
+                Username = request.Username,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                Email = request.Username // ÛŒØ§ Ø§Ø² ÙÛŒÙ„Ø¯ Ù…Ø¬Ø²Ø§
+            };
+            await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();
+            return ResultFactory.Status(ResultStatusEnum.Accepted);
+        }
     }
-    public interface IUserRepository 
-    {
-        Task<User?> GetByEmailAsync(string email);
-        Task<User?> GetByUsernameAsync(string username);
-        Task AddAsync(User user);
-        Task<bool> ExistsByEmailAsync(string email);
-        Task<bool> ExistsByUsername(string username);
-    }
-
 }
 
 ===== FILE: App\Object\Base\auth\IPermissionRep.cs =====
@@ -1609,32 +1492,67 @@ namespace App.Object.Base.auth
 }
 
 ===== FILE: App\Object\Base\auth\PermissionService.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using App.Contracts.Object.Base.auth;
+using Microsoft.EntityFrameworkCore;
+using ConfApp;
 
 namespace App.Object.Base.auth
 {
-    public class PermissionService :IPermissionService
+    public class PermissionService : IPermissionService
     {
-       private readonly IPermissionRep _permissionRep;
+        private readonly MyContext _context;
 
-        public PermissionService (IPermissionRep permissionRep)
+        public PermissionService(MyContext context)
         {
-            _permissionRep = permissionRep;
+            _context = context;
         }
 
         public async Task<bool> HasPermissionAsync(int userId, string permission)
         {
-            return await _permissionRep.HasPermissionAsync(userId, permission);
+            // ابتدا بررسی کنیم کاربر ادمین است؟ (Admin نقش ویژه دارد)
+            var isAdmin = await _context.UserRoles
+                .Where(ur => ur.UserId == userId && !ur.IsDeleted)
+                .Include(ur => ur.Role)
+                .AnyAsync(ur => ur.Role.Name == "Admin");
+
+            if (isAdmin) return true;
+
+            // بررسی دسترسی معمولی
+            return await _context.UserRoles
+                .Where(ur => ur.UserId == userId && !ur.IsDeleted)
+                .Include(ur => ur.Role)
+                .ThenInclude(r => r.RolePermissions)
+                .ThenInclude(rp => rp.Permission)
+                .AnyAsync(ur => ur.Role.RolePermissions.Any(rp => rp.Permission.Name == permission));
         }
 
-        public async Task<List<string>> GetUserPermissionsAsync(int userId){
-            return await _permissionRep.GetUserPermissionsAsync(userId);
-        }
+        public async Task<List<string>> GetUserPermissionsAsync(int userId)
+        {
+            // بررسی ادمین
+            var isAdmin = await _context.UserRoles
+                .Where(ur => ur.UserId == userId && !ur.IsDeleted)
+                .Include(ur => ur.Role)
+                .AnyAsync(ur => ur.Role.Name == "Admin");
 
+            if (isAdmin)
+            {
+                // ادمین به همه دسترسی‌ها دارد
+                return await _context.Permissions
+                    .Where(p => !p.IsDeleted)
+                    .Select(p => p.Name)
+                    .ToListAsync();
+            }
+
+            // برگرداندن دسترسی‌های معمولی
+            return await _context.UserRoles
+                .Where(ur => ur.UserId == userId && !ur.IsDeleted)
+                .Include(ur => ur.Role)
+                .ThenInclude(r => r.RolePermissions)
+                .ThenInclude(rp => rp.Permission)
+                .SelectMany(ur => ur.Role.RolePermissions.Select(rp => rp.Permission.Name))
+                .Distinct()
+                .ToListAsync();
+        }
     }
 }
 
@@ -1681,118 +1599,4 @@ namespace App.Object.Base.auth
         }
     }
 }
-
-===== FILE: App\Object\Base\Roles\RoleApp.cs =====
-using App.Contracts.Object.Base.Roles;
-using App.Object.Base.auth;
-using AutoMapper;
-using Domain.Objects.Base;
-using MyFrameWork.AppTool;
-using MyFrameWork.AppTool.ResultType;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace App.Object.Base.Roles
-{
-    // App\Object\Base\Roles\RoleApp.cs
-    public class RoleApp : CrudService<Role, RoleView, RoleCreate, RoleUpdate, int>, IRoleApp
-    {
-        private readonly IRoleRep _roleRep;
-        private readonly IPermissionRep _permissionRep; // دسترسی به جدول مجوزها
-        private readonly IMapper _mapper;
-
-        public RoleApp(IRoleRep roleRep, IMapper mapper, IPermissionRep permissionRep)
-            : base(roleRep, mapper)
-        {
-            _roleRep = roleRep;
-            _mapper = mapper;
-            _permissionRep = permissionRep;
-        }
-
-        // دریافت تمام مجوزها برای استفاده در فرم
-        public async Task<List<PermissionView>> GetAllPermissionsAsync()
-        {
-            var permissions = new List<PermissionView>();
-            return _mapper.Map<List<PermissionView>>(permissions);
-        }
-
-        // override CreateAsync برای ذخیره RolePermissions
-        public override async Task<StatusResult> CreateAsync(RoleCreate dto)
-        {
-            // اعتبارسنجی اولیه توسط ModelValidator در CrudService انجام می‌شود
-            var role = _mapper.Map<Role>(dto);
-            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission
-            {
-                PermissionId = pid,
-                RoleId = role.Id // بعد از ذخیره role مقدار Id مشخص می‌شود
-            }).ToList();
-
-            await _roleRep.CreateAsync(role);
-            await _roleRep.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success, "نقش با موفقیت ایجاد شد.");
-        }
-
-        // override UpdateAsync برای بروزرسانی RolePermissions
-        public override async Task<StatusResult> UpdateAsync(RoleUpdate dto)
-        {
-            var role = await _roleRep.GetAsync(dto.Id);
-            if (role == null)
-                return ResultFactory.Status(ResultStatusEnum.NotFound, "نقش یافت نشد.");
-
-            _mapper.Map(dto, role); 
-
-            var existingPermissions = role.RolePermissions.ToList();
-            foreach (var rp in existingPermissions)
-                
-            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission
-            {
-                PermissionId = pid,
-                RoleId = role.Id
-            }).ToList();
-
-            await _roleRep.UpdateAsync(role);
-            await _roleRep.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success, "نقش با موفقیت بروزرسانی شد.");
-        }
-
-       
-        public override async Task<SingleDataResult<RoleUpdate>> GetByIdAsync(int id)
-        {
-            var role = await _roleRep.GetAsync(id);
-            if (role == null)
-                return ResultFactory.Single<RoleUpdate>(ResultStatusEnum.NotFound, null, "نقش یافت نشد.");
-
-            var roleUpdate = _mapper.Map<RoleUpdate>(role);
-            roleUpdate.PermissionIds = role.RolePermissions?.Select(rp => rp.PermissionId).ToList();
-            return ResultFactory.Single(ResultStatusEnum.Success, roleUpdate);
-        }
-
-        
-        public override async Task<ListDataResult<RoleView>> GetAllAsync(Pagination pagination)
-        {
-            var roles = await _roleRep.GetAsync(pagination);
-            var roleViews = _mapper.Map<List<RoleView>>(roles);
-            // پر کردن لیست مجوزها برای هر نقش (بهتر است با Include در ریپازیتوری انجام شود)
-            foreach (var roleView in roleViews)
-            {
-                var role = roles.First(r => r.Id == roleView.Id);
-                roleView.Permissions = _mapper.Map<List<PermissionView>>(role.RolePermissions?.Select(rp => rp.Permission));
-            }
-            var total = await _roleRep.CountAsync();
-            return ResultFactory.List(ResultStatusEnum.Success, roleViews, total, pagination);
-        }
-    }
-
-
-
-    public interface IRoleRep : IBaseRep<Role, int>
-    {
-    }
-
-    
-}
-
 
