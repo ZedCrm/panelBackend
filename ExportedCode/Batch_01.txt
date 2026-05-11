@@ -63,8 +63,10 @@ namespace API.Controllers.bases
 }
 
 ===== FILE: API\Controllers\bases\RoleController.cs =====
+// API/Controllers/bases/RoleController.cs
 using App.Contracts.Object.Base.auth;
 using App.Contracts.Object.Base.Roles;
+using App.Object.Base.Roles;
 using Microsoft.AspNetCore.Mvc;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
@@ -75,21 +77,18 @@ namespace API.Controllers.bases
     [Route("api/[controller]")]
     public class RoleController : GenericController<RoleView, RoleCreate, RoleUpdate, int>
     {
-        private readonly IRoleApp _roleApp;
-        private readonly IPermissionService _permissionService;
+        private readonly RoleBusinessService _roleBusiness;
 
-        public RoleController(IRoleApp roleApp, IPermissionService permissionService) : base(roleApp)
+        public RoleController(IRoleApp roleApp, RoleBusinessService roleBusiness) : base(roleApp)
         {
-            _roleApp = roleApp;
-            _permissionService = permissionService;
+            _roleBusiness = roleBusiness;
         }
 
-        // اضافه کردن متدهای مورد نیاز در صورت لزوم
         [HttpGet("permissions")]
         public async Task<ActionResult<ListDataResult<PermissionView>>> GetAllPermissions()
         {
-            var permissions = await _roleApp.GetAllPermissionsAsync();
-            return ResultFactory.List<PermissionView>(ResultStatusEnum.Success, permissions);
+            var permissions = await _roleBusiness.GetAllPermissionsAsync();
+            return ResultFactory.List(ResultStatusEnum.Success, permissions);
         }
     }
 }
@@ -1385,6 +1384,9 @@ using (var scope = app.Services.CreateScope())
 
 app.Run();
 
+===== FILE: API\user-status.json =====
+{}
+
 ===== FILE: App\Object\Base\auth\UserContext\UserContext.cs =====
 
 using System.Security.Claims;
@@ -1596,6 +1598,80 @@ namespace App.Object.Base.auth
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+    }
+}
+
+===== FILE: App\Object\Base\Roles\RoleApp.cs =====
+// App/Object/Base/Roles/RoleApp.cs
+using App.Contracts.Object.Base.Roles;
+using AutoMapper;
+using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+using ConfApp;
+
+namespace App.Object.Base.Roles
+{
+    public class RoleApp : CrudService<Role, RoleView, RoleCreate, RoleUpdate, int>, IRoleApp
+    {
+        private readonly RoleBusinessService _roleBusiness;
+
+        public RoleApp(MyContext context, IMapper mapper, RoleBusinessService roleBusiness)
+            : base(context, mapper)
+        {
+            _roleBusiness = roleBusiness;
+        }
+
+        public async Task<List<PermissionView>> GetAllPermissionsAsync()
+            => await _roleBusiness.GetAllPermissionsAsync();
+
+        public override async Task<StatusResult> CreateAsync(RoleCreate dto)
+        {
+            // validation با استفاده از BusinessService
+            var uniqueCheck = await _roleBusiness.ValidateRoleUniqueAsync(dto.Rolename);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
+
+            var role = _mapper.Map<Role>(dto);
+            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission { PermissionId = pid }).ToList();
+            await _context.Roles.AddAsync(role);
+            await _context.SaveChangesAsync();
+            return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.CreatedMsg("نقش"));
+        }
+
+        public override async Task<StatusResult> UpdateAsync(RoleUpdate dto)
+        {
+            var uniqueCheck = await _roleBusiness.ValidateRoleUniqueAsync(dto.Rolename, dto.Id);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
+
+            var role = await _context.Roles
+                .Include(r => r.RolePermissions)
+                .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
+
+            if (role == null)
+                return ResultFactory.Status(ResultStatusEnum.NotFound, MessageApp.NotFoundItem("نقش"));
+
+            _mapper.Map(dto, role);
+            _context.RolePermissions.RemoveRange(role.RolePermissions);
+            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission { PermissionId = pid }).ToList();
+            await _context.SaveChangesAsync();
+
+            return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.UpdatedMsg("نقش"));
+        }
+
+        public override async Task<SingleDataResult<RoleUpdate>> GetByIdAsync(int id)
+        {
+            var role = await _context.Roles
+                .Include(r => r.RolePermissions)
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
+
+            if (role == null)
+                return ResultFactory.Single<RoleUpdate>(ResultStatusEnum.NotFound, null, MessageApp.NotFoundItem("نقش"));
+
+            var dto = _mapper.Map<RoleUpdate>(role);
+            dto.PermissionIds = role.RolePermissions.Select(rp => rp.PermissionId).ToList();
+            return ResultFactory.Single(ResultStatusEnum.Success, dto);
         }
     }
 }

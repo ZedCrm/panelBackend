@@ -1,6 +1,7 @@
 ﻿using App.Contracts.Object.Base;
 using App.Contracts.Object.Base.auth;
 using App.Contracts.Object.Base.auth.UserContext;
+using App.Contracts.Object.Base.Roles;
 using App.Contracts.Object.Base.Users;
 using App.Contracts.Object.Chat;
 using App.Contracts.Object.Shop.CountTypeCon;
@@ -36,6 +37,7 @@ namespace Infrastructure
             services.AddScoped<IPermissionService, PermissionService>();
             services.AddScoped<IUsersApp, UsersApp>();
             services.AddScoped<IChatApp, ChatApp>();
+            services.AddScoped<IRoleApp, RoleApp>();
 
 
 

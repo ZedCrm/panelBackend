@@ -27,10 +27,9 @@ namespace App.Object
         {
             var query = GetActiveQuery().AsNoTracking();
 
-            if (!string.IsNullOrEmpty(pagination.SortBy))
-            {
-                query = ApplySorting(query, pagination.SortBy, pagination.SortDirection);
-            }
+                 query = query.ApplySorting(pagination.SortBy, pagination.SortDirection);
+
+            
 
             var total = await query.CountAsync();
             var entities = await query
@@ -99,7 +98,7 @@ namespace App.Object
             return ResultFactory.Status(ResultStatusEnum.Success, $"{entities.Count} {MessageApp.CustomSuccess("حذف")}");
         }
 
-        private static IQueryable<TEntity> ApplySorting(IQueryable<TEntity> query, string sortBy, bool ascending)
+        public static IQueryable<TEntity> ApplySorting(IQueryable<TEntity> query, string sortBy, bool ascending)
         {
             var parameter = Expression.Parameter(typeof(TEntity), "x");
             var property = Expression.Property(parameter, sortBy);

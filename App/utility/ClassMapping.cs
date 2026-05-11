@@ -34,7 +34,7 @@ public class ClassMapping : Profile
 
         // ========== Role Mappings ==========
         CreateMap<Role, RoleView>()
-            .ForMember(dest => dest.Rolename, opt => opt.MapFrom(src => src.Name))
+            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
             .ForMember(dest => dest.Permissions, opt => opt.MapFrom(src => src.RolePermissions.Select(rp => rp.Permission)));
 
         CreateMap<RoleCreate, Role>()
@@ -67,6 +67,7 @@ public class ClassMapping : Profile
 
         // ========== CountType Mappings ==========
         CreateMap<CountType, CountTypeView>();
+        CreateMap<CountTypeView, CountType>();
         CreateMap<CountTypeCreate, CountType>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.products, opt => opt.Ignore());

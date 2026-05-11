@@ -1,68 +1,44 @@
-﻿===== FILE: App\Object\Base\Roles\RoleApp.cs =====
+﻿===== FILE: App\Object\Base\Roles\RoleBusinessService.cs =====
+// App/Object/Base/Roles/RoleBusinessService.cs
 using App.Contracts.Object.Base.Roles;
+using App.utility;
 using AutoMapper;
+using ConfApp;
 using Domain.Objects.Base;
 using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
-using ConfApp;
 
 namespace App.Object.Base.Roles
 {
-    public class RoleApp : CrudService<Role, RoleView, RoleCreate, RoleUpdate, int>, IRoleApp
+    public class RoleBusinessService : BaseService<Role>
     {
-        private readonly MyContext _context;
         private readonly IMapper _mapper;
 
-        public RoleApp(MyContext context, IMapper mapper) : base(context, mapper)
+        public RoleBusinessService(MyContext context, IMapper mapper) : base(context)
         {
-            _context = context;
             _mapper = mapper;
         }
 
         public async Task<List<PermissionView>> GetAllPermissionsAsync()
         {
-            var perms = await _context.Permissions
+            return await _context.Permissions
                 .Where(p => !p.IsDeleted)
                 .Select(p => new PermissionView { Id = p.Id, PermissionName = p.Name, Category = p.Category })
                 .ToListAsync();
-            return perms;
         }
 
-        public override async Task<StatusResult> CreateAsync(RoleCreate dto)
+        public async Task<StatusResult> ValidateRoleUniqueAsync(string roleName, int? excludeId = null)
         {
-            var role = _mapper.Map<Role>(dto);
-            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission { PermissionId = pid }).ToList();
-            await _context.Roles.AddAsync(role);
-            await _context.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success, "نقش ایجاد شد.");
-        }
+            var query = GetActiveQuery();
+            if (excludeId.HasValue)
+                query = query.Where(r => r.Id != excludeId.Value);
 
-        public override async Task<StatusResult> UpdateAsync(RoleUpdate dto)
-        {
-            var role = await _context.Roles
-                .Include(r => r.RolePermissions)
-                .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
-            if (role == null)
-                return ResultFactory.Status(ResultStatusEnum.NotFound, "نقش یافت نشد.");
-            _mapper.Map(dto, role);
-            // حذف مجوزهای قبلی
-            _context.RolePermissions.RemoveRange(role.RolePermissions);
-            role.RolePermissions = dto.PermissionIds.Select(pid => new RolePermission { PermissionId = pid }).ToList();
-            await _context.SaveChangesAsync();
-            return ResultFactory.Status(ResultStatusEnum.Success, "نقش بروزرسانی شد.");
-        }
+            var exists = await query.AnyAsync(r => r.Name == roleName);
+            if (exists)
+                return ResultFactory.Status(ResultStatusEnum.Conflict, MessageApp.DuplicateField("نقش"));
 
-        public override async Task<SingleDataResult<RoleUpdate>> GetByIdAsync(int id)
-        {
-            var role = await _context.Roles
-                .Include(r => r.RolePermissions)
-                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
-            if (role == null)
-                return ResultFactory.Single<RoleUpdate>(ResultStatusEnum.NotFound, null, "نقش یافت نشد.");
-            var dto = _mapper.Map<RoleUpdate>(role);
-            dto.PermissionIds = role.RolePermissions.Select(rp => rp.PermissionId).ToList();
-            return ResultFactory.Single(ResultStatusEnum.Success, dto);
+            return ResultFactory.Status(ResultStatusEnum.Success);
         }
     }
 }
@@ -402,12 +378,11 @@ namespace App.Object.Base.Users
 }
 
 ===== FILE: App\Object\Base\PersonApp.cs =====
+// App/Object/Base/PersonApp.cs
 using App.Contracts.Object.Base;
-using App.Contracts.Object.Shop.ProductCon;
 using AutoMapper;
 using ConfApp;
 using Domain.Objects.Base;
-using Domain.Objects.Shop;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
 
@@ -415,28 +390,66 @@ namespace App.Object.Base
 {
     public class PersonApp : CrudService<Person, PersonView, PersonCreate, PersonUpdate, int>, IPersonApp
     {
-        private readonly MyContext _ctx;
-        private readonly IMapper mapper;
+        private readonly PersonBusinessService _personBusiness;
 
-        public PersonApp(MyContext ctx , IMapper mapper) : base(ctx ,mapper)
+        public PersonApp(MyContext ctx, IMapper mapper, PersonBusinessService personBusiness)
+            : base(ctx, mapper)
         {
-            _ctx = ctx;
-            this.mapper = mapper;
+            _personBusiness = personBusiness;
         }
 
-        public Task<ListDataResult<PersonView>> GetAll(Pagination pagination) => base.GetAllAsync(pagination);
-        public Task<SingleDataResult<PersonUpdate>> GetById(int id) => base.GetByIdAsync(id);
-        public Task<StatusResult> Create(PersonCreate dto) => base.CreateAsync(dto);
-        public Task<StatusResult> DeleteBy(List<int> ids) => base.DeleteAsync(ids);
-        public Task<StatusResult> Update(PersonUpdate dto) => base.UpdateAsync(dto);
+        public override async Task<StatusResult> CreateAsync(PersonCreate dto)
+        {
+            // Validation یکتایی نام و نام خانوادگی
+            var uniqueCheck = await _personBusiness.ValidateUniquePersonAsync(dto.Name, dto.Family);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
 
+            // Validation سن و سایر موارد به صورت خودکار توسط ModelValidator انجام می‌شود
+            return await base.CreateAsync(dto);
+        }
 
+        public override async Task<StatusResult> UpdateAsync(PersonUpdate dto)
+        {
+            var uniqueCheck = await _personBusiness.ValidateUniquePersonAsync(dto.Name, dto.Family, dto.Id);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
+
+            return await base.UpdateAsync(dto);
+        }
     }
-
-
-   
 }
 
+===== FILE: App\Object\Base\PersonBusinessService.cs =====
+// App/Object/Base/PersonBusinessService.cs
+using App.Contracts.Object.Base;
+using ConfApp;
+using Domain.Objects.Base;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+
+namespace App.Object.Base
+{
+    public class PersonBusinessService : BaseService<Person>
+    {
+        public PersonBusinessService(MyContext context) : base(context)
+        {
+        }
+
+        public async Task<StatusResult> ValidateUniquePersonAsync(string name, string family, int? excludeId = null)
+        {
+            var query = GetActiveQuery();
+            if (excludeId.HasValue)
+                query = query.Where(p => p.Id != excludeId.Value);
+
+            var exists = await query.AnyAsync(p => p.Name == name && p.Family == family);
+            if (exists)
+                return ResultFactory.Status(ResultStatusEnum.Conflict,
+                    MessageApp.DuplicateField($"نام و نام خانوادگی '{name} {family}'"));
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+    }
+}
 
 ===== FILE: App\Object\Chat\ChatApp.cs =====
 using App.Contracts.Object.Chat;
@@ -563,6 +576,7 @@ namespace App.Object.Chat
 }
 
 ===== FILE: App\Object\Shop\CountTypeApp\ContTypeApp.cs =====
+// App/Object/Shop/CountTypeApp/ContTypeApp.cs
 using App.Contracts.Object.Shop.CountTypeCon;
 using App.utility;
 using AutoMapper;
@@ -574,44 +588,68 @@ using ConfApp;
 
 namespace App.Object.Shop.CountTypeApp
 {
-    public class CountTypeApp : CrudService<CountType, CountTypeView, CountTypeCreate, CountTypeView, int>,
-                                ICountTypeApp
+    public class CountTypeApp : CrudService<CountType, CountTypeView, CountTypeCreate, CountTypeView, int>, ICountTypeApp
     {
-        public CountTypeApp(MyContext context, IMapper mapper)
+        private readonly CountTypeBusinessService _countTypeBusiness;
+
+        public CountTypeApp(MyContext context, IMapper mapper, CountTypeBusinessService countTypeBusiness)
             : base(context, mapper)
         {
+            _countTypeBusiness = countTypeBusiness;
         }
 
-        public Task<ListDataResult<CountTypeView>> GetAll(Pagination pagination)
-            => base.GetAllAsync(pagination);
-
-        public Task<SingleDataResult<CountTypeView>> GetById(int id)
-            => base.GetByIdAsync(id);
-
-        public async Task<StatusResult> Create(CountTypeCreate dto)
+        public override async Task<StatusResult> CreateAsync(CountTypeCreate dto)
         {
-            // Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ ÛŒÚ©ØªØ§ÛŒÛŒ Ù†Ø§Ù…
-            var exists = await _context.CountTypes
-                .AnyAsync(c => c.Name == dto.Name && !c.IsDeleted);
-
-            if (exists)
-            {
-                return ResultFactory.Status(
-                    ResultStatusEnum.Conflict,
-                    MessageApp.DuplicateField(dto.Name)
-                );
-            }
+            var uniqueCheck = await _countTypeBusiness.ValidateUniqueNameAsync(dto.Name);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
 
             return await base.CreateAsync(dto);
         }
 
-        public Task<StatusResult> DeleteBy(List<int> ids)
-            => base.DeleteAsync(ids);
+        public override async Task<StatusResult> UpdateAsync(CountTypeView dto)
+        {
+            var uniqueCheck = await _countTypeBusiness.ValidateUniqueNameAsync(dto.Name, dto.Id);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
 
-        public Task<StatusResult> Update(CountTypeView dto)
-            => base.UpdateAsync(dto);
+            return await base.UpdateAsync(dto);
+        }
     }
 }
+
+===== FILE: App\Object\Shop\CountTypeApp\CountTypeBusinessService.cs =====
+// App/Object/Shop/CountTypeApp/CountTypeBusinessService.cs
+using App.Contracts.Object.Shop.CountTypeCon;
+using App.utility;
+using AutoMapper;
+using ConfApp;
+using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+
+namespace App.Object.Shop.CountTypeApp
+{
+    public class CountTypeBusinessService : BaseService<CountType>
+    {
+        public CountTypeBusinessService(MyContext context) : base(context)
+        {
+        }
+
+        public async Task<StatusResult> ValidateUniqueNameAsync(string name, int? excludeId = null)
+        {
+            var query = GetActiveQuery();
+            if (excludeId.HasValue)
+                query = query.Where(c => c.Id != excludeId.Value);
+
+            var exists = await query.AnyAsync(c => c.Name == name);
+            if (exists)
+                return ResultFactory.Status(ResultStatusEnum.Conflict, MessageApp.DuplicateField("نام"));
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+    }
+}
+
 
 ===== FILE: App\Object\Shop\invApp\InvApp.cs =====
 using App.Contracts.Object.Shop.InvCon;
@@ -646,6 +684,7 @@ namespace App.Object.Shop.InvApp
 }
 
 ===== FILE: App\Object\Shop\ProductApp\ProductApp.cs =====
+// App/Object/Shop/ProductApp/ProductApp.cs
 using App.Contracts.Object.Shop.ProductCon;
 using App.utility;
 using AutoMapper;
@@ -653,107 +692,102 @@ using Domain.Objects.Shop;
 using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
-using System.Linq.Expressions;
 using ConfApp;
 
 namespace App.Object.Shop.ProductApp
 {
-    public class ProductApp : CrudService<Product, ProductView, ProductCreate, ProductUpdate, int>,
-                              IProductApp
+    public class ProductApp : CrudService<Product, ProductView, ProductCreate, ProductUpdate, int>, IProductApp
     {
-        // نیازی به فیلدهای جداگانه نیست، کلاس پایه _context و _mapper را دارد
-        // فقط باید مطمئن شویم که در کلاس CrudService این فیلدها protected هستند
+        private readonly ProductBusinessService _productBusiness;
 
-        public ProductApp(MyContext context, IMapper mapper)
+        public ProductApp(MyContext context, IMapper mapper, ProductBusinessService productBusiness)
             : base(context, mapper)
         {
+            _productBusiness = productBusiness;
         }
 
-        /*=== CRUD یک خطی (با override در صورت نیاز) ===*/
-        public Task<ListDataResult<ProductView>> GetAll(Pagination pagination)
-            => base.GetAllAsync(pagination);
-
-        public Task<SingleDataResult<ProductUpdate>> GetById(int id)
-            => base.GetByIdAsync(id);
-
-        public Task<StatusResult> Create(ProductCreate dto)
-            => base.CreateAsync(dto);
-
-        public Task<StatusResult> DeleteBy(List<int> ids)
-            => base.DeleteAsync(ids);
-
-        public Task<StatusResult> Update(ProductUpdate dto)
-            => base.UpdateAsync(dto);
-
-        /*=== متد اختصاصی جستجو ===*/
-        public async Task<ListDataResult<ProductView>> SearchProducts(ProductSearchCriteria criteria)
+        public override async Task<StatusResult> CreateAsync(ProductCreate dto)
         {
-            // ساختن Query پایه
-            var query = _context.Products
-                .Include(p => p.CountType)  // شامل کردن اطلاعات واحد شمارش
-                .Where(p => !p.IsDeleted)
+            var uniqueCheck = await _productBusiness.ValidateUniqueProductCodeAsync(dto.ProductCode);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
+
+            return await base.CreateAsync(dto);
+        }
+
+        public override async Task<StatusResult> UpdateAsync(ProductUpdate dto)
+        {
+            var uniqueCheck = await _productBusiness.ValidateUniqueProductCodeAsync(dto.ProductCode, dto.Id);
+            if (!uniqueCheck.IsSuccess) return uniqueCheck;
+
+            return await base.UpdateAsync(dto);
+        }
+
+        public Task<ListDataResult<ProductView>> SearchProducts(ProductSearchCriteria criteria)
+            => _productBusiness.SearchAsync(criteria);
+    }
+}
+
+===== FILE: App\Object\Shop\ProductApp\ProductBusinessService.cs =====
+// App/Object/Shop/ProductApp/ProductBusinessService.cs
+using App.Contracts.Object.Shop.ProductCon;
+using App.utility;
+using AutoMapper;
+using ConfApp;
+using Domain.Objects.Shop;
+using Microsoft.EntityFrameworkCore;
+using MyFrameWork.AppTool;
+using MyFrameWork.AppTool.ResultType;
+using System.Linq.Expressions;
+
+namespace App.Object.Shop.ProductApp
+{
+    public class ProductBusinessService : BaseService<Product>
+    {
+        private readonly IMapper _mapper;
+
+        public ProductBusinessService(MyContext context, IMapper mapper) : base(context)
+        {
+            _mapper = mapper;
+        }
+
+        public async Task<StatusResult> ValidateUniqueProductCodeAsync(string productCode, int? excludeId = null)
+        {
+            var query = GetActiveQuery();
+            if (excludeId.HasValue)
+                query = query.Where(p => p.Id != excludeId.Value);
+
+            var exists = await query.AnyAsync(p => p.ProductCode == productCode);
+            if (exists)
+                return ResultFactory.Status(ResultStatusEnum.Conflict, MessageApp.DuplicateField("کد محصول"));
+
+            return ResultFactory.Status(ResultStatusEnum.Success);
+        }
+
+        public async Task<ListDataResult<ProductView>> SearchAsync(ProductSearchCriteria criteria)
+        {
+            var query = GetActiveQuery()
+                .Include(p => p.CountType)
                 .AsQueryable();
 
-            // اعمال فیلتر بر اساس نام (اگر مقدار داشته باشد)
             if (!string.IsNullOrWhiteSpace(criteria.Name))
-            {
                 query = query.Where(p => p.Name.Contains(criteria.Name));
-            }
 
-            // اعمال فیلتر حداقل قیمت (اگر مقدار داشته باشد و مخالف صفر باشد)
             if (criteria.MinPrice.HasValue && criteria.MinPrice.Value > 0)
-            {
                 query = query.Where(p => p.Price >= criteria.MinPrice.Value);
-            }
 
-            // اعمال فیلتر حداکثر قیمت (اگر مقدار داشته باشد و مخالف صفر باشد)
             if (criteria.MaxPrice.HasValue && criteria.MaxPrice.Value > 0)
-            {
                 query = query.Where(p => p.Price <= criteria.MaxPrice.Value);
-            }
 
-            // اعمال مرتب‌سازی (SortBy از داخل criteria می‌آید)
-            if (!string.IsNullOrEmpty(criteria.SortBy))
-            {
-                query = ApplySorting(query, criteria.SortBy, criteria.SortDirection);
-            }
-
-            // گرفتن تعداد کل رکوردها قبل از صفحه‌بندی
             var total = await query.CountAsync();
 
-            // اعمال صفحه‌بندی
             var products = await query
                 .Skip(criteria.CalculateSkip())
                 .Take(criteria.PageSize)
                 .ToListAsync();
 
-            // تبدیل Entity به View با استفاده از AutoMapper
-            var productViews = _mapper.Map<List<ProductView>>(products);
+            var views = _mapper.Map<List<ProductView>>(products);
 
-            // بازگرداندن نتیجه به صورت ListDataResult
-            return ResultFactory.List<ProductView>(
-                ResultStatusEnum.Success,
-                productViews,
-                total,
-                criteria
-            );
-        }
-
-        /// <summary>
-        /// متد کمکی برای مرتب‌سازی پویا (مشابه کلاس پایه CrudService)
-        /// </summary>
-        private static IQueryable<T> ApplySorting<T>(IQueryable<T> query, string sortBy, bool ascending)
-        {
-            var parameter = Expression.Parameter(typeof(T), "x");
-            var property = Expression.Property(parameter, sortBy);
-            var lambda = Expression.Lambda(property, parameter);
-
-            var methodName = ascending ? "OrderBy" : "OrderByDescending";
-            var method = typeof(Queryable).GetMethods()
-                .First(m => m.Name == methodName && m.GetParameters().Length == 2)
-                .MakeGenericMethod(typeof(T), property.Type);
-
-            return (IQueryable<T>)method.Invoke(null, new object[] { query, lambda })!;
+            return ResultFactory.List(ResultStatusEnum.Success, views, total, criteria);
         }
     }
 }
@@ -923,7 +957,6 @@ namespace App.Object
             _mapper = mapper;
         }
 
-        // ========== GET ALL ==========
         public virtual async Task<ListDataResult<TDto>> GetAllAsync(Pagination pagination)
         {
             var query = GetActiveQuery().AsNoTracking();
@@ -943,18 +976,16 @@ namespace App.Object
             return ResultFactory.List(ResultStatusEnum.Success, data, total, pagination);
         }
 
-        // ========== GET BY ID ==========
         public virtual async Task<SingleDataResult<TUpdate>> GetByIdAsync(TKey id)
         {
             var entity = await GetEntityOrNullAsync(e => e.Id.Equals(id));
             if (entity == null)
-                return ResultFactory.Single<TUpdate>(ResultStatusEnum.NotFound, null, MessageApp.NotFound);
+                return ResultFactory.Single<TUpdate>(ResultStatusEnum.NotFound, null, MessageApp.NotFoundItem(typeof(TEntity).Name));
 
             var dto = _mapper.Map<TUpdate>(entity);
             return ResultFactory.Single(ResultStatusEnum.Success, dto);
         }
 
-        // ========== CREATE ==========
         public virtual async Task<StatusResult> CreateAsync(TCreate dto)
         {
             var validation = ValidateModel(dto);
@@ -964,10 +995,9 @@ namespace App.Object
             await _dbSet.AddAsync(entity);
             await _context.SaveChangesAsync();
 
-            return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.Saved);
+            return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.CustomAddsuccses("Ø§ÛŒØ¬Ø§Ø¯"));
         }
 
-        // ========== UPDATE ==========
         public virtual async Task<StatusResult> UpdateAsync(TUpdate dto)
         {
             var validation = ValidateModel(dto);
@@ -981,15 +1011,14 @@ namespace App.Object
             var entity = await GetEntityOrNullAsync(e => e.Id.Equals(id));
 
             if (entity == null)
-                return ResultFactory.Status(ResultStatusEnum.NotFound, MessageApp.NotFound);
+                return ResultFactory.Status(ResultStatusEnum.NotFound, MessageApp.NotFoundItem(typeof(TEntity).Name));
 
             _mapper.Map(dto, entity);
             await _context.SaveChangesAsync();
 
-            return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.Updated);
+            return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.CustomSuccess("ÙˆÛŒØ±Ø§ÛŒØ´"));
         }
 
-        // ========== DELETE ==========
         public virtual async Task<StatusResult> DeleteAsync(List<TKey> ids)
         {
             if (ids == null || ids.Count == 0)
@@ -1001,10 +1030,9 @@ namespace App.Object
             _dbSet.RemoveRange(entities);
             await _context.SaveChangesAsync();
 
-            return ResultFactory.Status(ResultStatusEnum.Success, $"{entities.Count} {MessageApp.Deleted}");
+            return ResultFactory.Status(ResultStatusEnum.Success, $"{entities.Count} {MessageApp.CustomSuccess("Ø­Ø°Ù")}");
         }
 
-        // ========== Helper ==========
         private static IQueryable<TEntity> ApplySorting(IQueryable<TEntity> query, string sortBy, bool ascending)
         {
             var parameter = Expression.Parameter(typeof(TEntity), "x");
@@ -1105,6 +1133,7 @@ public class ClassMapping : Profile
 
         // ========== CountType Mappings ==========
         CreateMap<CountType, CountTypeView>();
+        CreateMap<CountTypeView, CountType>();
         CreateMap<CountTypeCreate, CountType>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.products, opt => opt.Ignore());
@@ -1145,10 +1174,7 @@ namespace App.utility
 }
 
 ===== FILE: App\utility\ModelValidator.cs =====
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using MyFrameWork.AppTool.ResultType;
 
 namespace App.utility
@@ -1172,9 +1198,9 @@ namespace App.utility
             var results = new List<ValidationResult>();
 
             bool isValid = Validator.TryValidateObject(
-                model, 
-                context, 
-                results, 
+                model,
+                context,
+                results,
                 validateAllProperties: true
             );
 
@@ -1208,9 +1234,9 @@ namespace App.utility
             var results = new List<ValidationResult>();
 
             bool isValid = Validator.TryValidateObject(
-                model, 
-                context, 
-                results, 
+                model,
+                context,
+                results,
                 validateAllProperties: true
             );
 
@@ -1223,17 +1249,14 @@ namespace App.utility
                 );
             }
 
-            return ResultFactory.Single(
-                ResultStatusEnum.Success,
-                model
-            );
+            return ResultFactory.Single(ResultStatusEnum.Success, model);
         }
 
         /// <summary>
-        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ù…Ø¯Ù„ Ùˆ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†Ø¯Ù† Ù†ØªÛŒØ¬Ù‡ Ø¨Ù‡ ØµÙˆØ±Øª Ø¯Ù„Ø®ÙˆØ§Ù‡ Ø¨Ø§ Ø§Ù…Ú©Ø§Ù† Ø§Ø±Ø³Ø§Ù„ Ø¯ÛŒØªØ§ÛŒ Ø³ÙØ§Ø±Ø´ÛŒ
+        /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ù…Ø¯Ù„ Ùˆ Ø¨Ø±Ú¯Ø±Ø¯Ø§Ù†Ø¯Ù† Ù†ØªÛŒØ¬Ù‡ Ø¨Ù‡ ØµÙˆØ±Øª SingleDataResult Ø¨Ø§ Ù‚Ø§Ø¨Ù„ÛŒØª Ù†Ù‚Ø´Ù‡â€ŒØ¨Ø±Ø¯Ø§Ø±ÛŒ
         /// </summary>
         public static SingleDataResult<TOutput> ValidateAndMap<TInput, TOutput>(
-            TInput model, 
+            TInput model,
             Func<TInput, TOutput> onSuccessMapping)
         {
             if (model == null)
@@ -1249,9 +1272,9 @@ namespace App.utility
             var results = new List<ValidationResult>();
 
             bool isValid = Validator.TryValidateObject(
-                model, 
-                context, 
-                results, 
+                model,
+                context,
+                results,
                 validateAllProperties: true
             );
 
@@ -1265,17 +1288,14 @@ namespace App.utility
             }
 
             var output = onSuccessMapping(model);
-            return ResultFactory.Single(
-                ResultStatusEnum.Success,
-                output
-            );
+            return ResultFactory.Single(ResultStatusEnum.Success, output);
         }
 
         /// <summary>
         /// Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø¢Ø³Ù†Ú©Ø±ÙˆÙ† Ù…Ø¯Ù„
         /// </summary>
         public static async Task<StatusResult> ValidateToStatusResultAsync<T>(
-            T model, 
+            T model,
             Func<T, Task<bool>>? additionalValidation = null)
         {
             if (model == null)
@@ -1290,9 +1310,9 @@ namespace App.utility
             var results = new List<ValidationResult>();
 
             bool isValid = Validator.TryValidateObject(
-                model, 
-                context, 
-                results, 
+                model,
+                context,
+                results,
                 validateAllProperties: true
             );
 
@@ -1304,7 +1324,6 @@ namespace App.utility
                 );
             }
 
-            // Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø§Ø¶Ø§ÙÛŒ ØªÙˆØ³Ø· Ú©Ø§Ù„Ø±
             if (additionalValidation != null)
             {
                 var isAdditionalValid = await additionalValidation(model);
@@ -1337,9 +1356,9 @@ namespace App.utility
             var results = new List<ValidationResult>();
 
             bool isValid = Validator.TryValidateObject(
-                model, 
-                context, 
-                results, 
+                model,
+                context,
+                results,
                 validateAllProperties: true
             );
 
@@ -1684,9 +1703,131 @@ namespace App
 }
 
 
+===== FILE: App.Contracts\Attributes\BaseAttribute.cs =====
+// App.Contracts/Attributes/BaseAttribute.cs
+using System.ComponentModel.DataAnnotations;
+
+namespace App.Contracts.Attributes
+{
+    public abstract class BaseAttribute : ValidationAttribute
+    {
+        protected BaseAttribute(string defaultErrorMessage)
+        {
+            ErrorMessage = defaultErrorMessage;
+        }
+
+        protected string GetDisplayName(ValidationContext validationContext)
+        {
+            var displayName = validationContext.DisplayName;
+            var property = validationContext.ObjectType.GetProperty(validationContext.MemberName ?? "");
+            if (property != null)
+            {
+                var displayAttr = property.GetCustomAttributes(typeof(DisplayAttribute), false)
+                    .FirstOrDefault() as DisplayAttribute;
+                if (displayAttr != null && !string.IsNullOrEmpty(displayAttr.Name))
+                    displayName = displayAttr.Name;
+            }
+            return displayName;
+        }
+    }
+}
+
+===== FILE: App.Contracts\Attributes\IranianMobileAttribute.cs =====
+// App.Contracts/Attributes/IranianMobileAttribute.cs
+using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
+
+namespace App.Contracts.Attributes
+{
+    /// <summary>
+    /// اعتبارسنجی شماره موبایل ایران
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    public class IranianMobileAttribute : ValidationAttribute
+    {
+        private static readonly Regex MobileRegex = new Regex(@"^09[0-9]{9}$", RegexOptions.Compiled);
+
+        public IranianMobileAttribute()
+        {
+            ErrorMessage = "شماره موبایل معتبر نیست. باید با 09 شروع شود و 11 رقم باشد.";
+        }
+
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            if (value == null || value is not string stringValue)
+                return ValidationResult.Success;
+
+            if (string.IsNullOrWhiteSpace(stringValue))
+                return ValidationResult.Success;
+
+            if (!MobileRegex.IsMatch(stringValue))
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+
+            return ValidationResult.Success;
+        }
+    }
+}
+
+===== FILE: App.Contracts\Attributes\IranianNationalCodeAttribute.cs =====
+// App.Contracts/Attributes/IranianNationalCodeAttribute.cs
+using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
+
+namespace App.Contracts.Attributes
+{
+    /// <summary>
+    /// اعتبارسنجی کد ملی ایران
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    public class IranianNationalCodeAttribute : ValidationAttribute
+    {
+        private static readonly Regex NationalCodeRegex = new Regex(@"^\d{10}$", RegexOptions.Compiled);
+
+        public IranianNationalCodeAttribute()
+        {
+            ErrorMessage = "کد ملی معتبر نیست. باید 10 رقم باشد.";
+        }
+
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            if (value == null || value is not string stringValue)
+                return ValidationResult.Success;
+
+            if (string.IsNullOrWhiteSpace(stringValue))
+                return ValidationResult.Success;
+
+            if (!NationalCodeRegex.IsMatch(stringValue))
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+
+            // الگوریتم کنترلی کد ملی
+            if (!IsValidNationalCode(stringValue))
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+
+            return ValidationResult.Success;
+        }
+
+        private static bool IsValidNationalCode(string code)
+        {
+            if (code.Length != 10)
+                return false;
+
+            var allDigitSame = code.All(c => c == code[0]);
+            if (allDigitSame)
+                return false;
+
+            var check = int.Parse(code[9].ToString());
+            var sum = Enumerable.Range(0, 9)
+                .Select(i => int.Parse(code[i].ToString()) * (10 - i))
+                .Sum();
+
+            var remainder = sum % 11;
+            return remainder < 2 && check == remainder || remainder >= 2 && check == 11 - remainder;
+        }
+    }
+}
+
 ===== FILE: App.Contracts\Attributes\MinCountAttribute.cs =====
 // App.Contracts/Attributes/MinCountAttribute.cs
-using System;
 using System.Collections;
 using System.ComponentModel.DataAnnotations;
 
@@ -1700,7 +1841,7 @@ namespace App.Contracts.Attributes
         public MinCountAttribute(int minCount)
         {
             _minCount = minCount;
-            ErrorMessage = $"Ø­Ø¯Ø§Ù‚Ù„ {{0}} Ù…ÙˆØ±Ø¯ Ø¨Ø§ÛŒØ¯ Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆØ¯.";
+            ErrorMessage = $"Ø­Ø¯Ø§Ù‚Ù„ {minCount} Ù…ÙˆØ±Ø¯ Ø¨Ø§ÛŒØ¯ Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆØ¯.";
         }
 
         protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
@@ -1713,10 +1854,6 @@ namespace App.Contracts.Attributes
                 if (list.Count < _minCount)
                     return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
             }
-            else
-            {
-                return new ValidationResult("Ø§ÛŒÙ† ÙÛŒÙ„Ø¯ Ø¨Ø§ÛŒØ¯ ÛŒÚ© Ù„ÛŒØ³Øª Ø¨Ø§Ø´Ø¯.");
-            }
 
             return ValidationResult.Success;
         }
@@ -1728,258 +1865,165 @@ namespace App.Contracts.Attributes
     }
 }
 
-===== FILE: App.Contracts\Object\Base\auth\UserContext\IUserContext.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace App.Contracts.Object.Base.auth.UserContext
-{
-    public interface IUserContext
-    {
-        int? GetUserId();
-        bool IsAuthenticated();
-        // Ù…ÛŒâ€ŒØªÙˆÙ†ÛŒ Ù…ØªØ¯Ù‡Ø§ÛŒ Ø¯ÛŒÚ¯Ù‡â€ŒØ§ÛŒ Ù…Ø«Ù„ GetUserRoles ÛŒØ§ GetClaim Ø§Ø¶Ø§ÙÙ‡ Ú©Ù†ÛŒ
-    }
-}
-
-===== FILE: App.Contracts\Object\Base\auth\AuthResponseDto.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Domain.Objects.Base;
-using MyFrameWork.AppTool;
-using MyFrameWork.AppTool.ResultType;
-
-namespace App.Contracts.Object.Base.auth
-{
-    public class AuthResponseDto
-    {
-        public int UserId { get; set; } = default! ;
-        public string Token { get; set; } = default!;
-        public string Username { get; set; } = default!;
-        public string FullName { get; set; } = default!;
-        
-    }
-
-     public class LoginRequestDto
-    {
-        public string Username  { get; set; } = default!;
-        public string Password { get; set; } = default!;
-    }
-
-        public class RegisterRequestDto
-    {
-        public string FullName { get; set; } = default!;
-        public string Username { get; set; } = default!;
-        public string Password { get; set; } = default!;
-    }
-
-      public interface IAuthApp
-    {
-         Task<StatusResult>  RegisterAsync(RegisterRequestDto dto);
-        Task<SingleDataResult<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
-        
-    }
-
-     public interface ITokenApp
-    {
-        string GenerateToken(User user);
-    }
-}
-
-===== FILE: App.Contracts\Object\Base\auth\IPermissionDiscoveryService.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace App.Contracts.Object.Base.auth
-{
-    public interface IPermissionDiscoveryService
-    {
-        IEnumerable<string> GetAllPermissionNames();
-    }
-}
-
-===== FILE: App.Contracts\Object\Base\auth\IPermissionService.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace App.Contracts.Object.Base.auth
-{
-    public interface IPermissionService
-    {
-        Task<bool> HasPermissionAsync(int userId, string permission);
-        Task<List<string>> GetUserPermissionsAsync(int userId);
-    }
-}
-
-===== FILE: App.Contracts\Object\Base\Roles\IRoleApp.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace App.Contracts.Object.Base.Roles
-{
-    public interface IRoleApp : ICrudService<RoleView, RoleCreate, RoleUpdate, int>
-    {
-        Task<List<PermissionView>> GetAllPermissionsAsync();
-    }
-
-}
-
-
-===== FILE: App.Contracts\Object\Base\Roles\RoleView.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace App.Contracts.Object.Base.Roles
-{
-    // RoleView.cs
-    public class RoleView
-    {
-        public int Id { get; set; }
-        public string Rolename { get; set; }
-        public List<PermissionView> Permissions { get; set; } = new();
-    }
-
-    public class PermissionView
-    {
-        public int Id { get; set; }
-        public string PermissionName { get; set; }
-        public string Category { get; set; }
-    }
-
-    public class RoleCreate
-    {
-        public string Rolename { get; set; }
-        public List<int> PermissionIds { get; set; } = new();
-    }
-
-    public class RoleUpdate : RoleCreate
-    {
-        public int Id { get; set; }
-    }
-
-
-
-
-
-
-}
-
-
-===== FILE: App.Contracts\Object\Base\Users\IUsersApp.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using MyFrameWork.AppTool;
-using MyFrameWork.AppTool.ResultType;
-
-namespace App.Contracts.Object.Base.Users
-{
-public interface IUsersApp : ICrudService<UsersView,UsersCreat,UsersUpdate , int>
-    {
-        
-        Task<SingleDataResult<UserCreateFormData>>  CreateForm();
-        Task<StatusResult>                      KeepAlive(int userId);
-        Task<ListDataResult<UserList>>      GetList();
-    }
-}
-
-===== FILE: App.Contracts\Object\Base\Users\UsersDto.cs =====
-// App.Contracts/Object/Base/Users/UsersDto.cs
-using System;
-using System.Collections.Generic;
+===== FILE: App.Contracts\Attributes\PersianTextAttribute.cs =====
+// App.Contracts/Attributes/PersianTextAttribute.cs
 using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Http;
-using Domain.Objects.Base;
-using App.Contracts.Attributes; // Ø¨Ø±Ø§ÛŒ MinCount
+using System.Text.RegularExpressions;
 
-namespace App.Contracts.Object.Base.Users
+namespace App.Contracts.Attributes
 {
-    public class UsersView
+    /// <summary>
+    /// فقط حروف فارسی و فاصله مجاز است
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    public class PersianTextAttribute : ValidationAttribute
     {
-        public int Id { get; set; }
-        public string FullName { get; set; } = default!;
-        public string? ProfilePictureUrl { get; set; }
-        public UserStatus Status { get; set; }
-        public DateTime? LastSeen { get; set; }
-        public string Username { get; set; } = default!;
-        public string Email { get; set; } = default!;
+        private static readonly Regex PersianRegex = new Regex(@"^[\u0600-\u06FF\s]+$", RegexOptions.Compiled);
+
+        public PersianTextAttribute()
+        {
+            ErrorMessage = "فقط می‌توانید از حروف فارسی استفاده کنید.";
+        }
+
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            if (value == null || value is not string stringValue)
+                return ValidationResult.Success;
+
+            if (string.IsNullOrWhiteSpace(stringValue))
+                return ValidationResult.Success;
+
+            if (!PersianRegex.IsMatch(stringValue))
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+
+            return ValidationResult.Success;
+        }
     }
+}
 
-    public class UsersCreat
+===== FILE: App.Contracts\Attributes\PositiveNumberAttribute.cs =====
+// App.Contracts/Attributes/PositiveNumberAttribute.cs
+using System.ComponentModel.DataAnnotations;
+
+namespace App.Contracts.Attributes
+{
+    /// <summary>
+    /// عدد باید مثبت باشد
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    public class PositiveNumberAttribute : ValidationAttribute
     {
+        public PositiveNumberAttribute()
+        {
+            ErrorMessage = "مقدار باید بزرگتر از صفر باشد.";
+        }
 
-        public string FullName { get; set; } = default!;
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            if (value == null) return ValidationResult.Success;
 
+            if (value is int intValue && intValue <= 0)
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
 
-        public string Username { get; set; } = default!;
+            if (value is decimal decimalValue && decimalValue <= 0)
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
 
+            if (value is double doubleValue && doubleValue <= 0)
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
 
-        public string Email { get; set; } = default!;
-
-        public string Password { get; set; } = default!;
-
-        public IFormFile? ProfilePicture { get; set; }
-
-        public string? ProfilePictureUrl { get; set; }
-
-
-        public List<int>? RoleIds { get; set; } = new();
+            return ValidationResult.Success;
+        }
     }
+}
 
-    public class UsersUpdate
+===== FILE: App.Contracts\Attributes\RangeIfAttribute.cs =====
+// App.Contracts/Attributes/RangeIfAttribute.cs
+using System.ComponentModel.DataAnnotations;
+
+namespace App.Contracts.Attributes
+{
+    /// <summary>
+    /// بررسی محدوده مقدار
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    public class RangeIfAttribute : ValidationAttribute
     {
-        [Required]
-        public int Id { get; set; }
+        private readonly int _min;
+        private readonly int _max;
 
+        public RangeIfAttribute(int min, int max)
+        {
+            _min = min;
+            _max = max;
+            ErrorMessage = $"مقدار باید بین {min} و {max} باشد.";
+        }
 
-        public string FullName { get; set; } = default!;
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            if (value == null) return ValidationResult.Success;
 
+            if (value is int intValue)
+            {
+                if (intValue < _min || intValue > _max)
+                    return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+            }
+            else if (value is decimal decimalValue)
+            {
+                if (decimalValue < _min || decimalValue > _max)
+                    return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+            }
+            else if (value is double doubleValue)
+            {
+                if (doubleValue < _min || doubleValue > _max)
+                    return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+            }
 
-        public string Username { get; set; } = default!;
-
-
-        public string Email { get; set; } = default!;
-
-
-        public string? Password { get; set; }
-
-        public IFormFile? ProfilePicture { get; set; }
-
-        public string? ProfilePictureUrl { get; set; }
-
-        public List<int>? RoleIds { get; set; } = new();
+            return ValidationResult.Success;
+        }
     }
-    public class UserList
-    {
-        public int Id { get; set; }
-        public string FullName { get; set; } = default!;
+}
 
+===== FILE: App.Contracts\Attributes\RequiredIfAttribute.cs =====
+// App.Contracts/Attributes/RequiredIfAttribute.cs
+using System.ComponentModel.DataAnnotations;
 
-    }
-    public class UserCreateFormData
+namespace App.Contracts.Attributes
+{
+    /// <summary>
+    /// فیلد به صورت شرطی الزامی می‌شود
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    public class RequiredIfAttribute : ValidationAttribute
     {
-        public List<RoleViewForUser> Roles { get; set; } = new();
-    }
+        private readonly string _conditionProperty;
+        private readonly object _conditionValue;
 
-    public class RoleViewForUser
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = default!;
+        public RequiredIfAttribute(string conditionProperty, object conditionValue)
+        {
+            _conditionProperty = conditionProperty;
+            _conditionValue = conditionValue;
+            ErrorMessage = "این فیلد الزامی است.";
+        }
+
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            var conditionProperty = validationContext.ObjectType.GetProperty(_conditionProperty);
+            if (conditionProperty == null)
+                return new ValidationResult($"Property '{_conditionProperty}' not found.");
+
+            var conditionValue = conditionProperty.GetValue(validationContext.ObjectInstance);
+
+            if (Equals(conditionValue, _conditionValue))
+            {
+                if (value == null || (value is string str && string.IsNullOrWhiteSpace(str)))
+                    return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+
+                if (value is int intValue && intValue <= 0)
+                    return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+            }
+
+            return ValidationResult.Success;
+        }
     }
 }
 

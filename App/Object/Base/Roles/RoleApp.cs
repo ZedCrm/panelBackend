@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using MyFrameWork.AppTool;
 using MyFrameWork.AppTool.ResultType;
 using ConfApp;
+using System.Data.Common;
 
 namespace App.Object.Base.Roles
 {
@@ -25,7 +26,7 @@ namespace App.Object.Base.Roles
         public override async Task<StatusResult> CreateAsync(RoleCreate dto)
         {
             // validation با استفاده از BusinessService
-            var uniqueCheck = await _roleBusiness.ValidateRoleUniqueAsync(dto.Rolename);
+            var uniqueCheck = await _roleBusiness.ValidateRoleUniqueAsync(dto.Name);
             if (!uniqueCheck.IsSuccess) return uniqueCheck;
 
             var role = _mapper.Map<Role>(dto);
@@ -37,7 +38,7 @@ namespace App.Object.Base.Roles
 
         public override async Task<StatusResult> UpdateAsync(RoleUpdate dto)
         {
-            var uniqueCheck = await _roleBusiness.ValidateRoleUniqueAsync(dto.Rolename, dto.Id);
+            var uniqueCheck = await _roleBusiness.ValidateRoleUniqueAsync(dto.Name, dto.Id);
             if (!uniqueCheck.IsSuccess) return uniqueCheck;
 
             var role = await _context.Roles
@@ -55,7 +56,7 @@ namespace App.Object.Base.Roles
             return ResultFactory.Status(ResultStatusEnum.Success, MessageApp.UpdatedMsg("نقش"));
         }
 
-        public override async Task<SingleDataResult<RoleUpdate>> GetByIdAsync(int id)
+           public override async Task<SingleDataResult<RoleUpdate>> GetByIdAsync(int id)
         {
             var role = await _context.Roles
                 .Include(r => r.RolePermissions)
@@ -67,6 +68,38 @@ namespace App.Object.Base.Roles
             var dto = _mapper.Map<RoleUpdate>(role);
             dto.PermissionIds = role.RolePermissions.Select(rp => rp.PermissionId).ToList();
             return ResultFactory.Single(ResultStatusEnum.Success, dto);
+        }
+
+
+
+
+
+        public async override Task<ListDataResult<RoleView>> GetAllAsync(Pagination pagination)
+        {
+                        var query = GetActiveQuery()
+                        .Include(r=>r.RolePermissions)
+                        .ThenInclude(p=>p.Permission)
+                        .AsNoTracking();
+
+
+
+            if (!string.IsNullOrEmpty(pagination.SortBy))
+            {
+                query = ApplySorting(query, pagination.SortBy, pagination.SortDirection);
+            }
+
+
+
+            var total = await query.CountAsync();
+            var entities = await query
+                .Skip(pagination.CalculateSkip())
+                .Take(pagination.PageSize)
+                .ToListAsync();
+
+            var data = new List<RoleView>{
+                
+            };
+            return ResultFactory.List(ResultStatusEnum.Success, data, total, pagination);
         }
     }
 }

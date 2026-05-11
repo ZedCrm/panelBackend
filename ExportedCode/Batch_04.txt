@@ -1,4 +1,161 @@
-﻿===== FILE: Domain\Objects\Shop\Product.cs =====
+﻿===== FILE: Domain\Objects\Chat\GroupMessage.cs =====
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Domain.Objects.Base;
+
+namespace Domain.Objects.Chat
+{
+    [Table("GroupMessages")]
+    public class GroupMessage : BaseDomain
+    {
+        [Required]
+        public int GroupId { get; set; }
+
+        [ForeignKey(nameof(GroupId))]
+        public ChatGroup Group { get; set; } = null!;
+
+        [Required]
+        public int SenderId { get; set; }
+
+        [ForeignKey(nameof(SenderId))]
+        public User Sender { get; set; } = null!;
+
+        [Required]
+        [MaxLength(2000)]
+        public string Content { get; set; } = string.Empty;
+
+        [MaxLength(500)]
+        public string? FileUrl { get; set; }
+
+        public MessageType Type { get; set; } = MessageType.Text;
+
+        public DateTime SentAt { get; set; } = DateTime.Now;
+    }
+}
+
+===== FILE: Domain\Objects\Chat\Message.cs =====
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Domain.Objects.Base;
+
+namespace Domain.Objects.Chat
+{
+    [Table("Messages")]
+    public class Message : BaseDomain
+    {
+        [Required]
+        public int SenderId { get; set; }
+
+        [ForeignKey(nameof(SenderId))]
+        public User Sender { get; set; } = null!;
+
+        [Required]
+        public int ReceiverId { get; set; }
+
+        [ForeignKey(nameof(ReceiverId))]
+        public User Receiver { get; set; } = null!;
+
+        [Required]
+        [MaxLength(2000)]
+        public string Content { get; set; } = string.Empty;
+
+        [MaxLength(500)]
+        public string? FileUrl { get; set; }
+
+        public MessageType Type { get; set; } = MessageType.Text;
+
+        public DateTime SentAt { get; set; } = DateTime.Now;
+        public DateTime? DeliveredAt { get; set; }
+        public DateTime? SeenAt { get; set; }
+
+        public bool IsDeletedForSender { get; set; } = false;
+        public bool IsDeletedForReceiver { get; set; } = false;
+    }
+
+    public enum MessageType
+    {
+        Text = 1,
+        Image = 2,
+        File = 3
+    }
+}
+
+===== FILE: Domain\Objects\Shop\CountType.cs =====
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Domain.Objects.Shop
+{
+    [Table("CountTypes")]
+    public class CountType : BaseDomain
+    {
+        [Required]
+        [MaxLength(50)]
+        public string Name { get; set; } = default!;
+
+        public ICollection<Product> products { get; set; }
+    }
+}
+
+===== FILE: Domain\Objects\Shop\Inv.cs =====
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Domain.Objects.Shop
+{
+    [Table("Inventories")]
+    public class Inv : BaseDomain
+    {
+        [Required]
+        public string Name { get; set; }
+
+        public bool Active { get; set; } = true;
+    }
+}
+
+===== FILE: Domain\Objects\Shop\InvTran.cs =====
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Domain.Objects.Shop
+{
+    [Table("InvTrans")]
+    public class InvTran : BaseDomain
+    {
+        public DateTime CreateTime { get; set; }
+
+        public DateTime AcceptTime { get; set; }
+
+        [Required]
+        public int InvId { get; set; }
+
+        [ForeignKey(nameof(InvId))]
+        public Inv Inv { get; set; }
+    }
+}
+
+===== FILE: Domain\Objects\Shop\InvTranDetail.cs =====
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Domain.Objects.Shop
+{
+    [Table("InvTranDetails")]
+    public class InvTranDetail : BaseDomain
+    {
+        [Required]
+        public int InvTranId { get; set; }
+
+        [ForeignKey(nameof(InvTranId))]
+        public InvTran InvTran { get; set; }
+    }
+}
+
+===== FILE: Domain\Objects\Shop\Product.cs =====
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -3940,6 +4097,7 @@ using App.Object.Base;
 using App.Object.Base.auth;
 using App.Object.Base.auth.UserContext;
 using App.Object.Base.Auth;
+using App.Object.Base.Roles;
 using App.Object.Base.Users;
 using App.Object.Chat;
 using App.Object.Shop.CountTypeApp;
@@ -3968,7 +4126,12 @@ namespace Infrastructure
 
 
 
+            // Business Services
             services.AddScoped<UserBusinessService>();
+            services.AddScoped<RoleBusinessService>();
+            services.AddScoped<ProductBusinessService>();
+            services.AddScoped<CountTypeBusinessService>();
+            services.AddScoped<PersonBusinessService>();
 
             // === سرویس‌های مشترک ===
             services.AddSingleton<UserStatusService>();
@@ -4320,39 +4483,6 @@ public class SelectSourceAttribute : Attribute
     public SelectSourceAttribute(string sourceName)
     {
         SourceName = sourceName;
-    }
-}
-
-
-===== FILE: MyFrameWork\AppTool\Validator.cs =====
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace MyFrameWork.AppTool
-{
-    public static class Validators
-    {
-
-        public static void CheckRequired(string value, string fieldName)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                throw new ArgumentException($"مقدار {fieldName} اجباریست.");
-            }
-        }
-
-        public static void CheckStringLength(string value, int minLength, int maxLength, string fieldName)
-        {
-            if (value.Length < minLength || value.Length > maxLength)
-            {
-                throw new ArgumentException($"مقدار کارکتر {fieldName} باید بین {minLength} و {maxLength} . باشد ");
-            }
-        }
-
-       
     }
 }
 
